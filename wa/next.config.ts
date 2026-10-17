@@ -55,7 +55,7 @@ const SECURITY_HEADERS = [
       // Supabase REST + realtime (WSS). All Meta API calls happen
       // server-side, so graph.facebook.com does not belong here.
       "connect-src 'self' https://*.supabase.co wss://*.supabase.co",
-      "frame-ancestors 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000",
+      "frame-ancestors 'self' http://localhost:8000 http://127.0.0.1:8000 http://localhost:3000 https://crm.bfsfin.cloud https://*.bfsfin.cloud",
       "base-uri 'self'",
       "form-action 'self'",
     ].join("; "),

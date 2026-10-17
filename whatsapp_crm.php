@@ -7,12 +7,34 @@ $page_subtitle = 'Integrated Multi-Agent WhatsApp Inbox, Baileys QR Engine, Broa
 $active_page = 'whatsapp_crm.php';
 $hide_main_header = true;
 
-// Check if WhatsApp CRM Node engine (Port 3000) is running
+// Check if WhatsApp CRM Node engine is running (check port 3000 locally, or port 3001 on VPS)
 $is_wa_online = false;
-$fp = @fsockopen('127.0.0.1', 3000, $errno, $errstr, 0.5);
+$wa_port = 3000;
+$fp = @fsockopen('127.0.0.1', 3000, $errno, $errstr, 0.3);
 if ($fp) {
     $is_wa_online = true;
     fclose($fp);
+} else {
+    $fp2 = @fsockopen('127.0.0.1', 3001, $errno, $errstr, 0.3);
+    if ($fp2) {
+        $is_wa_online = true;
+        $wa_port = 3001;
+        fclose($fp2);
+    }
+}
+
+$http_host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+$is_local = in_array($http_host, ['localhost:8000', '127.0.0.1:8000', 'localhost', '127.0.0.1']);
+if ($is_local) {
+    $wa_url = 'http://localhost:' . $wa_port;
+} else {
+    if (defined('WA_URL') && WA_URL) {
+        $wa_url = WA_URL;
+    } else {
+        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+        $domain = preg_replace('/^crm\./', '', $http_host);
+        $wa_url = $scheme . 'wa.' . $domain;
+    }
 }
 
 include 'header.php';
@@ -162,18 +184,18 @@ include 'header.php';
             </div>
             <div>
                 <div style="font-size:14px; font-weight:800; color:#0f172a; line-height:1.2;">BFS Circle WhatsApp Live Control Center</div>
-                <div style="font-size:11.5px; color:#64748b; font-weight:500;">Synced with Workspace: <code>client mgmt2/wa</code> • Port: 3000</div>
+                <div style="font-size:11.5px; color:#64748b; font-weight:500;">Synced with Workspace: <code>wa</code> • Port: <?php echo $wa_port; ?></div>
             </div>
         </div>
 
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <div class="wacrm-status-badge <?php echo $is_wa_online ? 'status-online' : 'status-offline'; ?>">
                 <span class="status-pulse <?php echo $is_wa_online ? 'pulse-green' : 'pulse-red'; ?>"></span>
-                <span><?php echo $is_wa_online ? 'WhatsApp Engine Online' : 'Engine Offline (Port 3000)'; ?></span>
+                <span><?php echo $is_wa_online ? 'WhatsApp Engine Online' : 'Engine Offline (Port ' . $wa_port . ')'; ?></span>
             </div>
 
             <div class="wacrm-actions">
-                <a href="http://localhost:3000" target="_blank" class="wacrm-btn btn-wa-brand" title="Open in Dedicated Full Window">
+                <a href="<?php echo htmlspecialchars($wa_url); ?>" target="_blank" class="wacrm-btn btn-wa-brand" title="Open in Dedicated Full Window">
                     <i data-lucide="external-link" style="width:13px; height:13px;"></i>
                     <span>Open in Full Tab</span>
                 </a>
@@ -188,7 +210,7 @@ include 'header.php';
     <!-- Main Viewport -->
     <div class="wacrm-viewport">
         <?php if ($is_wa_online): ?>
-            <iframe id="waIframe" class="wacrm-iframe" src="http://localhost:3000" allow="camera; microphone; clipboard-read; clipboard-write;"></iframe>
+            <iframe id="waIframe" class="wacrm-iframe" src="<?php echo htmlspecialchars($wa_url); ?>" allow="camera; microphone; clipboard-read; clipboard-write;"></iframe>
         <?php else: ?>
             <div class="wacrm-offline-card">
                 <div style="width:54px; height:54px; border-radius:16px; background:#fef2f2; color:#ef4444; display:flex; align-items:center; justify-content:center; margin:0 auto 16px;">
