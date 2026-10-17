@@ -1,18 +1,19 @@
-const CACHE_NAME = 'bfs-crm-v2';
-const ASSETS = [
-    './manifest.json',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap',
-    'https://unpkg.com/lucide@latest'
-];
+// staff/sw.js - Service Worker for BFS Field Staff Mobile App
+const CACHE_NAME = 'bfs-staff-app-v1';
 
-self.addEventListener('install', (e) => {
-    e.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
+self.addEventListener('install', (event) => {
+    self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((keys) => {
+            return Promise.all(keys.map((key) => caches.delete(key)));
+        }).then(() => self.clients.claim())
     );
 });
 
-self.addEventListener('fetch', (e) => {
-    e.respondWith(
-        fetch(e.request).catch(() => caches.match(e.request))
-    );
+self.addEventListener('fetch', (event) => {
+    // Pass through all API requests & live updates dynamically
+    event.respondWith(fetch(event.request).catch(() => caches.match(event.request)));
 });

@@ -170,7 +170,7 @@ require_once __DIR__ . '/header.php';
         }
 
         try {
-            const res = await fetch('?' + params.toString());
+            const res = await fetch('../api.php?' + params.toString());
             if (!res.ok) return;
             const resData = await res.json();
             
@@ -295,7 +295,7 @@ require_once __DIR__ . '/header.php';
                 btn.innerText = 'Saving...';
                 btn.disabled = true;
 
-                const res = await fetch('?api=save_lead', { method:'POST', body:fd });
+                const res = await fetch('../api.php?api=save_lead', { method:'POST', body:fd });
                 const data = await res.json();
                 
                 btn.innerText = origText;
@@ -328,7 +328,7 @@ require_once __DIR__ . '/header.php';
     }
 
     function editLead(id) {
-        fetch(`?api=get_lead_detail&id=${id}`)
+        fetch(`../api.php?api=get_lead_detail&id=${id}`)
         .then(r => r.json())
         .then(l => {
             document.getElementById('qu-lead-id').value = l.id;
@@ -351,7 +351,7 @@ require_once __DIR__ . '/header.php';
 
 
     function convertToClient(id) {
-        fetch(`?api=get_lead_detail&id=${id}`)
+        fetch(`../api.php?api=get_lead_detail&id=${id}`)
         .then(r => r.json())
         .then(l => {
             sessionStorage.setItem('convert_lead_data', JSON.stringify(l));

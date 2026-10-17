@@ -1,18 +1,38 @@
 <?php
+define('IS_SUBFOLDER', true);
 require_once __DIR__ . '/../../config.php';
+require_role(['Agent', 'Individual Agent']);
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Agent') {
-    header('Location: ../login.php');
-    exit;
-}
 
 $agent_id = $_SESSION['user_id'];
 $agent_username = $_SESSION['username'];
 
-// Fetch agent name from DB to avoid session undefined index
-$stmt_header = $db->prepare("SELECT name FROM users WHERE id = ?");
+// Fetch agent details and profile_photo
+$stmt_header = $db->prepare("SELECT name, full_name, profile_photo FROM users WHERE id = ?");
 $stmt_header->execute([$agent_id]);
-$agent_name = $stmt_header->fetchColumn() ?: $agent_username;
+$u_header = $stmt_header->fetch(PDO::FETCH_ASSOC);
+
+$agent_name = !empty($u_header['name']) ? $u_header['name'] : (!empty($u_header['full_name']) ? $u_header['full_name'] : $agent_username);
+$agent_photo = $u_header['profile_photo'] ?? '';
+
+if (empty($agent_photo)) {
+    $stmt_ref_photo = $db->prepare("SELECT profile_photo, full_name FROM referrals WHERE user_id = ? OR mobile = ? LIMIT 1");
+    $stmt_ref_photo->execute([$agent_id, $agent_username]);
+    if ($rf = $stmt_ref_photo->fetch(PDO::FETCH_ASSOC)) {
+        if (!empty($rf['profile_photo'])) $agent_photo = $rf['profile_photo'];
+        if (empty($agent_name) && !empty($rf['full_name'])) $agent_name = $rf['full_name'];
+    }
+}
+
+$has_custom_photo = false;
+$photo_display_path = '';
+if (!empty($agent_photo)) {
+    $clean_path = ltrim($agent_photo, './');
+    if (file_exists(__DIR__ . '/../../' . $clean_path)) {
+        $has_custom_photo = true;
+        $photo_display_path = '../' . $clean_path;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -120,6 +140,8 @@ $agent_name = $stmt_header->fetchColumn() ?: $agent_username;
             text-decoration: none;
             box-shadow: 0 4px 10px rgba(249, 115, 22, 0.3);
             font-size: 18px;
+            overflow: hidden;
+            position: relative;
         }
         
         .user-avatar:active {
@@ -243,7 +265,7 @@ $agent_name = $stmt_header->fetchColumn() ?: $agent_username;
             margin-bottom: 8px;
         }
 
-        input[type="text"], input[type="tel"], input[type="number"], select {
+        input[type="text"], input[type="tel"], input[type="email"], input[type="number"], input[type="password"], select, textarea {
             width: 100%;
             padding: 14px 16px;
             border: 1.5px solid var(--border);
@@ -253,6 +275,26 @@ $agent_name = $stmt_header->fetchColumn() ?: $agent_username;
             color: var(--text-primary);
             transition: all 0.2s;
             font-weight: 500;
+            box-sizing: border-box;
+        }
+
+        select {
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23059669' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 14px center;
+            background-size: 16px;
+            padding-right: 40px !important;
+            cursor: pointer;
+        }
+
+        option {
+            padding: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            background: #ffffff;
+            color: #0f172a;
         }
 
         input:focus, select:focus {
@@ -303,7 +345,13 @@ $agent_name = $stmt_header->fetchColumn() ?: $agent_username;
     <div class="app-title">BFS Financial Services</div>
     <div class="app-user">
         <a href="../login.php?logout=1" style="color:white; text-decoration:none;"><i data-lucide="log-out" style="width:20px;"></i></a>
-        <a href="profile.php" class="user-avatar" title="View Profile"><?php echo strtoupper(substr($agent_name ?? 'A', 0, 1)); ?></a>
+        <a href="profile.php" class="user-avatar" title="View Profile">
+            <?php if ($has_custom_photo): ?>
+                <img src="<?php echo htmlspecialchars($photo_display_path); ?>" alt="<?php echo htmlspecialchars($agent_name); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+            <?php else: ?>
+                <?php echo strtoupper(substr($agent_name ?? 'A', 0, 1)); ?>
+            <?php endif; ?>
+        </a>
     </div>
 </div>
 

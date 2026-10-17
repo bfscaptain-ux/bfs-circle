@@ -1,5 +1,11 @@
 <?php
 require_once 'config.php';
+
+// If user already has an active session, send them to their dashboard
+if (!empty($_SESSION['user_id'])) {
+    header("Location: " . get_role_dashboard_url($_SESSION['role'] ?? 'Staff', false));
+    exit;
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -8,10 +14,14 @@ require_once 'config.php';
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BFS Financial Services - Secure Login</title>
     
-    <!-- Google Fonts Inter & Outfit -->
+    <!-- Instant Image Preloads with High Fetch Priority -->
+    <link rel="preload" as="image" href="login.webp" type="image/webp" fetchpriority="high">
+    <link rel="preload" as="image" href="logo.png" type="image/png" fetchpriority="high">
+    
+    <!-- Google Fonts with Non-blocking display=swap -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
     
     <style>
         :root {
@@ -20,7 +30,7 @@ require_once 'config.php';
             --secondary: #f97316;
             --primary-glow: rgba(16, 185, 129, 0.25);
             --bg-main: #000000;
-            --bg-card: rgba(10, 10, 10, 0.65);
+            --bg-card: rgba(10, 10, 10, 0.68);
             --text-primary: #ffffff;
             --text-muted: #a1a1aa;
             --border: rgba(255, 255, 255, 0.12);
@@ -32,178 +42,994 @@ require_once 'config.php';
             box-sizing: border-box;
             margin: 0;
             padding: 0;
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
         }
 
         body {
             background-color: var(--bg-main);
-            background-image: url('login.png');
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
             color: var(--text-primary);
             display: flex;
-            height: 100vh;
+            min-height: 100vh;
             align-items: center;
             justify-content: center;
             padding: 20px;
+            overflow: hidden;
+            position: relative;
         }
 
-        .login-container {
+        /* Dedicated GPU Compositor Layer for Background Stage (Instant load, zero repaint lag) */
+        .bg-stage {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #000000 url('login.webp') no-repeat center center;
+            background-size: cover;
+            z-index: 0;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+            backface-visibility: hidden;
+            pointer-events: none;
+        }
+
+        #particles-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 1;
+            pointer-events: none;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+        }
+
+        /* Card Outer Wrapper with dynamic animated perimeter glow */
+        .login-card-wrapper {
+            position: relative;
             width: 100%;
-            max-width: 400px;
-            background-color: var(--bg-card);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            padding: 40px;
-            border-radius: var(--radius-lg);
-            box-shadow: 0 15px 45px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.1);
-            border: 1px solid var(--border);
-            border-top: 1px solid rgba(249, 115, 22, 0.4);
-            border-bottom: 1px solid rgba(16, 185, 129, 0.4);
+            max-width: 416px;
+            z-index: 10;
+            margin: auto;
         }
 
+        /* 1. Luminous Diffused Ambient Aura (Continuously rotating behind the card on GPU) */
+        .card-ambient-aura {
+            position: absolute;
+            inset: -14px;
+            border-radius: 36px;
+            background: conic-gradient(
+                from 0deg,
+                rgba(16, 185, 129, 0.55) 0deg,
+                rgba(52, 211, 153, 0.45) 60deg,
+                transparent 120deg,
+                rgba(249, 115, 22, 0.55) 180deg,
+                rgba(251, 191, 36, 0.45) 240deg,
+                transparent 300deg,
+                rgba(16, 185, 129, 0.55) 360deg
+            );
+            filter: blur(28px);
+            opacity: 0.85;
+            animation: rotateLaser 6s linear infinite;
+            z-index: 0;
+            pointer-events: none;
+            transform: translate3d(0, 0, 0);
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+
+        /* 2. Razor-Sharp Rotating Border Laser Beam (Hardware Accelerated) */
+        .card-border-beam {
+            position: relative;
+            border-radius: 24px;
+            padding: 1.8px;
+            overflow: hidden;
+            z-index: 1;
+            box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.95);
+            background: rgba(255, 255, 255, 0.08);
+            transform: translate3d(0, 0, 0);
+            backface-visibility: hidden;
+        }
+
+        .card-border-beam::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: conic-gradient(
+                from 0deg,
+                transparent 0deg,
+                transparent 60deg,
+                rgba(16, 185, 129, 0.3) 85deg,
+                #10b981 115deg,
+                #a7f3d0 135deg,
+                #10b981 155deg,
+                transparent 180deg,
+                transparent 240deg,
+                rgba(249, 115, 22, 0.3) 265deg,
+                #f97316 295deg,
+                #fef08a 315deg,
+                #f97316 335deg,
+                transparent 360deg
+            );
+            animation: rotateLaser 5s linear infinite;
+            z-index: 1;
+            transform: translate3d(-50%, -50%, 0);
+            will-change: transform;
+            backface-visibility: hidden;
+        }
+
+        @keyframes rotateLaser {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 3. Obsidian Pitch Black Card Interior (Dark Black & Pure White Contrast) */
+        .login-container {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            border-radius: 22px;
+            background: rgba(0, 0, 0, 0.96); /* Deep Pure Dark Black */
+            backdrop-filter: blur(40px) saturate(200%);
+            -webkit-backdrop-filter: blur(40px) saturate(200%);
+            padding: 40px 34px 32px;
+            border: 1px solid rgba(255, 255, 255, 0.14); /* Crisp White Border */
+            box-shadow: 
+                inset 0 1px 1px rgba(255, 255, 255, 0.25),
+                inset 0 -1px 1px rgba(0, 0, 0, 0.9),
+                0 30px 80px rgba(0, 0, 0, 0.98);
+        }
+
+        /* Brand Styling - Clean logo without square box */
         .brand-container {
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 12px;
-            margin-bottom: 30px;
+            gap: 14px;
+            margin-bottom: 24px;
         }
 
-        .brand-logo {
-            background-color: var(--primary);
-            color: white;
-            width: 38px;
-            height: 38px;
-            border-radius: var(--radius-md);
+        .brand-logo-img {
+            width: 44px;
+            height: 44px;
+            object-fit: contain;
+            filter: brightness(0) invert(1) drop-shadow(0 2px 10px rgba(255, 255, 255, 0.25));
+            flex-shrink: 0;
+        }
+
+        .brand-text-block {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Outfit', sans-serif;
-            font-weight: 800;
-            font-size: 20px;
-            box-shadow: 0 4px 12px rgba(249, 115, 22, 0.3);
+            flex-direction: column;
         }
 
         .brand-name {
             font-family: 'Outfit', sans-serif;
-            font-weight: 700;
-            font-size: 24px;
-            letter-spacing: -0.5px;
-            color: var(--text-primary);
+            font-weight: 800;
+            font-size: 21px;
+            letter-spacing: -0.4px;
+            color: #ffffff; /* Crisp Pure White */
+            line-height: 1.15;
         }
 
-        h2 {
-            font-family: 'Outfit', sans-serif;
-            font-weight: 600;
-            font-size: 20px;
+        .brand-subname {
+            font-size: 10.5px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            color: #10b981;
+            text-transform: uppercase;
+        }
+
+        /* Welcome text */
+        .welcome-block {
             text-align: center;
             margin-bottom: 24px;
-            color: var(--text-primary);
         }
 
+        .welcome-block h2 {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 24px;
+            letter-spacing: -0.02em;
+            color: #ffffff; /* Crisp Pure White */
+            margin-bottom: 4px;
+        }
+
+        .welcome-block .auth-subtitle {
+            font-size: 13.5px;
+            color: #cbd5e1; /* Clean High-Contrast Light White */
+            font-weight: 400;
+        }
+
+        /* Inline Error Alert */
+        .login-alert {
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 500;
+            margin-bottom: 18px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(239, 68, 68, 0.15);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fca5a5;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Form Controls */
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 7px;
             margin-bottom: 18px;
+        }
+
+        .label-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
 
         label {
             font-size: 13px;
-            font-weight: 500;
-            color: var(--text-primary);
-        }
-
-        input[type="text"],
-        input[type="password"] {
-            padding: 10px 14px;
-            border: 1px solid var(--border);
-            border-radius: var(--radius-md);
-            font-size: 14px;
-            color: var(--text-primary);
-            background-color: rgba(255, 255, 255, 0.05);
-            transition: border-color 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
-            width: 100%;
-        }
-
-        input:focus {
-            outline: none;
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-glow);
-            background-color: rgba(255, 255, 255, 0.1);
-        }
-
-        .btn {
-            display: inline-flex;
+            font-weight: 600;
+            color: #ffffff; /* Crisp Pure White */
+            letter-spacing: 0.01em;
+            display: flex;
             align-items: center;
-            justify-content: center;
-            padding: 12px;
-            border-radius: var(--radius-md);
-            font-size: 14px;
-            font-weight: 700;
-            cursor: pointer;
-            border: none;
-            background: linear-gradient(135deg, var(--secondary) 0%, var(--primary) 100%);
-            background-size: 200% auto;
-            color: white;
-            transition: background-position 0.5s ease, transform 0.2s;
-            width: 100%;
-            margin-top: 10px;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+            gap: 7px;
         }
 
-        .btn:hover {
-            background-position: right center;
+        .label-icon {
+            color: #10b981;
+            font-size: 12.5px;
         }
 
-        .password-wrapper {
+        .forgot-link {
+            font-size: 12px;
+            font-weight: 600;
+            color: #34d399;
+            text-decoration: none;
+            transition: all 0.2s;
+        }
+
+        .forgot-link:hover {
+            color: #6ee7b7;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+            text-decoration: underline;
+        }
+
+        .input-wrapper {
             position: relative;
             display: flex;
             align-items: center;
         }
 
-        .eye-icon {
+        input[type="text"],
+        input[type="password"] {
+            width: 100%;
+            height: 48px;
+            padding: 0 16px;
+            border: 1.3px solid rgba(255, 255, 255, 0.22); /* Clean White Border */
+            border-radius: 12px;
+            font-size: 14.5px;
+            font-weight: 500;
+            color: #ffffff; /* Pure White text */
+            background-color: #000000; /* Pure Dark Black background */
+            transition: all 0.2s ease;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus {
+            outline: none;
+            border-color: #ffffff; /* Pure White on focus */
+            background-color: #050505;
+            box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.22), 0 0 16px rgba(16, 185, 129, 0.25);
+        }
+
+        input::placeholder {
+            color: #64748b;
+            font-weight: 400;
+        }
+
+        /* Prevent Chrome / Edge pale bluish autofill background */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover, 
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+            -webkit-text-fill-color: #ffffff !important;
+            -webkit-box-shadow: 0 0 0px 1000px #000000 inset !important;
+            box-shadow: 0 0 0px 1000px #000000 inset !important;
+            caret-color: #ffffff !important;
+            transition: background-color 5000s ease-in-out 0s;
+        }
+
+        .eye-toggle-btn {
             position: absolute;
             right: 12px;
-            cursor: pointer;
+            background: none;
+            border: none;
             color: #94a3b8;
-            font-size: 16px;
-            user-select: none;
+            cursor: pointer;
+            padding: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s;
+            font-size: 15px;
         }
-        
-        .eye-icon:hover {
-            color: #475569;
+
+        .eye-toggle-btn:hover {
+            color: #ffffff;
+        }
+
+        /* Luxury CTA Button with Shimmer and Explosive Verification Pulse */
+        .btn-login {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            width: 100%;
+            height: 50px;
+            margin-top: 12px;
+            border-radius: 12px;
+            font-family: 'Outfit', sans-serif;
+            font-size: 15.5px;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            border: none;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 10px 24px -4px rgba(16, 185, 129, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Continuous light shimmer traveling over the button */
+        .btn-login::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -60%;
+            width: 45%;
+            height: 200%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+            transform: rotate(25deg);
+            animation: btnShimmerSweep 3.5s infinite;
+        }
+
+        @keyframes btnShimmerSweep {
+            0% { left: -70%; }
+            30% { left: 140%; }
+            100% { left: 140%; }
+        }
+
+        .btn-login:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, #34d399 0%, #10b981 100%);
+            box-shadow: 0 14px 30px -4px rgba(16, 185, 129, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+        }
+
+        .btn-login:active {
+            transform: scale(0.98);
+        }
+
+        .btn-icon {
+            transition: transform 0.2s ease;
+        }
+
+        .btn-login:hover .btn-icon {
+            transform: translateX(4px);
+        }
+
+        /* Button verification / success states */
+        .btn-login.is-verifying {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            cursor: wait;
+        }
+
+        .btn-login.is-success {
+            background: linear-gradient(135deg, #34d399 0%, #10b981 50%, #059669 100%) !important;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 1), 0 0 80px rgba(16, 185, 129, 0.7) !important;
+            animation: btnSuccessPulse 0.45s ease-in-out infinite alternate !important;
+            transform: scale(1.03);
+        }
+
+        @keyframes btnSuccessPulse {
+            0% { transform: scale(1.02); box-shadow: 0 0 30px rgba(16, 185, 129, 0.85); }
+            100% { transform: scale(1.06); box-shadow: 0 0 55px rgba(52, 211, 153, 1), 0 0 95px rgba(16, 185, 129, 0.8); }
+        }
+
+        /* Card warp on login success */
+        .login-card-wrapper.login-success {
+            transform: scale(1.03);
+            filter: brightness(1.2);
+            transition: all 0.7s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* Card Angry Violent Shake & Red Security Alert on Invalid Password */
+        .login-card-wrapper.card-angry {
+            animation: cardAngryShake 0.65s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+        }
+
+        @keyframes cardAngryShake {
+            10%, 90% { transform: translate3d(-8px, 0, 0); }
+            20%, 80% { transform: translate3d(10px, 0, 0); }
+            30%, 50%, 70% { transform: translate3d(-14px, 0, 0); }
+            40%, 60% { transform: translate3d(14px, 0, 0); }
+        }
+
+        /* Red / Crimson warning laser when angry */
+        .login-card-wrapper.card-angry .card-ambient-aura {
+            background: conic-gradient(
+                from 0deg,
+                rgba(239, 68, 68, 0.90) 0deg,
+                rgba(220, 38, 38, 0.8) 90deg,
+                rgba(249, 115, 22, 0.8) 180deg,
+                rgba(239, 68, 68, 0.90) 360deg
+            );
+            filter: blur(35px);
+            opacity: 1;
+            animation: rotateLaser 1.6s linear infinite !important; /* Rapid security siren rotation */
+        }
+
+        .login-card-wrapper.card-angry .card-border-beam::before {
+            background: conic-gradient(
+                from 0deg,
+                transparent 0deg,
+                rgba(239, 68, 68, 0.5) 60deg,
+                #ef4444 110deg,
+                #fca5a5 135deg,
+                #dc2626 160deg,
+                transparent 190deg,
+                transparent 240deg,
+                rgba(249, 115, 22, 0.5) 270deg,
+                #f97316 300deg,
+                #fecaca 315deg,
+                #ef4444 330deg,
+                transparent 360deg
+            );
+            animation: rotateLaser 1.6s linear infinite !important;
+        }
+
+        .login-card-wrapper.card-angry .login-container {
+            border-color: rgba(239, 68, 68, 0.65);
+            box-shadow: 
+                inset 0 1px 1px rgba(239, 68, 68, 0.5),
+                0 0 45px rgba(239, 68, 68, 0.4),
+                0 30px 80px rgba(0, 0, 0, 0.98);
+        }
+
+        /* Banking Security Badge */
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 7px;
+            margin-top: 20px;
+            font-size: 12px;
+            font-weight: 500;
+            color: #94a3b8;
+        }
+
+        .security-badge i {
+            color: #10b981;
+            font-size: 13px;
         }
     </style>
     <!-- Add FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <body>
-    <div class="login-container">
-        <div class="brand-container">
-            <img src="logo.png" alt="BFS Financial Services Logo" style="height: 48px; width: auto; object-fit: contain; filter: brightness(0) invert(1);">
-            <div class="brand-name">BFS Financial Services</div>
-        </div>
-        <h2>Welcome Back</h2>
-        <form id="login-form" onsubmit="handleLogin(event)">
-            <div class="form-group">
-                <label>Username</label>
-                <input type="text" name="username" required autofocus>
-            </div>
-            <div class="form-group">
-                <label>Password</label>
-                <div class="password-wrapper">
-                    <input type="password" id="password_input" name="password" required>
-                    <i class="fas fa-eye eye-icon" id="togglePassword" onclick="togglePasswordVisibility()"></i>
+    <!-- Hardware-Accelerated Static Background Stage (Zero repaints) -->
+    <div class="bg-stage"></div>
+
+    <!-- Interactive Canvas Particles -->
+    <canvas id="particles-canvas"></canvas>
+
+    <div class="login-card-wrapper">
+        <!-- Ambient Diffused Glow Halo -->
+        <div class="card-ambient-aura"></div>
+
+        <!-- Rotating Laser Border Beam -->
+        <div class="card-border-beam">
+            <div class="login-container">
+                <div class="brand-container">
+                    <img src="logo.png" alt="BFS Financial Services Logo" class="brand-logo-img">
+                    <div class="brand-text-block">
+                        <div class="brand-name">BFS Financial</div>
+                        <div class="brand-subname">Services Portal</div>
+                    </div>
                 </div>
+
+                <div class="welcome-block">
+                    <h2>Welcome Back</h2>
+                    <p class="auth-subtitle">Enter your credentials to access your terminal</p>
+                </div>
+
+                <?php if (!empty($_GET['deactivated'])): ?>
+                <div id="login-error-msg" class="login-alert" style="display: flex;">
+                    <i class="fa-solid fa-triangle-exclamation"></i>
+                    <span>Your partner account has been deactivated by Admin. You cannot access the dashboard.</span>
+                </div>
+                <?php else: ?>
+                <div id="login-error-msg" class="login-alert" style="display: none;"></div>
+                <?php endif; ?>
+
+                <form id="login-form" onsubmit="handleLogin(event)">
+                    <div class="form-group">
+                        <label for="username">
+                            <i class="fa-regular fa-user label-icon"></i> Username
+                        </label>
+                        <div class="input-wrapper">
+                            <input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" required autofocus>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div class="label-row">
+                            <label for="password_input">
+                                <i class="fa-solid fa-lock label-icon"></i> Password
+                            </label>
+                            <a href="forgot_password.php" class="forgot-link">Forgot Password?</a>
+                        </div>
+                        <div class="input-wrapper">
+                            <input type="password" id="password_input" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                            <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility()" tabindex="-1" aria-label="Toggle password visibility">
+                                <i class="fas fa-eye" id="togglePassword"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="login-submit-btn" class="btn-login">
+                        <span>Secure Sign In</span>
+                        <i class="fa-solid fa-arrow-right-long btn-icon"></i>
+                    </button>
+
+                    <div class="security-badge">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span>256-Bit SSL Encrypted Banking Security</span>
+                    </div>
+                </form>
             </div>
-            <button type="submit" class="btn">Secure Login</button>
-        </form>
+        </div>
     </div>
 
+    <!-- 3D Perspective Particle Interactive Engine -->
     <script>
+        (function() {
+            const canvas = document.getElementById('particles-canvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            let width = 0;
+            let height = 0;
+            const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+            function resize() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width * dpr;
+                canvas.height = height * dpr;
+                ctx.scale(dpr, dpr);
+            }
+            resize();
+            window.addEventListener('resize', resize);
+
+            // Mouse coordinates & smooth interpolation
+            const mouse = {
+                x: width / 2,
+                y: height / 2,
+                targetX: width / 2,
+                targetY: height / 2,
+                radius: 170,
+                active: false
+            };
+
+            window.addEventListener('mousemove', (e) => {
+                mouse.targetX = e.clientX;
+                mouse.targetY = e.clientY;
+                mouse.active = true;
+            });
+
+            window.addEventListener('mouseleave', () => {
+                mouse.active = false;
+            });
+
+            // Touch interaction for mobile
+            window.addEventListener('touchmove', (e) => {
+                if (e.touches && e.touches[0]) {
+                    mouse.targetX = e.touches[0].clientX;
+                    mouse.targetY = e.touches[0].clientY;
+                    mouse.active = true;
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                mouse.active = false;
+            });
+
+            // 3D Camera / World Projection parameters
+            const fl = 480; // Focal length
+            let rotX = 0, rotY = 0;
+            let targetRotX = 0, targetRotY = 0;
+
+            // Brand luxury color palette (Emerald, Mint, Amber, Golden, Cyan)
+            const colors = [
+                { main: 'rgba(16, 185, 129, ', glow: 'rgba(5, 150, 105, ' },    // Emerald Green
+                { main: 'rgba(52, 211, 153, ', glow: 'rgba(16, 185, 129, ' },   // Mint
+                { main: 'rgba(249, 115, 22, ', glow: 'rgba(234, 88, 12, ' },    // Amber Orange
+                { main: 'rgba(251, 191, 36, ', glow: 'rgba(245, 158, 11, ' },   // Gold
+                { main: 'rgba(56, 189, 248, ', glow: 'rgba(14, 165, 233, ' },   // Cyan
+            ];
+
+            // Pre-render glowing bokeh orb sprites onto offscreen canvases (100x faster GPU blitting)
+            const spriteSize = 64;
+            const sprites = colors.map(col => {
+                const sc = document.createElement('canvas');
+                sc.width = spriteSize;
+                sc.height = spriteSize;
+                const sctx = sc.getContext('2d');
+                const grad = sctx.createRadialGradient(spriteSize / 2, spriteSize / 2, 0, spriteSize / 2, spriteSize / 2, spriteSize / 2);
+                grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                grad.addColorStop(0.32, col.main + '0.92)');
+                grad.addColorStop(0.72, col.glow + '0.38)');
+                grad.addColorStop(1, col.glow + '0)');
+                sctx.fillStyle = grad;
+                sctx.beginPath();
+                sctx.arc(spriteSize / 2, spriteSize / 2, spriteSize / 2, 0, Math.PI * 2);
+                sctx.fill();
+                return sc;
+            });
+
+            // Angry / Security Alert Red Plasma Sprites (Blood Red, Crimson, Lava Orange)
+            const angryColors = [
+                { main: 'rgba(239, 68, 68, ', glow: 'rgba(185, 28, 28, ' },    // Crimson Red
+                { main: 'rgba(244, 63, 94, ', glow: 'rgba(225, 29, 72, ' },    // Rose Neon
+                { main: 'rgba(220, 38, 38, ', glow: 'rgba(153, 27, 27, ' },    // Dark Blood Red
+                { main: 'rgba(249, 115, 22, ', glow: 'rgba(194, 65, 12, ' },   // Flare Orange-Red
+            ];
+            const angrySprites = angryColors.map(col => {
+                const sc = document.createElement('canvas');
+                sc.width = spriteSize;
+                sc.height = spriteSize;
+                const sctx = sc.getContext('2d');
+                const grad = sctx.createRadialGradient(spriteSize / 2, spriteSize / 2, 0, spriteSize / 2, spriteSize / 2, spriteSize / 2);
+                grad.addColorStop(0, 'rgba(255, 255, 255, 1)');
+                grad.addColorStop(0.28, col.main + '0.98)');
+                grad.addColorStop(0.70, col.glow + '0.50)');
+                grad.addColorStop(1, col.glow + '0)');
+                sctx.fillStyle = grad;
+                sctx.beginPath();
+                sctx.arc(spriteSize / 2, spriteSize / 2, spriteSize / 2, 0, Math.PI * 2);
+                sctx.fill();
+                return sc;
+            });
+
+            const count = Math.min(Math.floor((window.innerWidth * window.innerHeight) / 8500), 160);
+            const particles = [];
+
+            class Particle3D {
+                constructor() {
+                    this.reset(true);
+                }
+
+                reset(init = false) {
+                    // Spherical 3D distribution around viewport center
+                    const radius = Math.random() * 520 + 90;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+
+                    this.x = radius * Math.sin(phi) * Math.cos(theta);
+                    this.y = (radius * Math.sin(phi) * Math.sin(theta)) * 0.75; // slight oval
+                    this.z = radius * Math.cos(phi);
+
+                    this.vx = (Math.random() - 0.5) * 0.5;
+                    this.vy = (Math.random() - 0.5) * 0.5;
+                    this.vz = (Math.random() - 0.5) * 0.5;
+
+                    this.baseSize = Math.random() * 3.6 + 2.0;
+                    const colIdx = Math.floor(Math.random() * colors.length);
+                    this.color = colors[colIdx];
+                    this.sprite = sprites[colIdx];
+                    this.angrySprite = angrySprites[colIdx % angrySprites.length];
+                    this.pulseSpeed = Math.random() * 0.028 + 0.014;
+                    this.pulse = Math.random() * Math.PI * 2;
+                    this.orbitSpeed = (Math.random() * 0.0025 + 0.0008) * (Math.random() > 0.5 ? 1 : -1);
+                }
+
+                update() {
+                    // Supernova Expansion mode on successful login!
+                    if (isExploding) {
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        this.z += this.vz;
+                        this.vx *= 1.035; // Accelerate outwards
+                        this.vy *= 1.035;
+                        this.vz *= 1.035;
+                        this.baseSize *= 1.022; // Continuously expand size
+                        return;
+                    }
+
+                    // ANGRY RAGE BEHAVIOR: Rapid erratic agitation & buzzing jitter!
+                    if (isAngry) {
+                        this.x += this.vx;
+                        this.y += this.vy;
+                        this.z += this.vz;
+
+                        // Violent high-frequency electric vibration
+                        this.vx += (Math.random() - 0.5) * 4.2;
+                        this.vy += (Math.random() - 0.5) * 4.2;
+                        this.vz += (Math.random() - 0.5) * 4.2;
+
+                        // Agitated damping (buzzing swarm feel)
+                        this.vx *= 0.88;
+                        this.vy *= 0.88;
+                        this.vz *= 0.88;
+
+                        // Swarming gravitational tension towards center
+                        this.vx -= this.x * 0.006;
+                        this.vy -= this.y * 0.006;
+                        this.vz -= this.z * 0.006;
+                        this.pulse += 0.22; // Rapid angry flashing pulse
+                        return;
+                    }
+
+                    this.pulse += this.pulseSpeed;
+
+                    // 3D Orbital rotation around Y
+                    const cosO = Math.cos(this.orbitSpeed);
+                    const sinO = Math.sin(this.orbitSpeed);
+                    const ox = this.x * cosO - this.z * sinO;
+                    const oz = this.z * cosO + this.x * sinO;
+                    this.x = ox + this.vx;
+                    this.y += this.vy;
+                    this.z = oz + this.vz;
+
+                    // Subtle velocity damping & wander
+                    this.vx += (Math.random() - 0.5) * 0.06;
+                    this.vy += (Math.random() - 0.5) * 0.06;
+                    this.vz += (Math.random() - 0.5) * 0.06;
+                    this.vx *= 0.98;
+                    this.vy *= 0.98;
+                    this.vz *= 0.98;
+
+                    // Keep bound within 3D sphere
+                    const distSq = this.x * this.x + this.y * this.y + this.z * this.z;
+                    if (distSq > 380000 || distSq < 3000) {
+                        this.vx -= this.x * 0.002;
+                        this.vy -= this.y * 0.002;
+                        this.vz -= this.z * 0.002;
+                    }
+                }
+            }
+
+            for (let i = 0; i < count; i++) {
+                particles.push(new Particle3D());
+            }
+
+            let isExploding = false;
+            let isAngry = false;
+            let angryTimer = null;
+
+            // Global trigger for Supernova Particle Explosion on login
+            window.triggerParticleExplosion = function() {
+                isExploding = true;
+                isAngry = false;
+                
+                // 1. Catapult existing particles outward in 3D
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    const dist = Math.sqrt(p.x * p.x + p.y * p.y + p.z * p.z) || 1;
+                    const blastSpeed = Math.random() * 32 + 20;
+                    p.vx = (p.x / dist) * blastSpeed;
+                    p.vy = (p.y / dist) * blastSpeed;
+                    p.vz = (p.z / dist) * blastSpeed + 18; // Rush towards viewer
+                    p.baseSize = Math.max(p.baseSize, 4.0);
+                }
+
+                // 2. Spawn 120 extra hyperspace burst particles right from center
+                const burstCount = 120;
+                for (let i = 0; i < burstCount; i++) {
+                    const bp = new Particle3D();
+                    bp.x = (Math.random() - 0.5) * 40;
+                    bp.y = (Math.random() - 0.5) * 40;
+                    bp.z = (Math.random() - 0.5) * 40;
+                    const theta = Math.random() * Math.PI * 2;
+                    const phi = Math.acos((Math.random() * 2) - 1);
+                    const speed = Math.random() * 38 + 24;
+                    bp.vx = speed * Math.sin(phi) * Math.cos(theta);
+                    bp.vy = speed * Math.sin(phi) * Math.sin(theta);
+                    bp.vz = speed * Math.cos(phi) + 20;
+                    bp.baseSize = Math.random() * 5.0 + 3.0;
+                    particles.push(bp);
+                }
+            };
+
+            // Global trigger for Angry Security Alert Particle Mode on wrong password
+            window.triggerAngryParticles = function() {
+                isAngry = true;
+
+                // Violent kick in velocity for all particles
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.vx = (Math.random() - 0.5) * 18;
+                    p.vy = (Math.random() - 0.5) * 18;
+                    p.vz = (Math.random() - 0.5) * 20;
+                }
+
+                // Shake card & turn border laser into emergency siren red
+                const cardWrapper = document.querySelector('.login-card-wrapper');
+                if (cardWrapper) {
+                    cardWrapper.classList.remove('card-angry');
+                    void cardWrapper.offsetWidth; // Force CSS reflow to re-trigger shake
+                    cardWrapper.classList.add('card-angry');
+                }
+
+                // Return to calm luxury mode after 3.2 seconds
+                if (angryTimer) clearTimeout(angryTimer);
+                angryTimer = setTimeout(() => {
+                    isAngry = false;
+                    if (cardWrapper) {
+                        cardWrapper.classList.remove('card-angry');
+                    }
+                }, 3200);
+            };
+
+            // Calm down immediately if user starts correcting credentials
+            document.addEventListener('input', (e) => {
+                if (isAngry && (e.target.name === 'username' || e.target.name === 'password')) {
+                    isAngry = false;
+                    const cardWrapper = document.querySelector('.login-card-wrapper');
+                    if (cardWrapper) cardWrapper.classList.remove('card-angry');
+                }
+            });
+
+            function animate() {
+                ctx.clearRect(0, 0, width, height);
+
+                // Smooth mouse interpolation
+                mouse.x += (mouse.targetX - mouse.x) * 0.08;
+                mouse.y += (mouse.targetY - mouse.y) * 0.08;
+
+                // 3D Parallax Camera Tilt from Mouse Position
+                targetRotY = ((mouse.x / width) - 0.5) * 0.85;
+                targetRotX = -((mouse.y / height) - 0.5) * 0.65;
+                rotX += (targetRotX - rotX) * 0.05;
+                rotY += (targetRotY - rotY) * 0.05;
+
+                const cosY = Math.cos(rotY), sinY = Math.sin(rotY);
+                const cosX = Math.cos(rotX), sinX = Math.sin(rotX);
+                const cx = width / 2, cy = height / 2;
+
+                const projected = [];
+
+                for (let i = 0; i < particles.length; i++) {
+                    const p = particles[i];
+                    p.update();
+
+                    // Rotate around Y axis
+                    const x1 = p.x * cosY - p.z * sinY;
+                    const z1 = p.z * cosY + p.x * sinY;
+
+                    // Rotate around X axis
+                    const y1 = p.y * cosX - z1 * sinX;
+                    const z2 = z1 * cosX + p.y * sinX;
+
+                    // 3D Perspective depth scaling
+                    const depth = z2 + 480;
+                    if (depth < 15) continue; // behind camera
+                    const scale = fl / depth;
+
+                    const sx = cx + x1 * scale;
+                    const sy = cy + y1 * scale;
+
+                    // Screen distance to mouse cursor
+                    let mouseDist = 9999;
+                    let mouseEffect = 0;
+                    if (mouse.active && !isExploding) {
+                        const mdx = sx - mouse.x;
+                        const mdy = sy - mouse.y;
+                        mouseDist = Math.sqrt(mdx * mdx + mdy * mdy);
+
+                        if (mouseDist < mouse.radius) {
+                            mouseEffect = (1 - mouseDist / mouse.radius);
+                            // Magnetic 3D repulsion away from mouse
+                            p.vx += (mdx / (mouseDist + 1)) * mouseEffect * (isAngry ? 2.5 : 1.35);
+                            p.vy += (mdy / (mouseDist + 1)) * mouseEffect * (isAngry ? 2.5 : 1.35);
+                            p.vz -= mouseEffect * (isAngry ? 3.0 : 1.8);
+                        }
+                    }
+
+                    // CHOTE SE BADE EFFECT & SUPERNOVA EXPANSION:
+                    const breathScale = 1.0 + Math.sin(p.pulse) * 0.52;
+                    const renderSize = Math.max(0.9, p.baseSize * scale * breathScale * (1.0 + mouseEffect * 2.4));
+                    const alpha = Math.min(1.0, Math.max(0.12, (scale * 0.85) + (mouseEffect * 0.55)));
+
+                    projected.push({
+                        sx, sy, z: z2, renderSize, alpha, color: p.color, sprite: p.sprite, angrySprite: p.angrySprite, mouseDist
+                    });
+                }
+
+                // Sort by 3D depth for realistic occlusion
+                projected.sort((a, b) => b.z - a.z);
+
+                // Draw 3D constellation links between nearby particles (turn into fiery electric sparks when angry)
+                if (!isExploding) {
+                    const maxLineDist = isAngry ? 120 : 95;
+                    for (let i = 0; i < projected.length; i++) {
+                        const pi = projected[i];
+                        for (let j = i + 1; j < Math.min(i + (isAngry ? 18 : 14), projected.length); j++) {
+                            const pj = projected[j];
+                            const dx = pi.sx - pj.sx;
+                            const dy = pi.sy - pj.sy;
+                            const d = Math.sqrt(dx * dx + dy * dy);
+
+                            if (d < maxLineDist) {
+                                const lineAlpha = (1 - d / maxLineDist) * (isAngry ? 0.45 : 0.24) * Math.min(pi.alpha, pj.alpha);
+                                ctx.beginPath();
+                                ctx.moveTo(pi.sx, pi.sy);
+                                ctx.lineTo(pj.sx, pj.sy);
+                                ctx.strokeStyle = isAngry 
+                                    ? `rgba(239, 68, 68, ${lineAlpha})` 
+                                    : `rgba(16, 185, 129, ${lineAlpha})`;
+                                ctx.lineWidth = isAngry ? 1.2 : 0.8;
+                                ctx.stroke();
+                            }
+                        }
+
+                        // Draw interactive energy beam from mouse cursor to nearby particles
+                        if (mouse.active && pi.mouseDist < 150) {
+                            const mAlpha = (1 - pi.mouseDist / 150) * 0.42;
+                            ctx.beginPath();
+                            ctx.moveTo(pi.sx, pi.sy);
+                            ctx.lineTo(mouse.x, mouse.y);
+                            ctx.strokeStyle = isAngry ? `rgba(239, 68, 68, ${mAlpha})` : `rgba(249, 115, 22, ${mAlpha})`;
+                            ctx.lineWidth = isAngry ? 1.4 : 1.1;
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                // Render luminous 3D Bokeh Orbs & Hyperspace Trails using GPU Sprite Blitting
+                for (let i = 0; i < projected.length; i++) {
+                    const pi = projected[i];
+                    const rad = Math.max(1.5, pi.renderSize * (isExploding ? 4.2 : (isAngry ? 2.8 : 2.4)));
+
+                    if (isExploding) {
+                        // Draw light streak zooming outward from center
+                        ctx.beginPath();
+                        ctx.moveTo(cx + (pi.sx - cx) * 0.72, cy + (pi.sy - cy) * 0.72);
+                        ctx.lineTo(pi.sx, pi.sy);
+                        ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(1, pi.alpha * 0.85)})`;
+                        ctx.lineWidth = Math.max(1.2, pi.renderSize * 0.6);
+                        ctx.stroke();
+                    }
+
+                    ctx.globalAlpha = Math.min(1.0, Math.max(0.04, pi.alpha * (isAngry ? 1.25 : 1.0)));
+                    const diam = rad * 2;
+                    const activeSprite = isAngry ? pi.angrySprite : pi.sprite;
+                    ctx.drawImage(activeSprite, pi.sx - rad, pi.sy - rad, diam, diam);
+                }
+                ctx.globalAlpha = 1.0;
+
+                requestAnimationFrame(animate);
+            }
+            animate();
+        })();
+
+        // Form & Login handling
         function togglePasswordVisibility() {
             const passwordInput = document.getElementById('password_input');
             const toggleIcon = document.getElementById('togglePassword');
@@ -221,31 +1047,95 @@ require_once 'config.php';
 
         async function handleLogin(e) {
             e.preventDefault();
+            const btn = document.getElementById('login-submit-btn');
+            const alertBox = document.getElementById('login-error-msg');
+            const cardWrapper = document.querySelector('.login-card-wrapper');
+            const originalBtnHtml = btn.innerHTML;
+            
+            // Clear previous error
+            if (alertBox) {
+                alertBox.style.display = 'none';
+                alertBox.innerHTML = '';
+            }
+
+            // Loading state
+            btn.disabled = true;
+            btn.classList.add('is-verifying');
+            btn.innerHTML = '<span>Verifying Credentials...</span> <i class="fa-solid fa-circle-notch fa-spin"></i>';
+
             const fd = new FormData(e.target);
-            fetch('?api=login', {method: 'POST', body: fd})
+            fetch('api.php?api=login', {method: 'POST', body: fd})
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    if (data.role === 'Staff') {
-                          location.href = 'staff/index.php';
-                      } else if (['Partner', 'DSA', 'Connector', 'Individual'].includes(data.role)) {
-                          location.href = 'partner/index.php';
-                      } else if (data.role === 'Builder') {
-                          location.href = 'builder/index.php';
-                      } else if (data.role === 'Agent') {
-                          location.href = 'agent/index.php';
-                      } else if (['CA', 'CA/CS'].includes(data.role)) {
-                          location.href = 'ca/index.php';
-                      } else {
-                          location.href = 'dashboard.php';
-                      }
+                    // 1. Triumphant button animation
+                    btn.classList.remove('is-verifying');
+                    btn.classList.add('is-success');
+                    btn.innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 19px;"></i> <span>Access Granted • Entering...</span>';
+
+                    // 2. Trigger Hyperspace 3D Particle Supernova Explosion!
+                    if (window.triggerParticleExplosion) {
+                        window.triggerParticleExplosion();
+                    }
+
+                    // 3. Elevate & brighten login card
+                    if (cardWrapper) {
+                        cardWrapper.classList.add('login-success');
+                    }
+
+                    // 4. Smooth cinematic redirection after 850ms
+                    setTimeout(() => {
+                        if (data.role === 'RM') {
+                            location.href = 'rm/dashboard.php';
+                        } else if (data.role === 'Staff') {
+                            location.href = 'staff/index.php';
+                        } else if (['Partner', 'DSA', 'Connector', 'Individual', 'Financial Advisor / DSA'].includes(data.role)) {
+                            location.href = 'partner/index.php';
+                        } else if (['Builder', 'Builder / Real Estate'].includes(data.role)) {
+                            location.href = 'builder/index.php';
+                        } else if (['Agent', 'Individual Agent'].includes(data.role)) {
+                            location.href = 'agent/index.php';
+                        } else if (['CA', 'CA/CS', 'Chartered Accountant (CA)'].includes(data.role)) {
+                            location.href = 'ca/index.php';
+                        } else {
+                            location.href = 'dashboard.php';
+                        }
+                    }, 850);
                 } else {
-                    alert(data.error);
+                    btn.disabled = false;
+                    btn.classList.remove('is-verifying');
+                    btn.innerHTML = originalBtnHtml;
+
+                    // Trigger Angry Rage Particle Behavior on Invalid Password!
+                    if (window.triggerAngryParticles) {
+                        window.triggerAngryParticles();
+                    }
+
+                    if (alertBox) {
+                        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>' + (data.error || 'Invalid username or password') + '</span>';
+                        alertBox.style.display = 'flex';
+                    } else {
+                        alert(data.error);
+                    }
                 }
             })
             .catch(err => {
                 console.error(err);
-                alert("Connection failed.");
+                btn.disabled = false;
+                btn.classList.remove('is-verifying');
+                btn.innerHTML = originalBtnHtml;
+
+                // Trigger Angry Particle Behavior on connection error too
+                if (window.triggerAngryParticles) {
+                    window.triggerAngryParticles();
+                }
+
+                if (alertBox) {
+                    alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>Connection failed. Please check your network.</span>';
+                    alertBox.style.display = 'flex';
+                } else {
+                    alert("Connection failed.");
+                }
             });
         }
     </script>

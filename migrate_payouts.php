@@ -2,7 +2,7 @@
 require_once 'config.php';
 
 try {
-    \ = "
+    $sql = "
     CREATE TABLE IF NOT EXISTS payout_distributions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         applicant_id INTEGER NOT NULL,
@@ -22,10 +22,10 @@ try {
     );
     ";
     
-    \->exec(\);
+    $db->exec($sql);
     echo "Table payout_distributions created successfully.\n";
 
-} catch (PDOException \) {
-    echo "Error: " . \->getMessage() . "\n";
+} catch (PDOException $e) {
+    echo "Error: " . $e->getMessage() . "\n";
 }
 ?>

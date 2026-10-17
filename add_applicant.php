@@ -1,38 +1,197 @@
 <?php
 require_once 'config.php';
+if (($_SESSION['role'] ?? '') === 'Staff') {
+    $queryString = !empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '';
+    header("Location: staff/add_applicant.php" . $queryString);
+    exit;
+}
+require_role(['Admin', 'RM']);
+
 $edit_id = $_GET['id'] ?? '';
+$init_customer_name = $_GET['customer_name'] ?? $_GET['name'] ?? '';
+$init_mobile = $_GET['mobile'] ?? '';
+$init_visit_id = $_GET['visit_id'] ?? $_GET['converted_lead_id'] ?? '';
 $page_title = $edit_id ? 'Complete Applicant Profile' : 'Add Loan Applicant';
 $page_subtitle = ' Phase 1: KYC & Origination';
+$staff_members = $db->query("SELECT username, name FROM users WHERE role = 'Staff' AND is_active = 1 ORDER BY username ASC")->fetchAll(PDO::FETCH_ASSOC);
+$hide_main_header = true;
 require_once 'header.php';
 ?>
 
 <link href="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js"></script>
+<script>
+    window.toggleKbdMenu = function(e) {
+        if (e) {
+            if (e.stopPropagation) e.stopPropagation();
+            if (e.preventDefault) e.preventDefault();
+        }
+        var menu = document.getElementById('kbd-shortcuts-menu');
+        if (menu) {
+            var current = getComputedStyle(menu).display;
+            var isHidden = (current === 'none');
+            menu.style.display = isHidden ? 'block' : 'none';
+            if (isHidden && typeof lucide !== 'undefined') {
+                try { lucide.createIcons(); } catch(err){}
+            }
+        }
+    };
+
+    window.toggleCoApplicantSection = function() {
+        try {
+            var chk = document.getElementById('has_co_applicant');
+            var wrapper = document.getElementById('co_applicant_wrapper');
+            var container = document.getElementById('co_applicants_container');
+            if (!chk || !wrapper) return;
+            
+            var isChecked = !!chk.checked;
+            wrapper.style.display = isChecked ? 'block' : 'none';
+            
+            if (isChecked && container) {
+                if (container.children.length === 0 && typeof window.addCoApplicantBlock === 'function') {
+                    try { window.addCoApplicantBlock(); } catch(err) { console.error('Error adding co-applicant block:', err); }
+                }
+            }
+            if (typeof updateSmartDocPreview === 'function') {
+                try { updateSmartDocPreview(); } catch(e){}
+            }
+        } catch(err) {
+            console.error('Error toggling co-applicant section', err);
+        }
+    };
+</script>
 <style>
 .ts-control { padding: 10px 14px !important; border-radius: 6px !important; border-color: #cbd5e1 !important; font-size: 14px !important; }
 .ts-dropdown { font-size: 14px !important; border-radius: 6px !important; }
+
+#applicant-registration-form input:focus, 
+#applicant-registration-form select:focus, 
+#applicant-registration-form textarea:focus {
+    outline: none !important;
+    border-color: #0f172a !important;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.14), 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+    background-color: #ffffff !important;
+}
+
+.kbd-shortcut-pill-dark {
+    display: inline-block;
+    background: #27272a;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #f4f4f5;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+@keyframes laserScan {
+    0% { top: 0%; opacity: 0.8; }
+    50% { top: 85%; opacity: 1; }
+    100% { top: 0%; opacity: 0.8; }
+}
+.scan-laser-line {
+    position: absolute;
+    left: 0;
+    width: 100%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #0f172a, #2563eb, #0f172a, transparent);
+    box-shadow: 0 0 10px #2563eb, 0 0 4px #0f172a;
+    animation: laserScan 1.6s infinite ease-in-out;
+}
+.scan-progress-bar {
+    height: 6px;
+    background: #0f172a;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
 </style>
 
-<div id="view-add-applicant" class="view-container">
+<div id="view-add-applicant" class="view-container" style="padding-top: 0; margin-top: 0;">
     <form id="applicant-registration-form" onsubmit="saveApplicant(event)">
-        <input type="hidden" name="converted_lead_id" id="converted_lead_id" value="">
+        <input type="hidden" name="converted_lead_id" id="converted_lead_id" value="<?php echo htmlspecialchars($init_visit_id); ?>">
         <input type="hidden" name="id" id="applicant_id" value="<?php echo htmlspecialchars($edit_id); ?>">
-        <div class="card">
-            <div class="card-title-bar">
-                <h2><?php echo $edit_id ? 'Complete Missing Applicant Details' : 'Applicant Registration Form'; ?></h2>
-                <div class="badge-status new"><i data-lucide="file-plus"></i> Phase 1: KYC & Origination</div>
-            </div>
+        <div class="card" style="margin-top: 0; padding: 0; background: transparent; border: none; box-shadow: none;">
             
+            <!-- EXECUTIVE CLEAN HERO HEADER BANNER -->
+            <div style="background: linear-gradient(135deg, #09090b 0%, #18181b 100%); border-radius: 12px; padding: 20px 24px; color: #ffffff; margin-bottom: 20px; border: 1px solid rgba(255,255,255,0.12); box-shadow: 0 10px 30px -10px rgba(15,23,42,0.3); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; position: relative;">
+                
+                <!-- Left Column: Title & Subtitle -->
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <div style="width: 40px; height: 40px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i data-lucide="user-plus" style="width: 20px; height: 20px; color: #ffffff;"></i>
+                    </div>
+                    <div>
+                        <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #ffffff; letter-spacing: -0.02em;">
+                            <?php echo $edit_id ? 'Complete Missing Applicant Details' : 'Add Loan Applicant Profile'; ?>
+                        </h2>
+                        <div style="font-size: 12.5px; color: #a1a1aa; margin-top: 2px;">
+                            Phase 1: KYC, Employment & Loan Origination
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Right Column: Professional Action Controls -->
+                <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                    <!-- AI OCR Scanner Button -->
+                    <input type="file" id="ai-scan-file-input" accept="image/*,.pdf" style="display: none;" onchange="handleAiDocScan(this.files[0])">
+                    <button type="button" onclick="openExecutiveScanModal()" style="background: #ffffff; color: #09090b; border: none; padding: 9px 16px; border-radius: 8px; font-weight: 700; font-size: 12.5px; cursor: pointer; display: flex; align-items: center; gap: 7px; transition: all 0.2s ease; box-shadow: 0 4px 14px rgba(255,255,255,0.15);" onmouseover="this.style.background='#f4f4f5'" onmouseout="this.style.background='#ffffff'">
+                        <i data-lucide="scan" style="width: 15px; height: 15px; color: #09090b;"></i>
+                        <span>Scan Document & Auto-Fill</span>
+                    </button>
+
+                    <!-- Keyboard Shortcuts Dropdown Button -->
+                    <div class="kbd-dropdown-container" style="position: relative; display: inline-block; z-index: 100;">
+                        <button type="button" onclick="toggleKbdMenu(event)" style="display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.18); border-radius: 8px; padding: 9px 14px; font-size: 12.5px; font-weight: 600; color: #ffffff; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.background='rgba(255,255,255,0.14)'" onmouseout="this.style.background='rgba(255,255,255,0.08)'">
+                            <i data-lucide="keyboard" style="width: 15px; height: 15px; color: #cbd5e1;"></i>
+                            <span>Keyboard Shortcuts</span>
+                            <i data-lucide="chevron-down" style="width: 14px; height: 14px; color: #94a3b8; margin-left: 2px;"></i>
+                        </button>
+                        <div id="kbd-shortcuts-menu" style="display: none; position: absolute; right: 0; top: 100%; margin-top: 8px; width: 260px; background: #18181b; border: 1px solid rgba(255,255,255,0.18); border-radius: 10px; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.6); padding: 14px; z-index: 1000;">
+                            <div style="font-weight: 700; font-size: 12px; color: #ffffff; margin-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+                                <i data-lucide="command" style="width: 14px; height: 14px; color: #38bdf8;"></i> Keyboard Navigation Guide
+                            </div>
+                            <div style="display: flex; flex-direction: column; gap: 9px; font-size: 12px;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #a1a1aa; font-weight: 500;">Next Field</span>
+                                    <kbd class="kbd-shortcut-pill-dark">Enter</kbd>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #a1a1aa; font-weight: 500;">Previous Field</span>
+                                    <kbd class="kbd-shortcut-pill-dark">Shift + Enter</kbd>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #a1a1aa; font-weight: 500;">Quick Save File</span>
+                                    <kbd class="kbd-shortcut-pill-dark">Ctrl + S</kbd>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #a1a1aa; font-weight: 500;">Focus Top Field</span>
+                                    <kbd class="kbd-shortcut-pill-dark">Esc</kbd>
+                                </div>
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <span style="color: #a1a1aa; font-weight: 500;">Jump Section</span>
+                                    <kbd class="kbd-shortcut-pill-dark">Alt + 1..6</kbd>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAIN FORM BODY CARD CONTAINER -->
+            <div style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 28px; box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05);">
+
             <!-- 1. Basic Info -->
             <div class="form-section-title"> 1. Basic Information</div>
             <div class="form-grid">
                 <div class="form-group full-width">
                     <label class="required">Customer Name</label>
-                    <input type="text" name="customer_name" placeholder="Full name of applicant" required>
+                    <input type="text" name="customer_name" placeholder="Full name of applicant" value="<?php echo htmlspecialchars($init_customer_name); ?>" required>
                 </div>
                 <div class="form-group">
                     <label class="required">Mobile Number</label>
-                    <input type="text" name="mobile" placeholder="10-digit mobile number" required pattern="\d{10}">
+                    <input type="text" name="mobile" placeholder="10-digit mobile number" value="<?php echo htmlspecialchars($init_mobile); ?>" required pattern="\d{10}">
                 </div>
                 <div class="form-group">
                     <label>Email ID</label>
@@ -81,11 +240,11 @@ require_once 'header.php';
                 </div>
                 <div class="form-group">
                     <label class="required">Employment Type</label>
-                    <select name="employment_type" required>
+                    <select name="employment_type" id="employment_type" required onchange="handleEmploymentTypeChange(this.value)">
                         <option value="" selected>Select Employment</option>
                         <option value="Salaried">Salaried</option>
-                        <option value="Self-Employed">Self-Employed</option>
-                        <option value="Business Owner">Business Owner</option>
+                        <option value="Government Employee">Government Employee</option>
+                        <option value="Self-Employed">Self-Employed / Business Owner</option>
                         <option value="Professional">Professional</option>
                     </select>
                 </div>
@@ -95,11 +254,25 @@ require_once 'header.php';
                 </div>
             </div>
 
+            <!-- Dynamic Employer / Organization Details -->
+            <div id="org_details_wrapper" style="display:none; margin-bottom:24px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:8px; padding:16px;">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label id="org_name_label" class="required">Company / Department Name</label>
+                        <input type="text" name="organization_name" id="organization_name" placeholder="Enter organization name">
+                    </div>
+                    <div class="form-group">
+                        <label id="org_address_label">Office / Business Address</label>
+                        <input type="text" name="organization_address" id="organization_address" placeholder="Enter office address">
+                    </div>
+                </div>
+            </div>
+
             <!-- 4. Co-Applicant Details -->
             <div class="form-section-title" style="display:flex; justify-content:space-between; align-items:center;"> 
                 <span>4. Co-Applicant Details (Optional)</span>
-                <label style="font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:normal;">
-                    <input type="checkbox" id="has_co_applicant" onchange="toggleCoApplicantSection()" style="width:16px; height:16px; accent-color:var(--primary);">
+                <label id="lbl_has_co_applicant" style="font-size:14px; display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:600; color:#0f172a; user-select:none;" onclick="setTimeout(function(){ if(typeof window.toggleCoApplicantSection === 'function') window.toggleCoApplicantSection(); }, 10)">
+                    <input type="checkbox" id="has_co_applicant" onchange="window.toggleCoApplicantSection()" onclick="window.toggleCoApplicantSection()" style="width:18px; height:18px; cursor:pointer; accent-color:#0f172a;">
                     Include Co-Applicant?
                 </label>
             </div>
@@ -288,14 +461,40 @@ require_once 'header.php';
                     <label class="required">Requested Loan Amount (₹)</label>
                     <input type="number" name="loan_amount_requested" id="loan_amount" placeholder="e.g. 1500000" required>
                 </div>
-                <div class="form-group">
-                    <label class="required">Expected Tenure (Months)</label>
-                    <input type="number" name="tenure_months" id="tenure" placeholder="e.g. 120" required>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="required" style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>Expected Loan Tenure</span>
+                        <span style="font-size:11px; font-weight:normal; color:#64748b;">(Auto calculates Years ↔ Months)</span>
+                    </label>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <div style="flex: 1; position: relative;">
+                            <input type="number" id="tenure_years" step="0.5" min="0" placeholder="Years (e.g. 10)" oninput="calcTenureFromYears(this.value)" style="padding-right: 52px; font-weight:600; color:#0f172a;">
+                            <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #64748b; font-weight: 700; pointer-events: none;">Years</span>
+                        </div>
+                        <div style="font-weight: 800; color: #64748b; font-size: 16px;">=</div>
+                        <div style="flex: 1; position: relative;">
+                            <input type="number" name="tenure_months" id="tenure" min="1" placeholder="Months (e.g. 120)" required oninput="calcTenureFromMonths(this.value)" style="padding-right: 60px; font-weight:600; color:#0f172a;">
+                            <span style="position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 12px; color: #64748b; font-weight: 700; pointer-events: none;">Months</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- 6. Lead Source -->
-            <div class="form-section-title"> 7. Lead Source & Referral</div>
+            <!-- Smart Dynamic Document Suggestion Real-time Preview -->
+            <div id="smart-doc-preview-box" style="margin-top: 16px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px; display: none;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                    <span style="font-weight: 700; color: #1e40af; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                        <i data-lucide="file-check-2" style="width: 16px; height: 16px;"></i> Smart Document Checklist (Auto-tailored for Phase 2)
+                    </span>
+                    <span id="smart-doc-count-badge" style="background: #2563eb; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 12px;">0 Documents</span>
+                </div>
+                <div id="smart-doc-preview-list" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; font-size: 12px; color: #1e3a8a;">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- 7. Lead Source & RM Allocation -->
+            <div class="form-section-title"> 7. Lead Source & Relationship Manager (RM) Assignment</div>
             <div class="form-grid">
                 <div class="form-group">
                     <label class="required">Lead Source</label>
@@ -305,6 +504,18 @@ require_once 'header.php';
                         <option value="Referral Partner / Agent">Referral Partner / Agent</option>
                         <option value="Employee Referral">Employee Referral</option>
                         <option value="Digital / Social Media Campaign">Digital / Social Media Campaign</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Assign to Relationship Manager (RM)</label>
+                    <select name="assigned_to" id="assigned_to">
+                        <option value="">-- Auto-Assign / Unassigned Pool --</option>
+                        <?php foreach($staff_members as $sm): ?>
+                            <option value="<?php echo htmlspecialchars($sm['username']); ?>">
+                                <?php echo htmlspecialchars($sm['name'] ?: $sm['username']); ?> (<?php echo htmlspecialchars($sm['username']); ?>)
+                            </option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 
@@ -331,6 +542,7 @@ require_once 'header.php';
                     <?php echo $edit_id ? 'Update Applicant Details' : 'Save Applicant & Proceed to Phase 2'; ?>
                 </button>
             </div>
+            </div>
         </div>
     </form>
 </div>
@@ -340,15 +552,57 @@ require_once 'header.php';
     let coAppCount = 0;
     
     function toggleCoApplicantSection() {
-        const isChecked = document.getElementById('has_co_applicant').checked;
-        const wrapper = document.getElementById('co_applicant_wrapper');
-        const container = document.getElementById('co_applicants_container');
+        try {
+            const chk = document.getElementById('has_co_applicant');
+            const wrapper = document.getElementById('co_applicant_wrapper');
+            const container = document.getElementById('co_applicants_container');
+            if (!chk || !wrapper) return;
+            
+            const isChecked = !!chk.checked;
+            wrapper.style.display = isChecked ? 'block' : 'none';
+            
+            if (isChecked && container && container.children.length === 0) {
+                try { addCoApplicantBlock(); } catch(err) { console.error('Error adding co-applicant block:', err); }
+            }
+            if (typeof updateSmartDocPreview === 'function') {
+                try { updateSmartDocPreview(); } catch(e){}
+            }
+        } catch(err) {
+            console.error('Error toggling co-applicant section', err);
+        }
+    }
+
+    function populateCoAppStateOptions(index) {
+        const coState = document.getElementById(`coapp_state_${index}`);
+        if (!coState) return;
+        const mainState = document.getElementById('state');
+        let hasOptions = false;
+        let optionsHtml = '<option value="">Select State</option>';
         
-        wrapper.style.display = isChecked ? 'block' : 'none';
+        if (mainState && mainState.options && mainState.options.length > 1) {
+            Array.from(mainState.options).forEach(opt => {
+                if (opt.value) {
+                    optionsHtml += `<option value="${opt.value}">${opt.text}</option>`;
+                    hasOptions = true;
+                }
+            });
+        }
         
-        // Auto-add first block if none exist
-        if (isChecked && container.children.length === 0) {
-            addCoApplicantBlock();
+        if (hasOptions) {
+            coState.innerHTML = optionsHtml;
+            try { initTS(`coapp_state_${index}`); } catch(e){}
+        } else {
+            fetch('api.php?api=get_states')
+                .then(res => res.json())
+                .then(data => {
+                    if (data && data.success && Array.isArray(data.states)) {
+                        let html = '<option value="">Select State</option>';
+                        data.states.forEach(s => { html += `<option value="${s}">${s}</option>`; });
+                        coState.innerHTML = html;
+                        try { initTS(`coapp_state_${index}`); } catch(e){}
+                    }
+                })
+                .catch(e => console.error(e));
         }
     }
 
@@ -368,12 +622,15 @@ require_once 'header.php';
                     <label class="required">Relationship with Applicant</label>
                     <select name="coapp_relationship[]" id="coapp_rel_${index}">
                         <option value="" selected>Select Relation</option>
+                        <option value="Wife">Wife</option>
+                        <option value="Husband">Husband</option>
                         <option value="Spouse">Spouse</option>
                         <option value="Father">Father</option>
                         <option value="Mother">Mother</option>
                         <option value="Son">Son</option>
                         <option value="Daughter">Daughter</option>
                         <option value="Brother">Brother</option>
+                        <option value="Sister">Sister</option>
                         <option value="Business Partner">Business Partner</option>
                         <option value="Other">Other</option>
                     </select>
@@ -382,8 +639,8 @@ require_once 'header.php';
                     <label class="required">Income Considered for Loan?</label>
                     <div style="display:flex; gap:16px; padding-top:8px;">
                         <label style="cursor:pointer;"><input type="radio" name="coapp_financial_${index}" value="Yes" onchange="toggleFinancial(${index})"> Yes (Financial)</label>
-                        <label style="cursor:pointer;"><input type="radio" name="coapp_financial_${index}" value="No" onchange="toggleFinancial(${index})"> No (Guarantor)</label>
-                        <input type="hidden" name="coapp_is_financial[]" id="hidden_financial_${index}" value="">
+                        <label style="cursor:pointer;"><input type="radio" name="coapp_financial_${index}" value="No" onchange="toggleFinancial(${index})" checked> No (Guarantor)</label>
+                        <input type="hidden" name="coapp_is_financial[]" id="hidden_financial_${index}" value="No">
                     </div>
                 </div>
             </div>
@@ -399,7 +656,7 @@ require_once 'header.php';
 
             <div style="margin-bottom:16px;">
                 <label style="display:flex; align-items:center; gap:8px; font-size:13px; font-weight:600; cursor:pointer; margin-bottom:12px;">
-                    <input type="checkbox" name="coapp_same_address_check_${index}" value="1" onchange="toggleCoappAddress(this, ${index})" style="accent-color:var(--primary);">
+                    <input type="checkbox" name="coapp_same_address_check_${index}" id="coapp_same_${index}" value="1" onchange="toggleCoappAddress(this, ${index})" style="accent-color:var(--primary);">
                     Same as Primary Applicant Address
                     <input type="hidden" name="coapp_same_address[]" id="hidden_same_address_${index}" value="0">
                 </label>
@@ -425,6 +682,7 @@ require_once 'header.php';
                         <select name="coapp_emp_type[]" id="coapp_emp_${index}">
                             <option value="" selected>Select</option>
                             <option value="Salaried">Salaried</option>
+                            <option value="Government Employee">Government Employee</option>
                             <option value="Self-Employed Business">Self-Employed Business</option>
                             <option value="Self-Employed Professional">Self-Employed Professional</option>
                             <option value="Homemaker">Homemaker</option>
@@ -437,19 +695,18 @@ require_once 'header.php';
             </div>
         </div>`;
         
-        document.getElementById('co_applicants_container').insertAdjacentHTML('beforeend', html);
+        const container = document.getElementById('co_applicants_container');
+        if (container) container.insertAdjacentHTML('beforeend', html);
         
-        // Populate the state dropdown by copying from the primary state dropdown
-        const mainStateHTML = document.getElementById('state').innerHTML;
-        document.getElementById(`coapp_state_${index}`).innerHTML = mainStateHTML;
+        populateCoAppStateOptions(index);
         
-        // Init TomSelect for the new block
-        initTS(`coapp_rel_${index}`);
-        initTS(`coapp_state_${index}`);
-        initTS(`coapp_city_${index}`);
-        initTS(`coapp_emp_${index}`);
+        try { initTS(`coapp_rel_${index}`, true); } catch(e){}
+        try { initTS(`coapp_city_${index}`); } catch(e){}
+        try { initTS(`coapp_emp_${index}`); } catch(e){}
         
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (typeof lucide !== 'undefined') {
+            try { lucide.createIcons(); } catch(e){}
+        }
     }
 
     function toggleFinancial(index) {
@@ -457,38 +714,61 @@ require_once 'header.php';
         let isFin = false;
         radios.forEach(r => { if(r.checked && r.value === 'Yes') isFin = true; });
         
-        document.getElementById(`hidden_financial_${index}`).value = isFin ? 'Yes' : 'No';
+        const hiddenInput = document.getElementById(`hidden_financial_${index}`);
+        if (hiddenInput) hiddenInput.value = isFin ? 'Yes' : 'No';
         
         const block = document.getElementById(`coapp_financial_block_${index}`);
-        block.style.display = isFin ? 'block' : 'none';
+        if (block) block.style.display = isFin ? 'block' : 'none';
         
-        // Toggle required attributes
-        // document.getElementById(`coapp_emp_${index}`).required = isFin; // Removed to prevent silent TomSelect HTML5 validation failure
-        document.getElementById(`coapp_inc_${index}`).required = isFin;
-    }
-
-    function toggleCoappAddress(checkbox, index) {
-        document.getElementById(`hidden_same_address_${index}`).value = checkbox.checked ? '1' : '0';
-        const block = document.getElementById(`coapp_address_block_${index}`);
-        
-        if (checkbox.checked) {
-            block.style.display = 'none';
-            // Copy values logic would go here ideally during save or dynamically
-            document.getElementById(`coapp_addr_${index}`).required = false;
-            document.getElementById(`coapp_pin_${index}`).required = false;
-            document.getElementById(`coapp_state_${index}`).required = false;
-            document.getElementById(`coapp_city_${index}`).required = false;
-        } else {
-            block.style.display = 'grid';
-            
-            
-            
-            
+        const incInput = document.getElementById(`coapp_inc_${index}`);
+        if (incInput) incInput.required = isFin;
+        if (typeof updateSmartDocPreview === 'function') {
+            try { updateSmartDocPreview(); } catch(e){}
         }
     }
+
+    function toggleCoappAddress(elOrIndex, idx) {
+        let index = idx;
+        let isChecked = false;
+        if (typeof elOrIndex === 'object' && elOrIndex !== null) {
+            isChecked = !!elOrIndex.checked;
+        } else {
+            index = elOrIndex;
+            const chk = document.querySelector(`[name="coapp_same_address_check_${index}"]`) || document.getElementById(`coapp_same_${index}`);
+            isChecked = chk ? chk.checked : false;
+        }
+        
+        const hiddenInput = document.getElementById(`hidden_same_address_${index}`);
+        if (hiddenInput) hiddenInput.value = isChecked ? '1' : '0';
+        
+        const block = document.getElementById(`coapp_address_block_${index}`);
+        if (block) {
+            block.style.display = isChecked ? 'none' : 'grid';
+        }
+    }
+    window.toggleCoappAddress = toggleCoappAddress;
+    window.toggleCoAppAddress = toggleCoappAddress;
     // --- CO-APPLICANT LOGIC END ---
 
     document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const custName = urlParams.get('customer_name') || urlParams.get('name');
+        const custMobile = urlParams.get('mobile');
+        const visitId = urlParams.get('visit_id');
+
+        if (custName) {
+            const elName = document.querySelector('[name="customer_name"]');
+            if (elName && !elName.value) elName.value = custName;
+        }
+        if (custMobile) {
+            const elMobile = document.querySelector('[name="mobile"]');
+            if (elMobile && !elMobile.value) elMobile.value = custMobile;
+        }
+        if (visitId) {
+            const elLead = document.getElementById('converted_lead_id');
+            if (elLead && !elLead.value) elLead.value = visitId;
+        }
+
         const leadDataStr = sessionStorage.getItem('convert_lead_data');
         if (leadDataStr) {
             try {
@@ -558,8 +838,93 @@ require_once 'header.php';
         }
     });
 
+    function toggleKbdMenu(e) {
+        if (e) {
+            e.stopPropagation();
+            if (e.preventDefault) e.preventDefault();
+        }
+        const menu = document.getElementById('kbd-shortcuts-menu');
+        if (menu) {
+            const isHidden = (menu.style.display === 'none' || menu.style.display === '');
+            menu.style.display = isHidden ? 'block' : 'none';
+            if (isHidden && typeof lucide !== 'undefined') {
+                lucide.createIcons();
+            }
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        const menu = document.getElementById('kbd-shortcuts-menu');
+        const btn = e.target.closest('.kbd-dropdown-container');
+        if (menu && !btn) {
+            menu.style.display = 'none';
+        }
+    });
+
+    function handleEmploymentTypeChange(val) {
+        const wrapper = document.getElementById('org_details_wrapper');
+        const nameLabel = document.getElementById('org_name_label');
+        const nameInput = document.getElementById('organization_name');
+        const addrLabel = document.getElementById('org_address_label');
+        const addrInput = document.getElementById('organization_address');
+
+        if (!wrapper || !nameLabel || !nameInput || !addrLabel || !addrInput) return;
+
+        if (!val) {
+            wrapper.style.display = 'none';
+            return;
+        }
+
+        wrapper.style.display = 'block';
+
+        if (val === 'Government Employee') {
+            nameLabel.textContent = 'Department / Posting Name';
+            nameInput.placeholder = 'e.g. Ministry of Railways, Revenue Dept, PWD, Police Dept';
+            addrLabel.textContent = 'Office / Job Address';
+            addrInput.placeholder = 'e.g. Department Office Address & City';
+        } else if (val === 'Salaried') {
+            nameLabel.textContent = 'Company / Employer Name';
+            nameInput.placeholder = 'e.g. Tata Consultancy Services, Infosys, Pvt Ltd';
+            addrLabel.textContent = 'Company / Office Address';
+            addrInput.placeholder = 'e.g. Corporate Office / Work premises address';
+        } else if (val === 'Professional') {
+            nameLabel.textContent = 'Practice / Firm Name';
+            nameInput.placeholder = 'e.g. Apex Legal Chambers, Dr. Care Clinic, CA Firm';
+            addrLabel.textContent = 'Clinic / Office Address';
+            addrInput.placeholder = 'e.g. Clinic, Chamber, or Studio address';
+        } else {
+            // Self-Employed or Business Owner
+            nameLabel.textContent = 'Firm / Business Name';
+            nameInput.placeholder = 'e.g. Apex Enterprises, Universal Traders, Royal Store';
+            addrLabel.textContent = 'Business / Shop Address';
+            addrInput.placeholder = 'e.g. Store, Factory, or Office establishment address';
+        }
+        updateSmartDocPreview();
+    }
+
+    function calcTenureFromYears(yearsVal) {
+        const yrs = parseFloat(yearsVal);
+        const monthsInput = document.getElementById('tenure');
+        if (!isNaN(yrs) && yrs > 0) {
+            monthsInput.value = Math.round(yrs * 12);
+        } else if (yearsVal === '') {
+            monthsInput.value = '';
+        }
+    }
+
+    function calcTenureFromMonths(monthsVal) {
+        const m = parseInt(monthsVal, 10);
+        const yearsInput = document.getElementById('tenure_years');
+        if (!isNaN(m) && m > 0) {
+            const yrs = m / 12;
+            yearsInput.value = (yrs % 1 === 0) ? yrs : yrs.toFixed(1);
+        } else if (monthsVal === '') {
+            yearsInput.value = '';
+        }
+    }
+
     const subTypeMap = {
-        'Home Loan': ['Plot Purchase', 'New Flat Purchase', 'Home Construction', 'Renovation', 'Balance Transfer (Top-Up)'],
+        'Home Loan': ['Home Purchase', 'Plot Purchase', 'New Flat Purchase', 'Purchase + Construction', 'Home Construction', 'Renovation', 'Balance Transfer (Top-Up)'],
         'Personal Loan': ['Medical Emergency', 'Wedding', 'Travel', 'Debt Consolidation'],
         'Vehicle Loan': ['Two-Wheeler (New)', 'Two-Wheeler (Used)', 'Four-Wheeler (New)', 'Commercial Vehicle'],
         'Gold Loan': ['Standard Gold Jewel Loan', 'Agricultural Gold Loan'],
@@ -595,20 +960,424 @@ require_once 'header.php';
                 });
             }
         }
+        updateSmartDocPreview();
     }
 
-    // --- TOM SELECT HELPER ---
+    async function updateSmartDocPreview() {
+        const loanType = document.getElementById('loan_type') ? document.getElementById('loan_type').value : '';
+        const loanSubType = document.getElementById('loan_sub_type') ? document.getElementById('loan_sub_type').value : '';
+        const empTypeSelect = document.querySelector('[name="employment_type"]');
+        const empType = empTypeSelect ? empTypeSelect.value : 'Salaried';
+        const hasCoApp = document.getElementById('has_co_applicant') ? document.getElementById('has_co_applicant').checked : false;
+        let isFinCoApp = false;
+        if (hasCoApp) {
+            const finRadios = document.querySelectorAll('[name^="coapp_financial_"]');
+            finRadios.forEach(r => {
+                if (r.checked && r.value === 'Yes') isFinCoApp = true;
+            });
+        }
+
+        const box = document.getElementById('smart-doc-preview-box');
+        const list = document.getElementById('smart-doc-preview-list');
+        const badge = document.getElementById('smart-doc-count-badge');
+        if (!box || !list) return;
+
+        if (!loanType) {
+            box.style.display = 'none';
+            return;
+        }
+
+        try {
+            const res = await fetch(`api.php?api=get_document_suggestions&loan_type=${encodeURIComponent(loanType)}&loan_sub_type=${encodeURIComponent(loanSubType)}&employment_type=${encodeURIComponent(empType)}&has_coapp=${hasCoApp ? 1 : 0}&coapp_is_financial=${isFinCoApp ? 1 : 0}`);
+            const data = await res.json();
+            if (data && data.success && data.suggestions && data.suggestions.length > 0) {
+                box.style.display = 'block';
+                badge.innerText = `${data.suggestions.length} Suggested Documents`;
+                
+                let html = '';
+                data.suggestions.forEach(s => {
+                    const mandBadge = s.is_mandatory ? '<span style="color:#dc2626; font-weight:700;">*Mandatory</span>' : '<span style="color:#64748b;">Optional</span>';
+                    const ownerBadge = s.owner_type === 'CoApplicant' ? '<span style="background:#f1f5f9; color:#475569; font-size:10px; padding:1px 5px; border-radius:4px; font-weight:600;">Co-App</span>' : '';
+                    html += `
+                        <div style="background:#ffffff; border:1px solid #dbeafe; border-radius:6px; padding:8px 10px; display:flex; flex-direction:column; gap:2px; box-shadow:0 1px 2px rgba(0,0,0,0.02);">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:4px;">
+                                <strong style="color:#0f172a; font-size:12px;">${s.doc_name}</strong>
+                                ${ownerBadge}
+                            </div>
+                            <div style="display:flex; justify-content:space-between; font-size:11px; margin-top:2px;">
+                                <span style="color:#64748b;">${s.category}</span>
+                                ${mandBadge}
+                            </div>
+                        </div>
+                    `;
+                });
+                list.innerHTML = html;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else {
+                box.style.display = 'none';
+            }
+        } catch (e) {
+            console.error("Error fetching smart doc suggestions", e);
+        }
+    }
+
+    // --- AI DOCUMENT OCR & HARDWARE SCANNER ENGINE ---
+    let currentScanTarget = 'primary';
+
+    function openExecutiveScanModal() {
+        const hasCoApp = document.getElementById('has_co_applicant') ? document.getElementById('has_co_applicant').checked : false;
+        
+        let targetOptionsHtml = `
+            <label style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; font-weight:700; color:#0f172a; font-size:13px;">
+                <input type="radio" name="scan_target_select" value="primary" checked style="accent-color:#0f172a;">
+                👤 Primary Applicant Details
+            </label>
+        `;
+        if (hasCoApp) {
+            targetOptionsHtml += `
+                <label style="display:flex; align-items:center; gap:8px; padding:10px 14px; background:#f8fafc; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; font-weight:700; color:#0f172a; font-size:13px; margin-top:8px;">
+                    <input type="radio" name="scan_target_select" value="coapplicant" style="accent-color:#0f172a;">
+                    👥 Co-Applicant Details
+                </label>
+            `;
+        }
+
+        Swal.fire({
+            title: '<div style="font-size:16px; font-weight:800; color:#0f172a;">AI Document & Physical Hardware Scanner</div>',
+            html: `
+                <div style="text-align:left; font-size:12.5px; color:#475569; margin-bottom:14px;">
+                    Select target applicant and capture method to auto-extract details into form fields:
+                </div>
+                <div style="margin-bottom:16px; text-align:left;">
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:6px;">1. Target Person</div>
+                    ${targetOptionsHtml}
+                </div>
+                <div style="text-align:left;">
+                    <div style="font-size:11px; font-weight:800; text-transform:uppercase; color:#64748b; margin-bottom:8px;">2. Capture Method</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <button type="button" onclick="triggerFileScanUpload()" style="background:#0f172a; color:#fff; border:none; padding:12px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <i data-lucide="file-up" style="width:16px; height:16px;"></i> Upload Image / PDF
+                        </button>
+                        <button type="button" onclick="triggerHardwarePrinterScan()" style="background:#1e293b; color:#fff; border:1px solid #334155; padding:12px; border-radius:6px; font-weight:700; font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:6px;">
+                            <i data-lucide="printer" style="width:16px; height:16px;"></i> Physical Printer / Scanner
+                        </button>
+                    </div>
+                </div>
+            `,
+            showConfirmButton: false,
+            showCloseButton: true,
+            didOpen: () => {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        });
+    }
+
+    function getSelectedScanTarget() {
+        const radios = document.getElementsByName('scan_target_select');
+        let selected = 'primary';
+        radios.forEach(r => { if (r.checked) selected = r.value; });
+        return selected;
+    }
+
+    function triggerFileScanUpload() {
+        currentScanTarget = getSelectedScanTarget();
+        Swal.close();
+        document.getElementById('ai-scan-file-input').click();
+    }
+
+    function triggerHardwarePrinterScan() {
+        currentScanTarget = getSelectedScanTarget();
+        Swal.close();
+        
+        if (typeof scanner === 'undefined') {
+            Swal.fire({
+                icon: 'info',
+                title: 'Hardware Printer Scanner',
+                text: 'Scanner.js is loading or USB/Network printer scanner is disconnected. You can also select Upload Image/PDF.',
+                confirmButtonColor: '#0f172a'
+            });
+            return;
+        }
+
+        Swal.fire({
+            title: '<div style="font-size:15px; font-weight:800; color:#0f172a;">Connecting Physical Scanner...</div>',
+            html: `
+                <div style="padding:10px 4px; text-align:center;">
+                    <div style="position:relative; width:120px; height:100px; margin:0 auto 16px auto; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                        <div class="scan-laser-line"></div>
+                        <i data-lucide="printer" style="width:36px; height:36px; color:#0f172a;"></i>
+                        <span style="font-size:9.5px; font-weight:800; text-transform:uppercase; color:#0f172a; letter-spacing:0.5px;">Scanner Bed Active</span>
+                    </div>
+                    <div style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+                        Reading Physical Scanner Bed...
+                    </div>
+                    <div style="font-size:11.5px; color:#64748b; margin-bottom:14px;">
+                        Please place document on scanner glass. Feeder is capturing page...
+                    </div>
+                    <div style="background:#e2e8f0; border-radius:3px; height:6px; overflow:hidden; width:100%;">
+                        <div class="scan-progress-bar" style="width: 45%;"></div>
+                    </div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        });
+
+        scanner.scan(function(status, response) {
+            Swal.close();
+            if (!scanner.isScannedSuccessfully(response)) {
+                Swal.fire({ icon: 'info', title: 'Scan Cancelled', text: 'Scanning was cancelled or no physical scanner detected.', confirmButtonColor: '#0f172a' });
+                return;
+            }
+            const images = scanner.getScannedImages(response, true, false);
+            if (images && images.length > 0) {
+                fetch(images[0].src)
+                    .then(res => res.blob())
+                    .then(blob => {
+                        const file = new File([blob], "hardware_printer_scan_" + Date.now() + ".jpg", { type: "image/jpeg" });
+                        handleAiDocScan(file, currentScanTarget);
+                    });
+            }
+        }, {
+            output_settings: [{ type: 'returnurl', format: 'jpg' }]
+        });
+    }
+
+    async function handleAiDocScan(file, targetType = null) {
+        if (!file) return;
+        if (!targetType) targetType = currentScanTarget || 'primary';
+
+        const isCoApp = (targetType === 'coapplicant');
+
+        Swal.fire({
+            title: `<div style="font-size:15px; font-weight:800; color:#0f172a; display:flex; align-items:center; justify-content:center; gap:8px;">
+                <i data-lucide="scan" style="width:18px; height:18px;"></i>
+                Scanning Document for ${isCoApp ? 'Co-Applicant' : 'Primary Applicant'}
+            </div>`,
+            html: `
+                <div style="padding:10px 4px; text-align:center;">
+                    <!-- Laser Scan Animation Box -->
+                    <div style="position:relative; width:120px; height:100px; margin:0 auto 16px auto; background:#f8fafc; border:1.5px solid #cbd5e1; border-radius:8px; overflow:hidden; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;">
+                        <div class="scan-laser-line"></div>
+                        <i data-lucide="file-text" style="width:36px; height:36px; color:#64748b;"></i>
+                        <span style="font-size:9.5px; font-weight:800; text-transform:uppercase; color:#0f172a; letter-spacing:0.5px;">AI OCR Active</span>
+                    </div>
+
+                    <!-- Step-by-step Status Text -->
+                    <div id="scan-step-text" style="font-size:13px; font-weight:700; color:#0f172a; margin-bottom:4px;">
+                        Step 1/3: Reading Document Image...
+                    </div>
+                    <div id="scan-detail-text" style="font-size:11.5px; color:#64748b; margin-bottom:14px;">
+                        Extracting PAN, Aadhaar, Name, DOB, Pincode & Income...
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div style="background:#e2e8f0; border-radius:3px; height:6px; overflow:hidden; width:100%;">
+                        <div id="scan-progress-fill" class="scan-progress-bar" style="width: 25%;"></div>
+                    </div>
+                </div>
+            `,
+            allowOutsideClick: false,
+            showConfirmButton: false,
+            didOpen: () => {
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            }
+        });
+
+        // Update progress step 2 after 600ms
+        const progressTimer = setTimeout(() => {
+            const stepText = document.getElementById('scan-step-text');
+            const detailText = document.getElementById('scan-detail-text');
+            const fillBar = document.getElementById('scan-progress-fill');
+            if (stepText) stepText.innerText = "Step 2/3: Running AI Context Extraction & Pincode Resolution...";
+            if (detailText) detailText.innerText = "Parsing text structures & searching database...";
+            if (fillBar) fillBar.style.width = "65%";
+        }, 600);
+
+        const formData = new FormData();
+        formData.append('document_file', file);
+
+        try {
+            const response = await fetch('api.php?api=extract_document_details', {
+                method: 'POST',
+                body: formData
+            });
+            clearTimeout(progressTimer);
+            
+            const fillBar = document.getElementById('scan-progress-fill');
+            const stepText = document.getElementById('scan-step-text');
+            if (fillBar) fillBar.style.width = "100%";
+            if (stepText) stepText.innerText = "Step 3/3: Auto-filling Form Fields...";
+
+            const data = await response.json();
+            setTimeout(() => { Swal.close(); }, 400);
+
+            if (data && data.success && data.extracted_data) {
+                const ext = data.extracted_data;
+                const filledFields = [];
+
+                if (isCoApp) {
+                    const block = document.getElementById('coapp_block_1') || document.getElementById('co_applicants_container');
+                    
+                    if (ext.customer_name) {
+                        const el = block ? block.querySelector('[name="coapp_name[]"]') : document.querySelector('[name="coapp_name[]"]');
+                        if (el) { el.value = ext.customer_name; highlightField(el); filledFields.push('Co-Applicant Name: ' + ext.customer_name); }
+                    }
+                    if (ext.mobile) {
+                        const el = block ? block.querySelector('[name="coapp_mobile[]"]') : document.querySelector('[name="coapp_mobile[]"]');
+                        if (el) { el.value = ext.mobile; highlightField(el); filledFields.push('Co-App Mobile: ' + ext.mobile); }
+                    }
+                    if (ext.email) {
+                        const el = block ? block.querySelector('[name="coapp_email[]"]') : document.querySelector('[name="coapp_email[]"]');
+                        if (el) { el.value = ext.email; highlightField(el); filledFields.push('Co-App Email: ' + ext.email); }
+                    }
+                    if (ext.pan_number) {
+                        const el = block ? block.querySelector('[name="coapp_pan[]"]') : document.querySelector('[name="coapp_pan[]"]');
+                        if (el) { el.value = ext.pan_number; highlightField(el); filledFields.push('Co-App PAN: ' + ext.pan_number); }
+                    }
+                    if (ext.aadhar_number) {
+                        const el = block ? block.querySelector('[name="coapp_aadhar[]"]') : document.querySelector('[name="coapp_aadhar[]"]');
+                        if (el) { el.value = ext.aadhar_number; highlightField(el); filledFields.push('Co-App Aadhaar: ' + ext.aadhar_number); }
+                    }
+                    if (ext.dob) {
+                        const el = block ? block.querySelector('[name="coapp_dob[]"]') : document.querySelector('[name="coapp_dob[]"]');
+                        if (el) { el.value = ext.dob; highlightField(el); filledFields.push('Co-App DOB: ' + ext.dob); }
+                    }
+                    if (ext.pincode) {
+                        const el = block ? block.querySelector('[name="coapp_pincode[]"]') : document.querySelector('[name="coapp_pincode[]"]');
+                        if (el) {
+                            el.value = ext.pincode;
+                            highlightField(el);
+                            filledFields.push('Co-App Pincode: ' + ext.pincode);
+                            if (typeof verifyPincode === 'function') verifyPincode(ext.pincode, false, 'coapp_pin_status_1', 'coapp_state_1', 'coapp_city_1');
+                        }
+                    }
+                    if (ext.address) {
+                        const el = block ? block.querySelector('[name="coapp_address[]"]') : document.querySelector('[name="coapp_address[]"]');
+                        if (el) { el.value = ext.address; highlightField(el); filledFields.push('Co-App Address: ' + ext.address); }
+                    }
+                    if (ext.monthly_income) {
+                        const el = block ? block.querySelector('[name="coapp_income[]"]') : document.querySelector('[name="coapp_income[]"]');
+                        if (el) { el.value = ext.monthly_income; highlightField(el); filledFields.push('Co-App Income: ₹' + ext.monthly_income); }
+                    }
+                } else {
+                    if (ext.customer_name) {
+                        const el = document.querySelector('[name="customer_name"]');
+                        if (el) { el.value = ext.customer_name; highlightField(el); filledFields.push('Customer Name: ' + ext.customer_name); }
+                    }
+                    if (ext.mobile) {
+                        const el = document.querySelector('[name="mobile"]');
+                        if (el) { el.value = ext.mobile; highlightField(el); filledFields.push('Mobile: ' + ext.mobile); }
+                    }
+                    if (ext.email) {
+                        const el = document.querySelector('[name="email"]');
+                        if (el) { el.value = ext.email; highlightField(el); filledFields.push('Email: ' + ext.email); }
+                    }
+                    if (ext.pan_number) {
+                        const el = document.querySelector('[name="pan_number"]');
+                        if (el) { el.value = ext.pan_number; highlightField(el); filledFields.push('PAN Number: ' + ext.pan_number); }
+                    }
+                    if (ext.aadhar_number) {
+                        const el = document.querySelector('[name="aadhar_number"]');
+                        if (el) { el.value = ext.aadhar_number; highlightField(el); filledFields.push('Aadhaar Number: ' + ext.aadhar_number); }
+                    }
+                    if (ext.dob) {
+                        const el = document.querySelector('[name="dob"]');
+                        if (el) { el.value = ext.dob; highlightField(el); filledFields.push('Date of Birth: ' + ext.dob); }
+                    }
+                    if (ext.pincode) {
+                        const el = document.querySelector('[name="pincode"]');
+                        if (el) {
+                            el.value = ext.pincode;
+                            highlightField(el);
+                            filledFields.push('Pincode: ' + ext.pincode);
+                            if (typeof verifyPincode === 'function') verifyPincode(ext.pincode);
+                        }
+                    }
+                    if (ext.address) {
+                        const el = document.querySelector('[name="address"]');
+                        if (el) { el.value = ext.address; highlightField(el); filledFields.push('Address: ' + ext.address); }
+                    }
+                    if (ext.monthly_income) {
+                        const el = document.querySelector('[name="monthly_income"]');
+                        if (el) { el.value = ext.monthly_income; highlightField(el); filledFields.push('Monthly Income: ₹' + ext.monthly_income); }
+                    }
+                    if (ext.employment_type) {
+                        const el = document.querySelector('[name="employment_type"]');
+                        if (el) { el.value = ext.employment_type; highlightField(el); filledFields.push('Employment Type: ' + ext.employment_type); }
+                    }
+                }
+
+                if (filledFields.length > 0) {
+                    Swal.fire({
+                        icon: 'success',
+                        title: `⚡ ${isCoApp ? 'Co-Applicant' : 'Primary Applicant'} Form Auto-Filled!`,
+                        html: `<div style="text-align:left; font-size:13px; color:#334155;"><b>Extracted Fields (${filledFields.length}):</b><br><ul style="margin-top:6px; padding-left:20px;">${filledFields.map(f => `<li>${f}</li>`).join('')}</ul></div>`,
+                        confirmButtonText: 'Confirm & Continue',
+                        confirmButtonColor: '#0f172a'
+                    });
+                } else {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Document Scanned',
+                        text: 'No matching KYC fields could be automatically recognized in this file. Please verify and fill manually.',
+                        confirmButtonColor: '#0f172a'
+                    });
+                }
+            } else {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Scan Failed',
+                    text: (data && data.error) ? data.error : 'Could not extract document details.',
+                    confirmButtonColor: '#0f172a'
+                });
+            }
+        } catch (e) {
+            Swal.close();
+            console.error("OCR Scan Error:", e);
+            Swal.fire({
+                icon: 'error',
+                title: 'Extraction Error',
+                text: 'An error occurred while parsing the document.',
+                confirmButtonColor: '#0f172a'
+            });
+        }
+
+        const inputEl = document.getElementById('ai-scan-file-input');
+        if (inputEl) inputEl.value = '';
+    }
+
+    function highlightField(el) {
+        if (!el) return;
+        el.style.transition = 'all 0.3s ease';
+        el.style.borderColor = '#0f172a';
+        el.style.boxShadow = '0 0 0 3px rgba(15, 23, 42, 0.15)';
+        setTimeout(() => {
+            el.style.borderColor = '';
+            el.style.boxShadow = '';
+        }, 3500);
+    }
+
     let tsInstances = {};
-    function initTS(elementId) {
+    function initTS(elementId, keepOrder = false) {
         const el = document.getElementById(elementId);
         if (!el) return;
         if (tsInstances[elementId]) {
-            tsInstances[elementId].destroy();
+            try { tsInstances[elementId].destroy(); } catch(e){}
+            delete tsInstances[elementId];
         }
-        tsInstances[elementId] = new TomSelect(el, {
-            create: false,
-            sortField: { field: "text", direction: "asc" }
-        });
+        const config = { create: false };
+        if (!keepOrder) {
+            config.sortField = { field: "text", direction: "asc" };
+        }
+        try {
+            tsInstances[elementId] = new TomSelect(el, config);
+        } catch(err) {
+            console.warn("TomSelect init warning for", elementId, err);
+        }
     }
 
     async function loadCities(stateName, callback = null, cityId = 'city', defaultCity = null) {
@@ -631,7 +1400,7 @@ require_once 'header.php';
         if (!stateName) return;
         
         try {
-            const res = await fetch(`?api=get_cities&state=${encodeURIComponent(stateName)}`);
+            const res = await fetch(`api.php?api=get_cities&state=${encodeURIComponent(stateName)}`);
             const data = await res.json();
             if (data && data.success) {
                 data.cities.forEach(c => {
@@ -668,7 +1437,7 @@ require_once 'header.php';
             if (window.lucide) lucide.createIcons();
             
             try {
-                const res = await fetch(`?api=verify_pincode&pin=${pin}`);
+                const res = await fetch(`api.php?api=verify_pincode&pin=${pin}`);
                 const data = await res.json();
                 
                 if (data && data.success) {
@@ -706,7 +1475,7 @@ require_once 'header.php';
 
     async function loadStates() {
         try {
-            const res = await fetch('?api=get_states');
+            const res = await fetch('api.php?api=get_states');
             const data = await res.json();
             const stateEl = document.getElementById('state');
             stateEl.innerHTML = '<option value="">Select State</option>';
@@ -731,7 +1500,7 @@ require_once 'header.php';
     async function loadSourceDropdowns() {
         try {
             // Load referrals
-            const refRes = await fetch('?api=get_active_referrals');
+            const refRes = await fetch('api.php?api=get_active_referrals');
             const refs = await refRes.json();
             const refDrop = document.getElementById('referral_dropdown');
             refDrop.innerHTML = '<option value="">-- Select Partner --</option>';
@@ -742,7 +1511,7 @@ require_once 'header.php';
             }
 
             // Load employees (using get_users api)
-            const empRes = await fetch('?api=get_users');
+            const empRes = await fetch('api.php?api=get_users');
             const emps = await empRes.json();
             const empDrop = document.getElementById('employee_dropdown');
             empDrop.innerHTML = '<option value="">-- Select Employee --</option>';
@@ -762,19 +1531,113 @@ require_once 'header.php';
         }
     }
 
-    async function saveApplicant(event) {
-        event.preventDefault();
+    function isLoanCompleted(status) {
+        if (!status) return false;
+        const s = String(status).trim().toLowerCase();
+        return s.includes('complete') || s.includes('disburs') || s.includes('close') || s.includes('approved') || s.includes('sanctioned');
+    }
+
+    async function saveApplicant(event, force = false) {
+        if(event) event.preventDefault();
         const form = document.getElementById('applicant-registration-form');
         const formData = new FormData(form);
+        if(force) {
+            formData.append('force_duplicate', '1');
+        }
         
         try {
-            const response = await fetch('?api=save_applicant', {
+            const response = await fetch('api.php?api=save_applicant', {
                 method: 'POST',
                 body: formData
             });
             
             const data = await response.json();
             
+            if (response.status === 409 && data.warning === 'duplicate_detected') {
+                let matchesList = [];
+                if (data.duplicates && Array.isArray(data.duplicates)) {
+                    data.duplicates.forEach(dup => {
+                        if (dup.matches && Array.isArray(dup.matches)) {
+                            dup.matches.forEach(m => {
+                                if (!matchesList.some(item => item.id === m.id || item.loan_id === m.loan_id)) {
+                                    matchesList.push(m);
+                                }
+                            });
+                        }
+                    });
+                }
+
+                let cardsHtml = '';
+                matchesList.forEach(m => {
+                    const loanId = m.loan_id || ('ID #' + m.id);
+                    const name = m.customer_name || 'N/A';
+                    const mobile = m.mobile || 'N/A';
+                    const pan = m.pan_number || 'N/A';
+                    const aad = m.aadhar_number || 'N/A';
+                    const status = m.overall_status || 'Active';
+                    const ltype = m.loan_type ? ` &nbsp;•&nbsp; Loan: <b>${m.loan_type}</b>` : '';
+                    const isCompleted = isLoanCompleted(status);
+                    const reApplyBtnHtml = isCompleted ? `
+                        <button type="button" onclick="Swal.close(); openFastReLoanModal(${m.id}, '${name.replace(/'/g, "\\'")}', '${mobile}', '${pan}', '${loanId}')" style="background:#0f172a; color:#ffffff; border:none; padding:5px 11px; border-radius:6px; font-size:11.5px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 5px rgba(15,23,42,0.2);">
+                            ⚡ Fast Re-Apply (Repeat Loan)
+                        </button>
+                    ` : '';
+
+                    cardsHtml += `
+                        <div style="background:#ffffff; border:1px solid #fee2e2; border-left:4px solid #dc2626; border-radius:8px; padding:12px 14px; margin-bottom:10px; text-align:left; box-shadow:0 2px 6px rgba(0,0,0,0.03);">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div>
+                                    <div style="font-weight:800; font-size:14px; color:#0f172a;">${name}</div>
+                                    <div style="font-size:12px; color:#dc2626; font-weight:700; margin-top:1px; font-family:monospace;">File ID: ${loanId}</div>
+                                </div>
+                                <span style="background:#fee2e2; color:#991b1b; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px;">${status}</span>
+                            </div>
+                            <div style="font-size:12px; color:#475569; margin-top:6px; line-height:1.5;">
+                                <span>Mobile: <b>${mobile}</b></span> &nbsp;•&nbsp; 
+                                <span>PAN: <b>${pan}</b></span> ${aad !== 'N/A' ? `&nbsp;•&nbsp; <span>Aadhaar: <b>${aad}</b></span>` : ''}
+                                ${ltype}
+                            </div>
+                            <div style="margin-top:8px; padding-top:8px; border-top:1px solid #fecaca; display:flex; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                                ${reApplyBtnHtml}
+                                <a href="applicant_documents.php?id=${m.id}" target="_blank" style="background:#dc2626; color:#ffffff; text-decoration:none; padding:5px 11px; border-radius:6px; font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; gap:4px;">
+                                    Open Registered Profile ↗
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                Swal.fire({
+                    title: '<div style="display:flex; align-items:center; gap:10px; text-align:left;"><div style="width:36px; height:36px; background:#fee2e2; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i data-lucide="shield-alert" style="color:#dc2626; width:20px; height:20px;"></i></div><div><div style="font-size:16px; font-weight:800; color:#991b1b;">Applicant Profile Already Registered</div><div style="font-size:12px; color:#64748b; font-weight:normal;">Matching Mobile, PAN, or Aadhaar found in database</div></div></div>',
+                    html: `
+                        <div style="max-height:260px; overflow-y:auto; margin-top:12px;">
+                            ${cardsHtml}
+                        </div>
+                        <div style="font-size:12px; color:#7f1d1d; margin-top:10px; background:#fef2f2; padding:10px; border-radius:6px; border:1px solid #fecaca; text-align:left;">
+                            <b>Note:</b> You can open the registered profile above or click <b>"Create Additional Application"</b> to proceed with a new file.
+                        </div>
+                    `,
+                    showCancelButton: true,
+                    confirmButtonText: 'Create Additional Loan File',
+                    cancelButtonText: 'Cancel',
+                    showDenyButton: matchesList.length > 0,
+                    denyButtonText: 'Open Registered Profile',
+                    confirmButtonColor: '#dc2626',
+                    cancelButtonColor: '#64748b',
+                    denyButtonColor: '#0f172a',
+                    didOpen: () => {
+                        if (typeof lucide !== 'undefined') lucide.createIcons();
+                    }
+                }).then((result) => {
+                    if (result.isConfirmed) {
+                        saveApplicant(null, true);
+                    } else if (result.isDenied && matchesList.length > 0) {
+                        window.open(`applicant_documents.php?id=${matchesList[0].id}`, '_blank');
+                    }
+                });
+                return;
+            }
+
             if (response.ok && data.success) {
                 showNotification(data.message, 'success');
                 setTimeout(() => {
@@ -784,14 +1647,15 @@ require_once 'header.php';
             } else {
                 showNotification(data.error || 'Registration failed.', 'error');
             }
-        } catch (err) {
-            showNotification('Connection failure in applicant registration.', 'error');
+        } catch (error) {
+            console.error('Error:', error);
+            showNotification('Server connection error.', 'error');
         }
     }
 
     async function loadApplicantDetails(id) {
         try {
-            const res = await fetch(`?api=get_applicant&id=${id}`);
+            const res = await fetch(`api.php?api=get_applicant&id=${id}`);
             const data = await res.json();
             if(data && !data.error) {
                 // First load cities for the applicant's state if present
@@ -801,7 +1665,7 @@ require_once 'header.php';
 
                 const populateFields = (obj) => {
                     for (let key in obj) {
-                        if (key === 'pd_report_path') continue;
+                        if (key === 'pd_report_path' || key === 'id' || key === 'applicant_id') continue;
                         const el = document.querySelector(`[name="${key}"]`);
                         if (el) {
                             let val = obj[key];
@@ -836,6 +1700,13 @@ require_once 'header.php';
                 };
                 
                 populateFields(data);
+
+                if (data.employment_type) {
+                    handleEmploymentTypeChange(data.employment_type);
+                }
+                if (data.tenure_months) {
+                    calcTenureFromMonths(data.tenure_months);
+                }
                 
                 if (data.pd_report && (data.pd_report.pd_conducted_by || data.pd_report.final_pd_status)) {
                     document.getElementById('add_pd_toggle').checked = true;
@@ -940,7 +1811,240 @@ require_once 'header.php';
         }
     }
 
+    function openFastReLoanModal(existingId, name, mobile, pan, loanId) {
+        const subTypes = {
+            'Home Loan': ['Home Purchase', 'Plot Purchase', 'New Flat Purchase', 'Purchase + Construction', 'Home Construction', 'Renovation', 'Balance Transfer (Top-Up)'],
+            'Personal Loan': ['Medical Emergency', 'Wedding', 'Travel', 'Debt Consolidation'],
+            'Vehicle Loan': ['Two-Wheeler (New)', 'Two-Wheeler (Used)', 'Four-Wheeler (New)', 'Commercial Vehicle'],
+            'Gold Loan': ['Standard Gold Jewel Loan', 'Agricultural Gold Loan'],
+            'Business Loan': ['Working Capital', 'Equipment Machinery Purchase', 'MSME Expansion', 'Merchant Overdraft'],
+            'Education Loan': ['Inland Studies (India)', 'Overseas Studies (Foreign)']
+        };
+
+        const updateSubTypesModal = () => {
+            const typeEl = document.getElementById('reloan_type');
+            const subEl = document.getElementById('reloan_sub_type');
+            if (!typeEl || !subEl) return;
+            const val = typeEl.value;
+            subEl.innerHTML = '';
+            if (subTypes[val]) {
+                subTypes[val].forEach(st => {
+                    const opt = document.createElement('option');
+                    opt.value = st;
+                    opt.textContent = st;
+                    subEl.appendChild(opt);
+                });
+            }
+        };
+
+        const safeName = (name || 'Applicant').replace(/'/g, "\\'");
+
+        Swal.fire({
+            title: '<div style="display:flex; align-items:center; gap:10px; text-align:left;"><div style="width:36px; height:36px; background:#0f172a; border-radius:8px; display:flex; align-items:center; justify-content:center; flex-shrink:0;"><i data-lucide="zap" style="color:#38bdf8; width:20px; height:20px;"></i></div><div><div style="font-size:16px; font-weight:800; color:#0f172a;">Fast Re-Loan Application</div><div style="font-size:12px; color:#64748b; font-weight:normal;">Re-using verified KYC & Vault docs for client <b>' + (name || 'Applicant') + '</b></div></div></div>',
+            html: `
+                <div style="text-align:left; font-family:sans-serif; margin-top:10px;">
+                    <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <div style="font-size:13px; font-weight:700; color:#0f172a;">${name || 'Client'}</div>
+                            <div style="font-size:11.5px; color:#64748b; margin-top:1px;">Mobile: <b>${mobile || 'N/A'}</b> &nbsp;•&nbsp; PAN: <b>${pan || 'N/A'}</b></div>
+                        </div>
+                        <span style="background:#0f172a; color:#ffffff; font-size:11px; font-weight:700; padding:3px 8px; border-radius:6px; font-family:monospace;">Past File: ${loanId || 'N/A'}</span>
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:12px;">
+                        <div>
+                            <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Select New Loan Category *</label>
+                            <select id="reloan_type" class="swal2-input" style="margin:0; width:100%; font-size:13px; height:42px; border-radius:6px;" onchange="window._updateReloanSubTypes()">
+                                <option value="Home Loan" selected>Home Loan</option>
+                                <option value="Personal Loan">Personal Loan</option>
+                                <option value="Business Loan">Business Loan</option>
+                                <option value="Vehicle Loan">Vehicle Loan</option>
+                                <option value="Gold Loan">Gold Loan</option>
+                                <option value="Education Loan">Education Loan</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Select Loan Sub-Type *</label>
+                            <select id="reloan_sub_type" class="swal2-input" style="margin:0; width:100%; font-size:13px; height:42px; border-radius:6px;">
+                                <option value="Home Purchase">Home Purchase</option>
+                                <option value="Plot Purchase">Plot Purchase</option>
+                                <option value="New Flat Purchase">New Flat Purchase</option>
+                                <option value="Home Construction">Home Construction</option>
+                                <option value="Balance Transfer (Top-Up)">Balance Transfer (Top-Up)</option>
+                            </select>
+                        </div>
+
+                        <div style="display:flex; gap:10px;">
+                            <div style="flex:1;">
+                                <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">New Loan Amount (₹) *</label>
+                                <input type="number" id="reloan_amount" placeholder="e.g. 2500000" class="swal2-input" style="margin:0; width:100%; font-size:13px; height:42px; border-radius:6px;">
+                            </div>
+                            <div style="flex:1;">
+                                <label style="font-size:12px; font-weight:700; color:#334155; display:block; margin-bottom:4px;">Tenure (Years) *</label>
+                                <input type="number" id="reloan_years" placeholder="e.g. 10" step="0.5" class="swal2-input" style="margin:0; width:100%; font-size:13px; height:42px; border-radius:6px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `,
+            showCancelButton: true,
+            confirmButtonText: '🚀 Launch New File & Re-Submit to Bank Pipeline',
+            cancelButtonText: 'Cancel',
+            confirmButtonColor: '#09090b',
+            cancelButtonColor: '#64748b',
+            didOpen: () => {
+                window._updateReloanSubTypes = updateSubTypesModal;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            },
+            preConfirm: () => {
+                const loanType = document.getElementById('reloan_type').value;
+                const loanSubType = document.getElementById('reloan_sub_type').value;
+                const amount = document.getElementById('reloan_amount').value;
+                const years = document.getElementById('reloan_years').value;
+
+                if (!amount || parseFloat(amount) <= 0) {
+                    Swal.showValidationMessage('Please enter new requested loan amount');
+                    return false;
+                }
+                if (!years || parseFloat(years) <= 0) {
+                    Swal.showValidationMessage('Please enter loan tenure in years');
+                    return false;
+                }
+
+                return {
+                    existing_applicant_id: existingId,
+                    loan_type: loanType,
+                    loan_sub_type: loanSubType,
+                    loan_amount_requested: amount,
+                    tenure_years: years
+                };
+            }
+        }).then(async (result) => {
+            if (result.isConfirmed && result.value) {
+                Swal.fire({
+                    title: 'Generating New Loan File...',
+                    text: 'Cloning profile details & linking verified KYC documents...',
+                    allowOutsideClick: false,
+                    didOpen: () => Swal.showLoading()
+                });
+
+                try {
+                    const fd = new FormData();
+                    for (let k in result.value) {
+                        fd.append(k, result.value[k]);
+                    }
+
+                    const res = await fetch('api.php?api=reapply_applicant', {
+                        method: 'POST',
+                        body: fd
+                    });
+                    const data = await res.json();
+
+                    if (res.ok && data.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '🎉 Re-Loan File Created!',
+                            html: `<b>New File ID: ${data.loan_id}</b><br><span style="font-size:13px; color:#64748b;">${data.cloned_docs_count} verified KYC documents linked to new file!</span>`,
+                            confirmButtonText: 'Proceed to Bank Submission Pipeline 🚀',
+                            confirmButtonColor: '#09090b'
+                        }).then(() => {
+                            window.location.href = `applicant_documents.php?id=${data.id}`;
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'error',
+                            title: 'Creation Failed',
+                            text: data.error || 'Failed to create re-loan file.',
+                            confirmButtonColor: '#09090b'
+                        });
+                    }
+                } catch (err) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Network Error',
+                        text: 'Failed to connect to server.',
+                        confirmButtonColor: '#09090b'
+                    });
+                }
+            }
+        });
+    }
+
+    async function checkLiveDuplicateApplicant() {
+        const mobileEl = document.querySelector('[name="mobile"]');
+        const panEl = document.querySelector('[name="pan_number"]');
+        const aadEl = document.querySelector('[name="aadhar_number"]');
+        const appId = document.getElementById('applicant_id') ? document.getElementById('applicant_id').value : '';
+
+        if (appId) return; // Only check for new registrations
+
+        const mob = mobileEl ? mobileEl.value.trim() : '';
+        const pan = panEl ? panEl.value.trim() : '';
+        const aad = aadEl ? aadEl.value.trim() : '';
+
+        if (mob.length !== 10 && pan.length !== 10 && aad.length !== 12) return;
+
+        try {
+            const res = await fetch(`api.php?api=check_duplicate_applicant&mobile=${encodeURIComponent(mob)}&pan=${encodeURIComponent(pan)}&aadhar=${encodeURIComponent(aad)}`);
+            const data = await res.json();
+
+            let banner = document.getElementById('live-duplicate-banner');
+
+            if (data && data.success && data.is_duplicate && data.duplicates.length > 0) {
+                const match = data.duplicates[0];
+                const safeName = (match.customer_name || '').replace(/'/g, "\\'");
+                const isCompleted = isLoanCompleted(match.overall_status);
+                const reApplyBtnHtml = isCompleted ? `
+                    <button type="button" onclick="openFastReLoanModal(${match.id}, '${safeName}', '${match.mobile}', '${match.pan_number}', '${match.loan_id}')" style="background: #0f172a; color: #ffffff; border: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 2px 6px rgba(15,23,42,0.25);">
+                        ⚡ Fast Re-Apply (Repeat Loan)
+                    </button>
+                ` : '';
+
+                if (!banner) {
+                    banner = document.createElement('div');
+                    banner.id = 'live-duplicate-banner';
+                    banner.style.cssText = 'background: #fef2f2; border: 1px solid #fecaca; border-left: 4px solid #dc2626; border-radius: 10px; padding: 14px 18px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 4px 14px rgba(220, 38, 38, 0.08);';
+                    const mainCard = document.querySelector('#applicant-registration-form .card') || document.getElementById('applicant-registration-form');
+                    if (mainCard) mainCard.insertBefore(banner, mainCard.firstChild);
+                }
+
+                banner.innerHTML = `
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <div style="width: 36px; height: 36px; background: #fee2e2; border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i data-lucide="shield-alert" style="width: 19px; height: 19px; color: #dc2626;"></i>
+                        </div>
+                        <div>
+                            <div style="font-weight: 800; font-size: 13.5px; color: #991b1b; letter-spacing: -0.01em;">
+                                APPLICANT PROFILE ALREADY REGISTERED (${match.matched_by.toUpperCase()})
+                            </div>
+                            <div style="font-size: 12px; color: #7f1d1d; margin-top: 2px;">
+                                Name: <b>${match.customer_name}</b> &nbsp;•&nbsp; File ID: <span style="font-family: monospace; font-weight: 700;">${match.loan_id}</span> &nbsp;•&nbsp; Stage: <b>${match.overall_status || 'Active'}</b>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                        ${reApplyBtnHtml}
+                        <a href="applicant_documents.php?id=${match.id}" target="_blank" style="background: #dc2626; color: #ffffff; text-decoration: none; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;">
+                            View Profile ↗
+                        </a>
+                    </div>
+                `;
+                if (typeof lucide !== 'undefined') lucide.createIcons();
+            } else if (banner) {
+                banner.remove();
+            }
+        } catch (e) {
+            console.error('Error checking duplicate applicant', e);
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
+        // Force initial display sync for co-applicant section
+        toggleCoApplicantSection();
+        setTimeout(toggleCoApplicantSection, 100);
+        setTimeout(toggleCoApplicantSection, 400);
+
         await loadStates();
         await loadSourceDropdowns();
         
@@ -948,11 +2052,190 @@ require_once 'header.php';
         initTS('loan_type');
         initTS('loan_sub_type');
         initTS('lead_source');
-        
-        const id = document.getElementById('applicant_id').value;
-        if(id) {
-            loadApplicantDetails(id);
+
+        // Attach live duplicate check on key identity fields
+        ['mobile', 'pan_number', 'aadhar_number'].forEach(fieldName => {
+            const el = document.querySelector(`[name="${fieldName}"]`);
+            if (el) {
+                el.addEventListener('blur', checkLiveDuplicateApplicant);
+                el.addEventListener('change', checkLiveDuplicateApplicant);
+            }
+        });
+
+        // Hook up change listeners for smart preview
+        const empSelect = document.querySelector('[name="employment_type"]');
+        if (empSelect) empSelect.addEventListener('change', updateSmartDocPreview);
+        const coAppCheck = document.getElementById('has_co_applicant');
+        if (coAppCheck) {
+            coAppCheck.addEventListener('change', function() {
+                toggleCoApplicantSection();
+                if (typeof updateSmartDocPreview === 'function') updateSmartDocPreview();
+            });
+            coAppCheck.addEventListener('click', function() {
+                setTimeout(toggleCoApplicantSection, 10);
+            });
         }
+        const subTypeSelect = document.getElementById('loan_sub_type');
+        if (subTypeSelect) subTypeSelect.addEventListener('change', updateSmartDocPreview);
+        
+        // --- HIGH-PERFORMANCE KEYBOARD CONTROLS & NAVIGATION ENGINE ---
+        function getNavigableFormControls() {
+            const form = document.getElementById('applicant-registration-form');
+            if (!form) return [];
+
+            const rawControls = Array.from(form.querySelectorAll('input:not([type="hidden"]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button[type="submit"]'));
+            
+            return rawControls.filter(el => {
+                // If it's a select element managed by TomSelect
+                if (el.tagName.toLowerCase() === 'select' && typeof tsInstances !== 'undefined' && tsInstances[el.id]) {
+                    const ts = tsInstances[el.id];
+                    const wrapper = ts ? ts.wrapper : null;
+                    return wrapper && wrapper.offsetWidth > 0 && wrapper.offsetHeight > 0 && getComputedStyle(wrapper).display !== 'none';
+                }
+
+                // Check standard element visibility
+                if (el.offsetWidth === 0 || el.offsetHeight === 0) return false;
+                const style = getComputedStyle(el);
+                if (style.display === 'none' || style.visibility === 'hidden') return false;
+
+                // Check parent section visibility (e.g. hidden co-applicant or PD wrappers)
+                let parent = el.parentElement;
+                while (parent && parent !== form) {
+                    if (getComputedStyle(parent).display === 'none') return false;
+                    parent = parent.parentElement;
+                }
+
+                return true;
+            });
+        }
+
+        function getCurrentFocusedControl(controls) {
+            const active = document.activeElement;
+            if (!active) return -1;
+
+            // Check if active element is inside a TomSelect dropdown container
+            if (typeof tsInstances !== 'undefined') {
+                for (let id in tsInstances) {
+                    const ts = tsInstances[id];
+                    if (ts && ts.wrapper && (ts.wrapper.contains(active) || (ts.control && ts.control.contains(active)))) {
+                        const selectEl = document.getElementById(id);
+                        return controls.indexOf(selectEl);
+                    }
+                }
+            }
+
+            return controls.indexOf(active);
+        }
+
+        function focusTargetControl(targetEl) {
+            if (!targetEl) return;
+
+            if (targetEl.tagName.toLowerCase() === 'select' && typeof tsInstances !== 'undefined' && tsInstances[targetEl.id]) {
+                const ts = tsInstances[targetEl.id];
+                ts.focus();
+                if (ts.wrapper) {
+                    ts.wrapper.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            } else {
+                targetEl.focus();
+                if (typeof targetEl.select === 'function' && targetEl.type !== 'checkbox' && targetEl.type !== 'radio' && targetEl.type !== 'submit') {
+                    try { targetEl.select(); } catch(e){}
+                }
+                targetEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+
+            // High-visibility focus indicator
+            if (typeof highlightField === 'function') {
+                const highlightEl = (targetEl.tagName.toLowerCase() === 'select' && typeof tsInstances !== 'undefined' && tsInstances[targetEl.id]) ? tsInstances[targetEl.id].wrapper : targetEl;
+                highlightField(highlightEl);
+            }
+        }
+
+        document.addEventListener('keydown', function(e) {
+            const form = document.getElementById('applicant-registration-form');
+            if (!form) return;
+
+            // Prevent intercepting keyboard shortcuts when SweetAlert modal is open
+            if (document.querySelector('.swal2-container')) return;
+
+            // 1. Quick Save: Ctrl + S or Cmd + S
+            if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) {
+                e.preventDefault();
+                const submitBtn = form.querySelector('button[type="submit"]');
+                if (submitBtn) submitBtn.click();
+                else form.requestSubmit();
+                return;
+            }
+
+            // 2. Focus Top Field: Escape key
+            if (e.key === 'Escape') {
+                const controls = getNavigableFormControls();
+                if (controls.length > 0) {
+                    e.preventDefault();
+                    focusTargetControl(controls[0]);
+                }
+                return;
+            }
+
+            // 3. Jump Section: Alt + 1..6
+            if (e.altKey && e.key >= '1' && e.key <= '6') {
+                e.preventDefault();
+                const secNum = parseInt(e.key, 10);
+                let targetEl = null;
+                if (secNum === 1) targetEl = document.querySelector('[name="customer_name"]');
+                else if (secNum === 2) targetEl = document.querySelector('[name="pincode"]');
+                else if (secNum === 3) targetEl = document.querySelector('[name="pan_number"]');
+                else if (secNum === 4) targetEl = document.getElementById('has_co_applicant');
+                else if (secNum === 5) targetEl = document.getElementById('add_pd_toggle');
+                else if (secNum === 6) targetEl = document.getElementById('loan_type');
+
+                if (targetEl) {
+                    focusTargetControl(targetEl);
+                }
+                return;
+            }
+
+            // 4. Enter / Shift + Enter Navigation
+            if (e.key === 'Enter') {
+                const controls = getNavigableFormControls();
+                const currIdx = getCurrentFocusedControl(controls);
+
+                if (currIdx === -1) return; // Focused outside form
+
+                const currentEl = controls[currIdx];
+
+                // If inside textarea, allow standard newline unless Ctrl key is held
+                if (currentEl.tagName.toLowerCase() === 'textarea' && !e.ctrlKey) {
+                    return;
+                }
+
+                // If inside TomSelect dropdown and options list is currently open, let TomSelect handle Enter to pick option
+                if (currentEl.tagName.toLowerCase() === 'select' && typeof tsInstances !== 'undefined' && tsInstances[currentEl.id]) {
+                    const ts = tsInstances[currentEl.id];
+                    if (ts && ts.isOpen) {
+                        return; // TomSelect processes option selection
+                    }
+                }
+
+                // If focused directly on submit button, let standard click submit the form
+                if (currentEl.type === 'submit' || currentEl.tagName.toLowerCase() === 'button') {
+                    return;
+                }
+
+                e.preventDefault();
+
+                const targetIdx = e.shiftKey ? currIdx - 1 : currIdx + 1;
+                if (targetIdx >= 0 && targetIdx < controls.length) {
+                    focusTargetControl(controls[targetIdx]);
+                }
+            }
+        });
+
+        const id = document.getElementById('applicant_id').value;
+        if (id) {
+            await loadApplicantDetails(id);
+        }
+        updateSmartDocPreview();
     });
 </script>
 

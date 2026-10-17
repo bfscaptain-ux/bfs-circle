@@ -15,9 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // Fetch Clients (Applicants) linked to this builder
-$stmt_clients = $db->prepare("SELECT a.*, p.project_name FROM applicants a LEFT JOIN builder_projects p ON a.project_id = p.id WHERE a.referral_id = ? ORDER BY a.created_at DESC");
-$stmt_clients->execute([$referral_id]);
-$clients = $stmt_clients->fetchAll();
+$clients = [];
+if (!empty($referral_id)) {
+    $stmt_clients = $db->prepare("SELECT a.*, p.project_name FROM applicants a LEFT JOIN builder_projects p ON a.project_id = p.id WHERE a.referral_id = ? AND a.referral_id != '' ORDER BY a.created_at DESC");
+    $stmt_clients->execute([$referral_id]);
+    $clients = $stmt_clients->fetchAll();
+}
 ?>
 
 <div style="margin-bottom: 24px;">

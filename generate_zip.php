@@ -67,8 +67,13 @@ if ($applicant['sanctioned_amount'] > 0) {
 
 $zip->addFromString("00_Applicant_Profile.txt", $profile_text);
 
-// 2. Add Documents
-$stmt_docs = $db->prepare("SELECT * FROM applicant_documents WHERE applicant_id = ?");
+// 2. Add Documents organized into clean categorized folders
+$stmt_docs = $db->prepare("
+    SELECT d.*, c.full_name as coapp_name 
+    FROM applicant_documents d 
+    LEFT JOIN co_applicants c ON d.owner_id = c.id 
+    WHERE d.applicant_id = ?
+");
 $stmt_docs->execute([$id]);
 $documents = $stmt_docs->fetchAll(PDO::FETCH_ASSOC);
 
@@ -79,18 +84,31 @@ foreach ($documents as $doc) {
         $ext = pathinfo($file_path, PATHINFO_EXTENSION);
         $safe_name = preg_replace('/[^A-Za-z0-9_-]/', '_', $doc['document_name']);
         
-        // Prevent name collision
-        $doc_name = $doc['document_category'] . "_" . $safe_name;
-        if (isset($added_files[$doc_name])) {
-            $added_files[$doc_name]++;
-            $doc_name .= "_" . $added_files[$doc_name];
+        $cat = $doc['document_category'] ?? 'Other';
+        $subfolder = '05_Other_Documents';
+        if ($doc['owner_type'] === 'CoApplicant') {
+            $subfolder = '04_Co_Applicants';
+        } elseif (stripos($cat, 'KYC') !== false) {
+            $subfolder = '01_Basic_KYC';
+        } elseif (stripos($cat, 'Income') !== false || stripos($cat, 'Business') !== false) {
+            $subfolder = '02_Income_Financials';
+        } elseif (stripos($cat, 'Property') !== false || stripos($cat, 'Asset') !== false) {
+            $subfolder = '03_Property_Asset_Docs';
+        } elseif (stripos($cat, 'Vehicle') !== false) {
+            $subfolder = '03_Vehicle_Documents';
+        }
+        
+        $doc_name = $safe_name;
+        if (isset($added_files[$subfolder . '/' . $doc_name])) {
+            $added_files[$subfolder . '/' . $doc_name]++;
+            $doc_name .= "_" . $added_files[$subfolder . '/' . $doc_name];
         } else {
-            $added_files[$doc_name] = 1;
+            $added_files[$subfolder . '/' . $doc_name] = 1;
         }
         
         $doc_name .= "." . $ext;
         
-        $zip->addFile($file_path, "Documents/" . $doc_name);
+        $zip->addFile($file_path, $subfolder . "/" . $doc_name);
     }
 }
 

@@ -1,6 +1,8 @@
 <?php
-require_once '../config.php';
-if (!isset($_SESSION['user_id'])) { header("Location: login.php"); exit; }
+define('IS_SUBFOLDER', true);
+require_once __DIR__ . '/../config.php';
+require_role(['Staff']);
+
 $username = $_SESSION['username'];
 $user_id = $_SESSION['user_id'];
 

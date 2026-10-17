@@ -1,14 +1,10 @@
 <?php
 require_once 'config.php';
-
-// Only Admin should access this
-if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'Admin') {
-    die("Access Denied. Admins only.");
-}
-
-$page_title = 'Commission Master';
-$page_subtitle = 'Configure dynamic bank payouts & commissions for Phase 4 auto-calculation';
-require_once 'header.php';
+require_role(['Admin'], false);
+// Seamless redirect to Unified Payout & Commission Center
+header('Location: payout_distribution.php?tab=bank_tracker');
+exit;
+?>
 
 // Fetch existing settings
 $stmt = $db->query("SELECT * FROM bank_payout_settings ORDER BY bank_name ASC, loan_type ASC");
@@ -265,7 +261,7 @@ async function saveRule(e) {
     
     const fd = new FormData(e.target);
     try {
-        const res = await fetch('?api=save_payout_rule', { method:'POST', body:fd });
+        const res = await fetch('api.php?api=save_payout_rule', { method:'POST', body:fd });
         const data = await res.json();
         if(data.success) location.reload(); else alert(data.error || 'Error saving rule');
     } catch(err) { alert('Network error'); }
@@ -278,7 +274,7 @@ async function deleteRule(id) {
     if(!confirm("Are you sure you want to delete this payout rule?")) return;
     const fd = new FormData(); fd.append('id', id);
     try {
-        const res = await fetch('?api=delete_payout_rule', { method:'POST', body:fd });
+        const res = await fetch('api.php?api=delete_payout_rule', { method:'POST', body:fd });
         const data = await res.json();
         if(data.success) location.reload(); else alert(data.error);
     } catch(err) { alert('Network error'); }

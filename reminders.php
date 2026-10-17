@@ -1,8 +1,11 @@
 <?php
 require_once __DIR__ . '/config.php';
+require_role(['Admin', 'RM']);
+
 
 $page_title = "Reminders & Tasks";
-$page_subtitle = "All your follow-ups in one place — Leads, Bankers, Referrals & More";
+$page_subtitle = "";
+$hide_main_header = true;
 require_once __DIR__ . '/header.php';
 
 $staff_list = $db->query("SELECT username FROM users WHERE is_active=1 ORDER BY username")->fetchAll(PDO::FETCH_COLUMN);
@@ -122,22 +125,23 @@ $is_admin = ($_SESSION['role'] ?? '') === 'Admin';
 }
 
 /* ADD REMINDER MODAL */
-.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 9998; display: none; align-items: center; justify-content: center; padding: 20px; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 9998; display: none; align-items: center; justify-content: center; padding: 20px; }
 .modal-overlay.active { display: flex; }
-.modal-box { background: white; border-radius: 16px; width: 100%; max-width: 560px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); overflow: hidden; animation: slideUpFade 0.3s cubic-bezier(0.16,1,0.3,1); }
-.modal-header { padding: 18px 22px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; background: var(--primary); color: white; }
-.modal-header h3 { margin: 0; font-size: 16px; font-weight: 700; }
-.modal-close { background: none; border: none; color: white; opacity: 0.7; cursor: pointer; font-size: 22px; line-height: 1; padding: 0; }
-.modal-close:hover { opacity: 1; }
-.modal-body { padding: 22px; display: flex; flex-direction: column; gap: 14px; max-height: 75vh; overflow-y: auto; }
-.modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.field-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 0.4px; }
-.field-input { width: 100%; padding: 9px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 13.5px; color: var(--text-primary); background: white; outline: none; transition: border 0.2s; box-sizing: border-box; }
-.field-input:focus { border-color: var(--primary); }
-.modal-footer { padding: 14px 22px; border-top: 1px solid var(--border); display: flex; gap: 10px; justify-content: flex-end; background: var(--bg-main); }
-.modal-btn-save { background: var(--primary); color: white; border: none; padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 14px; cursor: pointer; transition: opacity 0.2s; }
-.modal-btn-save:hover { opacity: 0.88; }
-.modal-btn-cancel { background: white; color: var(--text-primary); border: 1px solid var(--border); padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 14px; cursor: pointer; }
+.modal-box { background: white; border-radius: 18px; width: 100%; max-width: 560px; box-shadow: 0 25px 65px rgba(15, 23, 42, 0.28); border: 1px solid #e2e8f0; overflow: hidden; animation: slideUpFade 0.28s cubic-bezier(0.16,1,0.3,1); }
+.modal-header { padding: 18px 24px; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; background: #0f172a; color: white; }
+.modal-header h3 { margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -0.2px; display: flex; align-items: center; gap: 8px; }
+.modal-close { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 20px; line-height: 1; padding: 4px; border-radius: 6px; transition: all 0.15s; }
+.modal-close:hover { color: #ffffff; background: rgba(255,255,255,0.1); }
+.modal-body { padding: 24px; display: flex; flex-direction: column; gap: 15px; max-height: 75vh; overflow-y: auto; }
+.modal-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.field-label { font-size: 11.5px; font-weight: 700; color: #64748b; margin-bottom: 5px; display: block; text-transform: uppercase; letter-spacing: 0.5px; }
+.field-input { width: 100%; padding: 10px 13px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 13.5px; color: #0f172a; background: white; outline: none; transition: all 0.2s; box-sizing: border-box; }
+.field-input:focus { border-color: #0f172a; box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08); }
+.modal-footer { padding: 16px 24px; border-top: 1px solid #e2e8f0; display: flex; gap: 10px; justify-content: flex-end; background: #f8fafc; }
+.modal-btn-save { background: #0f172a; color: white; border: 1px solid #0f172a; padding: 10px 22px; border-radius: 8px; font-weight: 700; font-size: 13.5px; cursor: pointer; transition: all 0.2s; box-shadow: 0 2px 6px rgba(15,23,42,0.15); display: inline-flex; align-items: center; gap: 6px; }
+.modal-btn-save:hover { background: #1e293b; border-color: #1e293b; transform: translateY(-1px); }
+.modal-btn-cancel { background: white; color: #475569; border: 1px solid #cbd5e1; padding: 10px 18px; border-radius: 8px; font-weight: 600; font-size: 13.5px; cursor: pointer; transition: all 0.15s; }
+.modal-btn-cancel:hover { background: #f1f5f9; color: #0f172a; }
 
 /* Entity search results */
 .entity-results { border: 1px solid var(--border); border-radius: 8px; background: white; box-shadow: 0 8px 20px rgba(0,0,0,0.1); max-height: 200px; overflow-y: auto; display: none; position: absolute; z-index: 200; width: 100%; left: 0; top: 100%; }
@@ -162,28 +166,201 @@ $is_admin = ($_SESSION['role'] ?? '') === 'Admin';
 .cat-chip.active { background: var(--primary); color: white; border-color: var(--primary); }
 .cat-chip:hover:not(.active) { background: var(--bg-main); }
 
-/* Floating Add Button */
-.fab-btn {
-    position: fixed;
-    bottom: 28px;
-    right: 28px;
-    z-index: 500;
-    background: var(--primary);
-    color: white;
-    border: none;
-    border-radius: 50px;
-    padding: 14px 20px;
-    font-size: 14px;
-    font-weight: 700;
-    cursor: pointer;
+/* Executive Topbar */
+.rem-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-bottom: 22px;
+    padding-bottom: 4px;
+}
+.rem-title-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    box-shadow: 0 8px 24px rgba(15,23,42,0.3);
-    transition: all 0.2s;
+    gap: 10px;
+    margin-bottom: 4px;
 }
-.fab-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(15,23,42,0.4); }
-.fab-btn i { width: 18px; height: 18px; }
+.rem-title {
+    font-size: 21px;
+    font-weight: 800;
+    color: var(--text-primary);
+    margin: 0;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+}
+.rem-badge {
+    background: #f1f5f9;
+    color: #475569;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 9px;
+    border-radius: 6px;
+    border: 1px solid #e2e8f0;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.rem-subtitle {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin: 0;
+    font-weight: 500;
+}
+.rem-actions-top {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.rem-view-pills {
+    display: flex;
+    background: #f1f5f9;
+    padding: 3px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+}
+.rem-view-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+.rem-view-pill:hover {
+    color: var(--text-primary);
+}
+.rem-view-pill.active {
+    background: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.15);
+}
+.rem-btn-header {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 36px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: #ffffff;
+    color: var(--text-primary);
+    transition: all 0.18s ease;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.02);
+}
+.rem-btn-header:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    transform: translateY(-1px);
+}
+.rem-btn-header.rem-btn-primary {
+    background: #0f172a;
+    color: #ffffff;
+    border-color: #0f172a;
+}
+.rem-btn-header.rem-btn-primary:hover {
+    background: #1e293b;
+    border-color: #1e293b;
+}
+
+/* Card Delete & Contact Buttons */
+.rem-btn-delete {
+    background: #fff1f2 !important;
+    color: #e11d48 !important;
+    border: 1px solid #fecdd3 !important;
+    padding: 5px 8px !important;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.rem-btn-delete:hover {
+    background: #ffe4e6 !important;
+    border-color: #fda4af !important;
+    color: #be123c !important;
+    transform: translateY(-1px);
+}
+.rem-quick-contact {
+    display: flex;
+    gap: 6px;
+    margin-top: 6px;
+    margin-bottom: 2px;
+}
+.rem-contact-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    text-decoration: none;
+    transition: all 0.15s ease;
+}
+.rem-contact-call {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+.rem-contact-call:hover {
+    background: #d1fae5;
+}
+.rem-contact-wa {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+}
+.rem-contact-wa:hover {
+    background: #dcfce7;
+}
+
+/* List View Table */
+.rem-list-container {
+    background: #ffffff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow-x: auto;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+}
+.rem-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+.rem-table th {
+    background: #f8fafc;
+    color: var(--text-muted);
+    font-weight: 700;
+    font-size: 11.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+}
+.rem-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid #f1f5f9;
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+.rem-table tr:last-child td {
+    border-bottom: none;
+}
+.rem-table tr:hover td {
+    background: #f8fafc;
+}
 
 @media (max-width: 900px) {
     .rem-kpi-row  { grid-template-columns: 1fr 1fr; }
@@ -193,6 +370,33 @@ $is_admin = ($_SESSION['role'] ?? '') === 'Admin';
 </style>
 
 <div class="view-container rem-hub">
+
+    <!-- EXECUTIVE TOPBAR -->
+    <div class="rem-topbar">
+        <div class="rem-title-area">
+            <div class="rem-title-row">
+                <h1 class="rem-title">Reminders &amp; Tasks</h1>
+                <span class="rem-badge">Active Queue</span>
+            </div>
+            <p class="rem-subtitle">Unified follow-up desk for leads, lender escalations &amp; partner operations</p>
+        </div>
+        <div class="rem-actions-top">
+            <div class="rem-view-pills">
+                <button class="rem-view-pill active" id="btnViewBoard" onclick="switchRemView('board')">
+                    <i data-lucide="kanban" style="width:13px;height:13px;"></i> Board
+                </button>
+                <button class="rem-view-pill" id="btnViewList" onclick="switchRemView('list')">
+                    <i data-lucide="list" style="width:13px;height:13px;"></i> List
+                </button>
+            </div>
+            <button onclick="loadReminders()" class="rem-btn-header" title="Refresh Queue">
+                <i data-lucide="refresh-cw" style="width:13px;height:13px;"></i> Refresh
+            </button>
+            <button onclick="openAddModal()" class="rem-btn-header rem-btn-primary">
+                <i data-lucide="plus" style="width:14px;height:14px;"></i> New Reminder
+            </button>
+        </div>
+    </div>
 
     <!-- KPI CARDS -->
     <div class="rem-kpi-row" id="rem-kpi-row">
@@ -227,7 +431,7 @@ $is_admin = ($_SESSION['role'] ?? '') === 'Admin';
             <option value="Banker">Banker</option>
             <option value="Referral">Referral Partner</option>
             <option value="Pre-Lead">Pre-Lead</option>
-                          <option value="Staff">Staff / Employee</option>
+            <option value="Staff">Staff / Employee</option>
             <option value="General">General Task</option>
         </select>
         
@@ -278,12 +482,28 @@ $is_admin = ($_SESSION['role'] ?? '') === 'Admin';
             <div class="rem-col-body" id="col-upcoming"></div>
         </div>
     </div>
-</div>
 
-<!-- FLOATING ADD BUTTON -->
-<button class="fab-btn" onclick="openAddModal()">
-    <i data-lucide="bell-plus"></i> New Task
-</button>
+    <!-- LIST VIEW TABLE -->
+    <div class="rem-list-container" id="rem-list-container" style="display:none;">
+        <table class="rem-table">
+            <thead>
+                <tr>
+                    <th>Priority</th>
+                    <th>Task / Follow-up</th>
+                    <th>Linked Entity</th>
+                    <th>Category</th>
+                    <th>Assigned</th>
+                    <th>Due Time</th>
+                    <th style="text-align:right;">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="rem-list-tbody">
+                <!-- Dynamically populated -->
+            </tbody>
+        </table>
+    </div>
+
+</div>
 
 <!-- ADD REMINDER MODAL -->
 <div class="modal-overlay" id="add-rem-modal" onclick="closeAddModal(event)">
@@ -391,9 +611,43 @@ $is_admin = ($_SESSION['role'] ?? '') === 'Admin';
 
 <script>
 let remData = { overdue: [], today: [], upcoming: [] };
+let allLoadedReminders = [];
+let currentRemView = 'board';
 let selectedPriority = 'Medium';
 let selectedCategory = 'Follow-up';
 let entitySearchTimer = null;
+
+// Safe Date Parser (eliminates Invalid Date bugs across all browsers/SQL datetime)
+function parseSafeDate(dateStr) {
+    if (!dateStr || dateStr === '0000-00-00 00:00:00' || dateStr === 'null' || dateStr === 'undefined') return null;
+    let s = String(dateStr).trim().replace(' ', 'T');
+    let d = new Date(s);
+    if (isNaN(d.getTime())) {
+        d = new Date(dateStr);
+    }
+    return isNaN(d.getTime()) ? null : d;
+}
+
+// Switch View Mode: Kanban Board vs Compact List
+function switchRemView(view) {
+    currentRemView = view;
+    const btnBoard = document.getElementById('btnViewBoard');
+    const btnList = document.getElementById('btnViewList');
+    if (btnBoard) btnBoard.classList.toggle('active', view === 'board');
+    if (btnList) btnList.classList.toggle('active', view === 'list');
+    
+    const boardEl = document.getElementById('rem-columns');
+    const listEl = document.getElementById('rem-list-container');
+    if (view === 'board') {
+        if (boardEl) boardEl.style.display = 'grid';
+        if (listEl) listEl.style.display = 'none';
+    } else {
+        if (boardEl) boardEl.style.display = 'none';
+        if (listEl) listEl.style.display = 'block';
+        renderListView(allLoadedReminders);
+    }
+    if (window.lucide) lucide.createIcons();
+}
 
 // ===== LOAD REMINDERS =====
 async function loadReminders() {
@@ -405,36 +659,51 @@ async function loadReminders() {
 
     // Show skeleton in all cols
     ['overdue','today','upcoming'].forEach(c => {
-        document.getElementById('col-'+c).innerHTML = Array(2).fill(`
-            <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
-                <div class="skeleton" style="width:70%;height:16px;border-radius:4px;margin-bottom:10px;"></div>
-                <div class="skeleton" style="width:40%;height:12px;border-radius:4px;margin-bottom:8px;"></div>
-                <div class="skeleton" style="width:90%;height:12px;border-radius:4px;"></div>
-            </div>
-        `).join('');
+        const el = document.getElementById('col-'+c);
+        if (el) {
+            el.innerHTML = Array(2).fill(`
+                <div style="background:white;border:1px solid var(--border);border-radius:12px;padding:14px 16px;">
+                    <div class="skeleton" style="width:70%;height:16px;border-radius:4px;margin-bottom:10px;"></div>
+                    <div class="skeleton" style="width:40%;height:12px;border-radius:4px;margin-bottom:8px;"></div>
+                    <div class="skeleton" style="width:90%;height:12px;border-radius:4px;"></div>
+                </div>
+            `).join('');
+        }
     });
 
     const params = new URLSearchParams({ api: 'get_reminders', search, ref_type: refType, category, priority, assigned_to: staff });
     try {
-        const res  = await fetch('?' + params.toString());
+        const res  = await fetch('api.php?' + params.toString());
         const data = await res.json();
 
         if (!Array.isArray(data)) { showError('Invalid API response'); return; }
 
+        allLoadedReminders = data;
         const now      = new Date();
         const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
         remData = { overdue: [], today: [], upcoming: [] };
 
         data.forEach(r => {
-            const dt = new Date(r.remind_at);
-            if (dt < now) remData.overdue.push(r);
-            else if (dt <= todayEnd) remData.today.push(r);
-            else remData.upcoming.push(r);
+            const dt = parseSafeDate(r.remind_at);
+            if (!dt) {
+                // If date is unparseable or blank, queue into overdue for immediate review
+                remData.overdue.push(r);
+            } else if (dt < now) {
+                remData.overdue.push(r);
+            } else if (dt <= todayEnd) {
+                remData.today.push(r);
+            } else {
+                remData.upcoming.push(r);
+            }
         });
 
         renderColumn('overdue',  remData.overdue);
         renderColumn('today',    remData.today);
         renderColumn('upcoming', remData.upcoming);
+
+        if (currentRemView === 'list') {
+            renderListView(allLoadedReminders);
+        }
 
         // Update KPI counts
         document.getElementById('kpi-overdue').textContent  = remData.overdue.length;
@@ -453,11 +722,96 @@ async function loadReminders() {
 
 function renderColumn(col, items) {
     const el = document.getElementById('col-' + col);
+    if (!el) return;
     if (!items.length) {
-        el.innerHTML = `<div class="rem-empty"><i data-lucide="check-circle" style="width:28px;height:28px;color:#10b981;margin-bottom:6px;display:block;margin-inline:auto;"></i><div style="font-size:13px;">All clear!</div></div>`;
+        el.innerHTML = `<div class="rem-empty"><i data-lucide="check-circle" style="width:28px;height:28px;color:#10b981;margin-bottom:6px;display:block;margin-inline:auto;"></i><div style="font-size:13px; font-weight:600; color:#64748b;">All clear!</div></div>`;
         return;
     }
     el.innerHTML = items.map((r, i) => buildCard(r, col, i)).join('');
+}
+
+function renderListView(items) {
+    const tbody = document.getElementById('rem-list-tbody');
+    if (!tbody) return;
+    if (!items || items.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:36px; color:var(--text-muted); font-size:13px;">No reminders found in queue.</td></tr>`;
+        return;
+    }
+
+    const now = new Date();
+    const todayEnd = new Date(); todayEnd.setHours(23,59,59,999);
+
+    tbody.innerHTML = items.map(r => {
+        const dt = parseSafeDate(r.remind_at);
+        const pri = r.priority || 'Medium';
+        const cat = r.reminder_category || 'Follow-up';
+        const refType = r.reference_type || r.lead_type || 'General';
+        const name = r.fetched_name || r.reference_label || (r.lead_id ? 'ID #' + r.lead_id : 'General');
+        const mobile = r.fetched_mobile || '';
+        const title = r.title || 'Follow up with ' + name;
+        const assigned = r.assigned_to || '';
+
+        let timeStr = 'Pending Scheduling', timeBadge = 'ok';
+        if (dt) {
+            const diffMs = dt - now;
+            const diffMins = Math.round(diffMs / 60000);
+            if (dt < now) {
+                const ago = Math.abs(diffMins);
+                if (ago < 60) timeStr = ago + 'm overdue';
+                else if (ago < 1440) timeStr = Math.floor(ago/60) + 'h overdue';
+                else {
+                    const days = Math.floor(ago/1440);
+                    timeStr = days + (days === 1 ? ' day overdue' : ' days overdue');
+                }
+                timeBadge = 'overdue';
+            } else if (dt <= todayEnd) {
+                timeStr = 'Today ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                timeBadge = 'today';
+            } else {
+                timeStr = dt.toLocaleDateString('en-IN', {day:'numeric', month:'short'}) + ', ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+                timeBadge = 'ok';
+            }
+        }
+
+        return `
+        <tr id="remlist-row-${r.id}">
+            <td><span class="rem-card-pri pri-badge-${pri}">${pri}</span></td>
+            <td>
+                <div style="font-weight:700; color:#0f172a;">${escHtml(title)}</div>
+                ${r.notes ? `<div style="font-size:11.5px; color:#64748b; margin-top:2px;">${escHtml(r.notes)}</div>` : ''}
+            </td>
+            <td>
+                <div style="font-weight:600; color:#1e293b; display:flex; align-items:center; gap:6px;">
+                    <span style="font-size:10.5px; color:#64748b; background:#f1f5f9; padding:1px 6px; border-radius:4px;">${refType}</span>
+                    ${escHtml(name)}
+                </div>
+                ${mobile ? `
+                    <div style="display:flex; gap:6px; margin-top:4px;">
+                        <a href="tel:${escHtml(mobile)}" class="rem-contact-pill rem-contact-call"><i data-lucide="phone" style="width:10px;height:10px;"></i> Call</a>
+                        <a href="https://wa.me/91${escHtml(mobile).replace(/\D/g,'')}?text=Hello%20${encodeURIComponent(name || '')}" target="_blank" class="rem-contact-pill rem-contact-wa"><i class="fab fa-whatsapp" style="font-size:10px;"></i> WhatsApp</a>
+                    </div>
+                ` : ''}
+            </td>
+            <td><span class="rem-cat-chip">${escHtml(cat)}</span></td>
+            <td><span style="font-size:12px; color:#64748b;">@${escHtml(assigned)}</span></td>
+            <td>
+                <span class="rem-time ${timeBadge}">
+                    <i data-lucide="clock" style="width:12px;height:12px;"></i> ${timeStr}
+                </span>
+            </td>
+            <td style="text-align:right;">
+                <div style="display:inline-flex; gap:6px; align-items:center;">
+                    <button class="rem-btn rem-btn-done" onclick="completeReminder(${r.id})" title="Mark Done">
+                        <i data-lucide="check" style="width:13px;height:13px;"></i>
+                    </button>
+                    <button class="rem-btn rem-btn-delete" onclick="deleteReminder(${r.id})" title="Delete Reminder">
+                        <i data-lucide="trash-2" style="width:13px;height:13px;"></i>
+                    </button>
+                </div>
+            </td>
+        </tr>
+        `;
+    }).join('');
 }
 
 const CATEGORY_ICONS = {};
@@ -466,53 +820,75 @@ const ENTITY_URLS  = { 'Lead': 'applicant_bank_assign.php?id=', 'Banker': 'banke
 
 function buildCard(r, col, idx) {
     const now = new Date();
-    const dt  = new Date(r.remind_at);
+    const dt  = parseSafeDate(r.remind_at);
     const pri = r.priority || 'Medium';
     const cat = r.reminder_category || 'Follow-up';
     const refType  = r.reference_type || r.lead_type || 'General';
-    const name = r.fetched_name || r.reference_label || (r.lead_id ? 'ID #' + r.lead_id : 'Unknown');
-    const mobile = r.fetched_mobile ? `<br><a href="tel:` + r.fetched_mobile + `" style="color:#64748b; font-size:11px; text-decoration:none; margin-top:2px; display:inline-block;"><i data-lucide="phone" style="width:10px;height:10px;"></i> ` + r.fetched_mobile + `</a>` : '';
+    const name = r.fetched_name || r.reference_label || (r.lead_id ? 'ID #' + r.lead_id : 'General');
+    const mobile = r.fetched_mobile ? String(r.fetched_mobile).trim() : '';
     const refLabel = name;
     const refId    = r.reference_id || r.lead_id || '';
     const title    = r.title || 'Follow up with ' + name;
     const notes    = r.notes && r.notes !== title ? r.notes : '';
     const assigned = r.assigned_to || '';
 
-    // Time display
-    let timeStr = '', timeClass = 'ok';
-    const diffMs = dt - now;
-    const diffMins = Math.round(diffMs / 60000);
-    if (col === 'overdue') {
-        const ago = Math.abs(diffMins);
-        timeStr = ago < 60 ? ago + ' min overdue' : Math.round(ago/60) + 'h overdue';
-        timeClass = 'overdue';
-    } else if (col === 'today') {
-        timeStr = dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
-        timeClass = 'today';
-    } else {
-        timeStr = dt.toLocaleDateString('en-IN', {day:'numeric',month:'short'}) + ', ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+    // Robust Time display
+    let timeStr = 'Pending Scheduling', timeClass = 'ok';
+    if (dt) {
+        const diffMs = dt - now;
+        const diffMins = Math.round(diffMs / 60000);
+        if (col === 'overdue' || (dt < now && col !== 'today' && col !== 'upcoming')) {
+            const ago = Math.abs(diffMins);
+            if (ago < 60) {
+                timeStr = ago + 'm overdue';
+            } else if (ago < 1440) {
+                timeStr = Math.floor(ago/60) + 'h overdue';
+            } else {
+                const days = Math.floor(ago/1440);
+                timeStr = days + (days === 1 ? ' day overdue' : ' days overdue');
+            }
+            timeClass = 'overdue';
+        } else if (col === 'today' || (dt <= todayEnd && dt >= now)) {
+            timeStr = 'Today, ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            timeClass = 'today';
+        } else {
+            timeStr = dt.toLocaleDateString('en-IN', {day:'numeric',month:'short'}) + ', ' + dt.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+            timeClass = 'ok';
+        }
     }
 
-    // Entity badge link
+    // Entity badge link & quick call/whatsapp buttons
     let entityHtml = '';
     if (refType !== 'General' && refLabel) {
         const url = (ENTITY_URLS[refType] && refId) ? ENTITY_URLS[refType] + refId : '#';
-        entityHtml = `<a class="rem-entity-badge entity-${refType}" href="${url}" target="_blank" title="Go to ${refType}" style="display:flex; justify-content:space-between; align-items:center; padding:10px 12px;">
-            <div>
-                <div style="font-weight:700; color:#1e293b; font-size:13px;">${ENTITY_ICONS[refType] || ''} ${escHtml(refLabel)}</div>
-                ${mobile}
+        entityHtml = `
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:8px 10px; margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; align-items:center;">
+                <a class="rem-entity-badge entity-${refType}" href="${url}" target="_blank" title="Open ${refType}" style="padding:0; margin:0; background:transparent; border:none;">
+                    <span style="font-weight:700; color:#0f172a; font-size:12.5px;">${escHtml(refLabel)}</span>
+                </a>
+                <a href="${url}" target="_blank" style="color:#94a3b8;" title="View file"><i data-lucide="external-link" style="width:13px;height:13px;"></i></a>
             </div>
-            <i data-lucide="external-link" style="width:16px;height:16px; color:#94a3b8;"></i>
-        </a>`;
+            ${mobile ? `
+                <div class="rem-quick-contact">
+                    <a href="tel:${escHtml(mobile)}" class="rem-contact-pill rem-contact-call" title="Call directly">
+                        <i data-lucide="phone" style="width:11px; height:11px;"></i> ${escHtml(mobile)}
+                    </a>
+                    <a href="https://wa.me/91${escHtml(mobile).replace(/\D/g,'')}?text=Hello%20${encodeURIComponent(name || '')}" target="_blank" class="rem-contact-pill rem-contact-wa" title="Send WhatsApp Message">
+                        <i class="fab fa-whatsapp" style="font-size:11px;"></i> WhatsApp
+                    </a>
+                </div>
+            ` : ''}
+        </div>`;
     }
 
     return `
     <div class="rem-card pri-${pri}" style="animation-delay:${idx * 0.04}s" id="remcard-${r.id}">
         <div class="rem-card-top" style="margin-bottom:6px;">
-            <div class="rem-card-title" style="font-size:14px; font-weight:700; color:#0f172a;">${CATEGORY_ICONS[cat] || ''} ${escHtml(title)}</div>
+            <div class="rem-card-title" style="font-size:13.5px; font-weight:700; color:#0f172a;">${escHtml(title)}</div>
             <span class="rem-card-pri pri-badge-${pri}">${pri}</span>
         </div>
-        ${notes ? `<div style="font-size:12px; color:#475569; margin-bottom:10px; line-height:1.4; background:#f8fafc; padding:8px; border-radius:6px; border:1px solid #e2e8f0;">${escHtml(notes)}</div>` : ''}
+        ${notes ? `<div style="font-size:12px; color:#475569; margin-bottom:8px; line-height:1.4; background:#f8fafc; padding:7px 9px; border-radius:6px; border:1px solid #e2e8f0;">${escHtml(notes)}</div>` : ''}
         ${entityHtml}
         <div class="rem-card-meta">
             <span class="rem-cat-chip">${escHtml(cat)}</span>
@@ -521,7 +897,6 @@ function buildCard(r, col, idx) {
                 ${timeStr}
             </span>
         </div>
-        ${notes ? `<div class="rem-notes">${escHtml(notes)}</div>` : ''}
         <div class="rem-actions">
             <button class="rem-btn rem-btn-done" onclick="completeReminder(${r.id})">
                 <i data-lucide="check" style="width:13px;height:13px;"></i> Done
@@ -537,7 +912,10 @@ function buildCard(r, col, idx) {
                     <div class="snooze-opt" onclick="snooze(${r.id}, 4320)"><i data-lucide="calendar-plus"></i> +3 Days</div>
                 </div>
             </div>
-            <span class="rem-assigned"><i data-lucide="user" style="width:11px;height:11px;"></i> @${escHtml(assigned)}</span>
+            <button class="rem-btn rem-btn-delete" onclick="deleteReminder(${r.id})" title="Delete Reminder">
+                <i data-lucide="trash-2" style="width:12px;height:12px;"></i>
+            </button>
+            <span class="rem-assigned" style="margin-left:auto;"><i data-lucide="user" style="width:11px;height:11px;"></i> @${escHtml(assigned)}</span>
         </div>
     </div>`;
 }
@@ -550,18 +928,74 @@ function escHtml(s) {
 // ===== ACTIONS =====
 async function completeReminder(id) {
     const card = document.getElementById('remcard-' + id);
+    const row = document.getElementById('remlist-row-' + id);
     if (card) { card.style.opacity = '0.5'; card.style.pointerEvents = 'none'; }
+    if (row) { row.style.opacity = '0.5'; row.style.pointerEvents = 'none'; }
     const fd = new FormData();
     fd.append('api', 'complete_reminder');
     fd.append('id', id);
-    const res  = await fetch('?api=complete_reminder', { method: 'POST', body: fd });
+    const res  = await fetch('api.php?api=complete_reminder', { method: 'POST', body: fd });
     const json = await res.json();
     if (json.success) {
         if (card) { card.style.transform = 'scale(0.95)'; card.style.opacity = '0'; setTimeout(() => { card.remove(); updateCountsFromDOM(); }, 250); }
+        if (row) { row.remove(); }
         showNotification('Reminder marked done ✓', 'success');
     } else {
         if (card) { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+        if (row) { row.style.opacity = '1'; row.style.pointerEvents = ''; }
         showNotification(json.error || 'Failed', 'error');
+    }
+}
+
+// Delete / Remove Reminder
+async function deleteReminder(id) {
+    if (typeof Swal !== 'undefined') {
+        const result = await Swal.fire({
+            title: 'Delete Reminder?',
+            text: 'Are you sure you want to remove this reminder? This cannot be undone.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#0f172a',
+            cancelButtonColor: '#94a3b8',
+            confirmButtonText: 'Yes, Delete',
+            cancelButtonText: 'Cancel'
+        });
+        if (!result.isConfirmed) return;
+    } else {
+        if (!confirm('Are you sure you want to remove this reminder?')) return;
+    }
+
+    const card = document.getElementById('remcard-' + id);
+    const row = document.getElementById('remlist-row-' + id);
+    if (card) { card.style.opacity = '0.4'; card.style.pointerEvents = 'none'; }
+    if (row) { row.style.opacity = '0.4'; row.style.pointerEvents = 'none'; }
+
+    try {
+        const fd = new FormData();
+        fd.append('api', 'delete_reminder');
+        fd.append('id', id);
+        const res  = await fetch('api.php?api=delete_reminder', { method: 'POST', body: fd });
+        const json = await res.json();
+        if (json.success) {
+            if (card) {
+                card.style.transform = 'scale(0.95)';
+                card.style.opacity = '0';
+                setTimeout(() => { card.remove(); updateCountsFromDOM(); }, 250);
+            }
+            if (row) {
+                row.remove();
+            }
+            showNotification('Reminder removed 🗑️', 'success');
+            setTimeout(loadReminders, 250);
+        } else {
+            if (card) { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+            if (row) { row.style.opacity = '1'; row.style.pointerEvents = ''; }
+            showNotification(json.error || 'Failed to delete', 'error');
+        }
+    } catch(e) {
+        if (card) { card.style.opacity = '1'; card.style.pointerEvents = ''; }
+        if (row) { row.style.opacity = '1'; row.style.pointerEvents = ''; }
+        showNotification('Connection error', 'error');
     }
 }
 
@@ -578,7 +1012,7 @@ async function snooze(id, minutes) {
     fd.append('api', 'snooze_reminder');
     fd.append('id', id);
     fd.append('minutes', minutes);
-    const res  = await fetch('?api=snooze_reminder', { method: 'POST', body: fd });
+    const res  = await fetch('api.php?api=snooze_reminder', { method: 'POST', body: fd });
     const json = await res.json();
     if (json.success) {
         showNotification('Snoozed successfully ⏰', 'success');
@@ -659,7 +1093,7 @@ async function searchEntity(q) {
     if (q.length < 2) { document.getElementById('entity-results').style.display = 'none'; return; }
     entitySearchTimer = setTimeout(async () => {
         const type = document.getElementById('rem-entity-type').value;
-        const res  = await fetch(`?api=search_entity&type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`);
+        const res  = await fetch(`api.php?api=search_entity&type=${encodeURIComponent(type)}&q=${encodeURIComponent(q)}`);
         const data = await res.json();
         const box  = document.getElementById('entity-results');
         if (!data.length) { box.style.display = 'none'; return; }
@@ -721,7 +1155,7 @@ async function saveReminder() {
     const btn = document.querySelector('.modal-btn-save');
     btn.disabled = true; btn.textContent = 'Saving...';
     try {
-        const res  = await fetch('?api=save_reminder', { method: 'POST', body: fd });
+        const res  = await fetch('api.php?api=save_reminder', { method: 'POST', body: fd });
         const json = await res.json();
         if (json.success) {
             showNotification('Reminder saved! 🔔', 'success');

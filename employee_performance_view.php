@@ -1,9 +1,7 @@
 <?php
 require_once 'config.php';
 
-if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'Admin') {
-    die("Unauthorized Access. Admin only.");
-}
+require_role(['Admin'], false);
 
 $target_user = $_GET['username'] ?? '';
 if (!$target_user) {

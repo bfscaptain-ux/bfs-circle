@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 require_once __DIR__ . '/../config.php';
 $page_title = 'Bankers Directory';
 $page_subtitle = 'ðŸ‘¥ View and manage bankers in the system';
@@ -38,24 +38,24 @@ $bankers = $stmt->fetchAll();
                     <?php else: ?>
                         <?php foreach ($bankers as $banker): ?>
                             <tr>
-                                <td><span class="badge badge-info"><?php echo htmlspecialchars($banker['employee_id']); ?></span></td>
-                                <td><strong><?php echo htmlspecialchars($banker['full_name']); ?></strong></td>
-                                <td><?php echo htmlspecialchars($banker['designation']); ?></td>
-                                <td><?php echo htmlspecialchars($banker['branch_name']); ?></td>
+                                <td><span class="badge badge-info"><?php echo htmlspecialchars($banker['employee_id'] ?? ('BNK-' . str_pad($banker['id'], 4, '0', STR_PAD_LEFT))); ?></span></td>
+                                <td><strong><?php echo htmlspecialchars($banker['full_name'] ?? ''); ?></strong></td>
+                                <td><?php echo htmlspecialchars($banker['designation'] ?? 'Banker'); ?></td>
+                                <td><?php echo htmlspecialchars($banker['branch_name'] ?? $banker['bank_name'] ?? 'Main Branch'); ?></td>
                                 <td>
-                                    <div><i data-lucide="phone" style="width:14px;height:14px;"></i> <?php echo htmlspecialchars($banker['contact_number']); ?></div>
+                                    <div><i data-lucide="phone" style="width:14px;height:14px;"></i> <?php echo htmlspecialchars($banker['contact_number'] ?? ''); ?></div>
                                 </td>
                                 <td>
                                     <?php 
-                                        $bg_class = '';
-                                        if($banker['bg_verification_status'] == 'Approved') $bg_class = 'success';
-                                        elseif($banker['bg_verification_status'] == 'Pending') $bg_class = 'warning';
-                                        else $bg_class = 'danger';
+                                        $bg_status = $banker['bg_verification_status'] ?? 'Approved';
+                                        $bg_class = 'success';
+                                        if($bg_status == 'Pending') $bg_class = 'warning';
+                                        elseif($bg_status != 'Approved' && $bg_status != 'Active') $bg_class = 'danger';
                                     ?>
-                                    <span class="badge badge-<?php echo $bg_class; ?>"><?php echo htmlspecialchars($banker['bg_verification_status']); ?></span>
+                                    <span class="badge badge-<?php echo $bg_class; ?>"><?php echo htmlspecialchars($bg_status); ?></span>
                                 </td>
                                 <td>
-                                    <a href="view_banker.php?id=<?php echo $banker['id']; ?>" class="btn btn-sm btn-secondary">
+                                    <a href="../view_banker.php?id=<?php echo $banker['id']; ?>" class="btn btn-sm btn-secondary">
                                         <i data-lucide="eye"></i> View Profile
                                     </a>
                                 </td>

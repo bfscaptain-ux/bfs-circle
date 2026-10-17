@@ -4,11 +4,6 @@ $page_title = 'Business Working Capital Limit';
 $page_subtitle = 'Estimate CC/OD limits based on turnover';
 require_once 'includes/header.php';
 $back_url = 'calculators.php';
-} else {
-    require_once 'includes/header.php';
-$back_url = 'calculators.php';
-    $back_url = 'calculators.php';
-}
 ?>
 <style>
     .calc-layout { display: flex; gap: 30px; align-items: flex-start; }

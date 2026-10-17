@@ -1,18 +1,38 @@
 <?php
+define('IS_SUBFOLDER', true);
 require_once __DIR__ . '/../../config.php';
+require_role(['Builder', 'Builder / Real Estate']);
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Builder') {
-    header('Location: ../login.php');
-    exit;
-}
 
 $builder_id = $_SESSION['user_id'];
 $builder_username = $_SESSION['username'];
 
 // Fetch builder profile
-$stmt_header = $db->prepare("SELECT name FROM users WHERE id = ?");
+$stmt_header = $db->prepare("SELECT name, full_name, profile_photo FROM users WHERE id = ?");
 $stmt_header->execute([$builder_id]);
-$builder_name = $stmt_header->fetchColumn() ?: $builder_username;
+$u_header = $stmt_header->fetch(PDO::FETCH_ASSOC);
+
+$builder_name = !empty($u_header['name']) ? $u_header['name'] : (!empty($u_header['full_name']) ? $u_header['full_name'] : $builder_username);
+$builder_photo = $u_header['profile_photo'] ?? '';
+
+if (empty($builder_photo)) {
+    $stmt_ref_photo = $db->prepare("SELECT profile_photo, full_name FROM referrals WHERE user_id = ? OR mobile = ? LIMIT 1");
+    $stmt_ref_photo->execute([$builder_id, $builder_username]);
+    if ($rf = $stmt_ref_photo->fetch(PDO::FETCH_ASSOC)) {
+        if (!empty($rf['profile_photo'])) $builder_photo = $rf['profile_photo'];
+        if (empty($builder_name) && !empty($rf['full_name'])) $builder_name = $rf['full_name'];
+    }
+}
+
+$has_custom_photo = false;
+$photo_display_path = '';
+if (!empty($builder_photo)) {
+    $clean_path = ltrim($builder_photo, './');
+    if (file_exists(__DIR__ . '/../../' . $clean_path)) {
+        $has_custom_photo = true;
+        $photo_display_path = '../' . $clean_path;
+    }
+}
 
 $current_page = basename($_SERVER['PHP_SELF']);
 ?>
@@ -109,8 +129,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
         }
 
         .user-avatar {
-            width: 32px;
-            height: 32px;
+            width: 34px;
+            height: 34px;
             border-radius: 50%;
             background: var(--accent);
             color: white;
@@ -121,6 +141,8 @@ $current_page = basename($_SERVER['PHP_SELF']);
             font-family: 'Outfit';
             font-size: 14px;
             text-decoration: none;
+            overflow: hidden;
+            position: relative;
         }
 
         /* Main Container */
@@ -226,7 +248,13 @@ $current_page = basename($_SERVER['PHP_SELF']);
     <div class="app-title">Builder<span class="app-title-dot"></span></div>
     <div class="app-user">
         <a href="../login.php?logout=1" style="color:white; text-decoration:none;"><i data-lucide="log-out" style="width:20px;"></i></a>
-        <a href="profile.php" class="user-avatar"><?php echo strtoupper(substr($builder_name ?? 'B', 0, 1)); ?></a>
+        <a href="profile.php" class="user-avatar" title="View Profile">
+            <?php if ($has_custom_photo): ?>
+                <img src="<?php echo htmlspecialchars($photo_display_path); ?>" alt="<?php echo htmlspecialchars($builder_name); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+            <?php else: ?>
+                <?php echo strtoupper(substr($builder_name ?? 'B', 0, 1)); ?>
+            <?php endif; ?>
+        </a>
     </div>
 </div>
 

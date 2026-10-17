@@ -1,28 +1,67 @@
-import sys, re
-with open("applicants_list.php", "r", encoding="utf-8") as f:
-    c = f.read()
-
-old_func_match = re.search(r'function getStatusBadge\(status\) \{.*?(?=function formatAmt)', c, re.DOTALL)
-if old_func_match:
-    new_badge_func = """function getStatusBadge(status) {
-        let icon = '';
-        if(status === 'Phase 1') icon = 'user-check';
-        else if(status === 'Phase 2') icon = 'file-text';
-        else if(status === 'Phase 3') icon = 'coins';
-        else if(status === 'Phase 4') icon = 'landmark';
-        else if(status === 'Completed') icon = 'check-circle';
-        else if(status === 'Rejected') icon = 'x-circle';
+js = """
+<script>
+    function populateBankDropdown() {
+        const select = document.getElementById('bank_name');
+        if (!select) return;
         
-        const title = status === 'Phase 1' ? 'Phase 1 (KYC)' : 
-                      status === 'Phase 2' ? 'Phase 2 (Docs)' : 
-                      status === 'Phase 3' ? 'Phase 3 (Disburse)' : 
-                      status === 'Phase 4' ? 'Phase 4 (Bank)' : status;
-                      
-        return `<span class="badge" style="background:#fff; color:#0f172a; border:1px solid #cbd5e1; font-weight:600; padding:4px 8px; border-radius:6px;"><i data-lucide="${icon}" style="width:12px; height:12px;"></i> ${title}</span>`;
+        let allBanks = [];
+        if (typeof BANK_DIRECTORY !== 'undefined') {
+            for (const type in BANK_DIRECTORY) {
+                allBanks = allBanks.concat(BANK_DIRECTORY[type]);
+            }
+            
+            // Remove duplicates and sort
+            allBanks = [...new Set(allBanks)].sort((a,b) => a.localeCompare(b));
+            
+            allBanks.forEach(bank => {
+                const opt = document.createElement('option');
+                opt.value = bank;
+                opt.textContent = bank;
+                select.appendChild(opt);
+            });
+            
+            // Auto-select existing if present (from data-existing)
+            const existingBank = select.getAttribute('data-existing');
+            if (existingBank) select.value = existingBank;
+        }
     }
     
-    """
-    c = c[:old_func_match.start()] + new_badge_func + c[old_func_match.end():]
+    function initValidationAndCapitalize() {
+        const textFields = document.querySelectorAll('input[type="text"]');
+        textFields.forEach(f => {
+            f.addEventListener('input', function() {
+                // Ignore specific fields like PAN, IFSC that need full uppercase
+                if (this.id === 'pan_number' || this.id === 'ifsc_code' || this.id === 'gst_no') {
+                    this.value = this.value.toUpperCase();
+                } else if (this.id !== 'account_number' && this.id !== 'aadhar_number' && this.id !== 'mobile') {
+                    // Capitalize first letter of every word
+                    let words = this.value.split(' ');
+                    for (let i = 0; i < words.length; i++) {
+                        if (words[i].length > 0) {
+                            words[i] = words[i].charAt(0).toUpperCase() + words[i].slice(1);
+                        }
+                    }
+                    this.value = words.join(' ');
+                }
+            });
+        });
+    }
 
-with open("applicants_list.php", "w", encoding="utf-8") as f:
-    f.write(c)
+    document.addEventListener('DOMContentLoaded', () => {
+        populateBankDropdown();
+        initValidationAndCapitalize();
+    });
+</script>
+"""
+
+def add_js(filename):
+    with open(filename, "r", encoding="utf-8") as f:
+        html = f.read()
+    
+    if "populateBankDropdown" not in html:
+        html = html.replace("<?php require_once 'footer.php'; ?>", js + "\n<?php require_once 'footer.php'; ?>")
+        with open(filename, "w", encoding="utf-8") as f:
+            f.write(html)
+
+add_js("add_referral.php")
+add_js("edit_referral.php")

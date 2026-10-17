@@ -100,7 +100,7 @@ require_once __DIR__ . '/header.php';
                 `).join('');
             }
 
-            let res = await fetch('?' + params.toString());
+            let res = await fetch('../api.php?' + params.toString());
             let data = await res.json();
             if (!tbody) return;
 
@@ -169,7 +169,7 @@ require_once __DIR__ . '/header.php';
         fd.append("api", "complete_reminder");
         fd.append("id", id);
         try {
-            let res = await fetch("?api=complete_reminder", {method:"POST", body:fd});
+            let res = await fetch("../api.php?api=complete_reminder", {method:"POST", body:fd});
             let json = await res.json();
             if (json.success) {
                 showNotification("Reminder completed successfully", "success");
@@ -288,7 +288,7 @@ require_once __DIR__ . '/header.php';
         
         try {
             // Load Lead Details
-            const res = await fetch(`?api=get_lead_full_details&lead_type=${type}&lead_id=${id}`);
+            const res = await fetch(`../api.php?api=get_lead_full_details&lead_type=${type}&lead_id=${id}`);
             const data = await res.json();
             
             if (data.error) {
@@ -339,7 +339,7 @@ require_once __DIR__ . '/header.php';
         }
 
         try {
-            const res = await fetch(`?api=get_call_logs&lead_type=${currentDetailType}&lead_id=${currentDetailId}`);
+            const res = await fetch(`../api.php?api=get_call_logs&lead_type=${currentDetailType}&lead_id=${currentDetailId}`);
             const logs = await res.json();
             
             document.getElementById('cd-call-count').innerText = `${logs.length} Activities`;
@@ -437,7 +437,7 @@ require_once __DIR__ . '/header.php';
         
         try {
             document.getElementById('custom-log-input').value = '';
-            const res = await fetch('?api=add_call_log', { method: 'POST', body: fd });
+            const res = await fetch('../api.php?api=add_call_log', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.success) {
                 await loadCallLogs(); // Refresh logs immediately

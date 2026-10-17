@@ -82,7 +82,7 @@ require_once __DIR__ . '/header.php';
 
     async function loadFilterOptions() {
         try {
-            const res = await fetch('?api=get_unique_filters');
+            const res = await fetch('api.php?api=get_unique_filters');
             const data = await res.json();
             
             const citySelect = document.getElementById('filter-city');
@@ -114,8 +114,20 @@ require_once __DIR__ . '/header.php';
         });
         
         try {
-            const response = await fetch('?' + params.toString());
+            const response = await fetch('../api.php?' + params.toString());
             const clients = await response.json();
+            
+            if (clients && clients.error === 'SESSION_EXPIRED') {
+                window.location.href = '../login.php';
+                return;
+            }
+
+            if (!Array.isArray(clients)) {
+                console.error('API Error:', clients);
+                const container = document.getElementById('crm-client-list');
+                container.innerHTML = `<div style="background: white; border: 1px solid #fee2e2; text-align: center; color: #dc2626; padding: 40px; border-radius: var(--radius-md);">${clients.error || 'Failed to load records.'}</div>`;
+                return;
+            }
             crmClientList = clients;
             
             const CELEBRATED_KEY = 'crm_celebrated_clients';
@@ -209,7 +221,7 @@ require_once __DIR__ . '/header.php';
         if (selectedCard) selectedCard.classList.add('selected');
         
         try {
-            const response = await fetch(`?api=client_details&id=${id}`);
+            const response = await fetch(`api.php?api=client_details&id=${id}`);
             const c = await response.json();
             
             const pane = document.getElementById('crm-detail-pane');
@@ -512,7 +524,7 @@ require_once __DIR__ . '/header.php';
         fd.append('client_id', clientId);
         
         try {
-            const res = await fetch('?api=log_ppt_shared', { method: 'POST', body: fd });
+            const res = await fetch('api.php?api=log_ppt_shared', { method: 'POST', body: fd });
             const data = await res.json();
             if (data.success) {
                 showNotification(data.message, 'success');
@@ -637,7 +649,7 @@ require_once __DIR__ . '/header.php';
             fd.append('outcome', outcome);
             fd.append('remarks', remarks);
             
-            const res = await fetch('?api=log_call', {
+            const res = await fetch('api.php?api=log_call', {
                 method: 'POST',
                 body: fd
             });

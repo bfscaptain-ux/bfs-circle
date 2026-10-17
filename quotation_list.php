@@ -1,5 +1,7 @@
 <?php
 require_once 'config.php';
+require_role(['Admin', 'RM']);
+
 $page_title = 'Invoice Ledgers';
 $page_subtitle = 'Audit and track approved client quotations';
 require_once 'header.php';
@@ -77,7 +79,7 @@ require_once 'header.php';
         });
         
         try {
-            const res = await fetch('?' + params.toString());
+            const res = await fetch('api.php?' + params.toString());
             if (!res.ok) return;
             const data = await res.json();
             if (!data || !data.summary) return;
@@ -136,7 +138,7 @@ require_once 'header.php';
         });
         
         try {
-            const response = await fetch('?api=update_quotation_status', {
+            const response = await fetch('api.php?api=update_quotation_status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: payload.toString()
@@ -182,7 +184,7 @@ require_once 'header.php';
 
     async function printQuotationPDF(quoteId) {
         try {
-            const response = await fetch(`?api=quotation_list`);
+            const response = await fetch(`api.php?api=quotation_list`);
             const data = await response.json();
             const quote = data.quotations.find(q => q.id == quoteId);
             
@@ -191,7 +193,7 @@ require_once 'header.php';
                 return;
             }
             
-            const cliRes = await fetch(`?api=client_details&id=${quote.client_id}`);
+            const cliRes = await fetch(`api.php?api=client_details&id=${quote.client_id}`);
             const cli = await cliRes.json();
             
             const items = JSON.parse(quote.items_json);

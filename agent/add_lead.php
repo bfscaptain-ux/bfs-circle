@@ -110,24 +110,77 @@ $stmt_insert->execute([$customer_name, $mobile, $email, $requirement, $loan_amou
         </div>
         
         <div class="form-group">
-            <label for="email">Email Address</label>
+            <label for="email">Email Address (Optional)</label>
             <input type="email" id="email" name="email" placeholder="your@email.com">
         </div>
         
+        <style>
+        .category-picker-label { font-size: 13px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+        .cat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 16px; }
+        .cat-card-btn { background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 12px 10px; display: flex; align-items: center; gap: 10px; cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 2px 6px rgba(0,0,0,0.02); }
+        .cat-card-btn:hover { border-color: var(--primary); transform: translateY(-1px); }
+        .cat-card-btn.active { border-color: var(--primary); background: #ecfdf5; box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.15); }
+        .cat-card-icon { width: 32px; height: 32px; border-radius: 10px; background: #f1f5f9; color: var(--primary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .cat-card-btn.active .cat-card-icon { background: var(--primary); color: #ffffff; }
+        .cat-card-text { font-size: 12px; font-weight: 700; color: var(--text-primary); line-height: 1.25; }
+        .subtype-chips-wrapper { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; margin-bottom: 16px; }
+        .chip-btn { padding: 8px 14px; border-radius: 20px; background: #ffffff; border: 1.5px solid #cbd5e1; font-size: 12px; font-weight: 700; color: #334155; cursor: pointer; transition: all 0.15s ease; }
+        .chip-btn:hover { border-color: var(--primary); color: var(--primary); }
+        .chip-btn.active { background: var(--primary); color: #ffffff; border-color: var(--primary); box-shadow: 0 3px 8px rgba(5, 150, 105, 0.25); }
+        </style>
+
+        <!-- VISUAL CATEGORY PICKER FOR APP -->
         <div class="form-group">
-            <label for="loan_type">Loan Type <span style="color:red">*</span></label>
+            <div class="category-picker-label"><i data-lucide="layers" style="width:16px; color:var(--primary);"></i> Select Loan Category <span style="color:red">*</span></div>
+            <div class="cat-grid">
+                <div class="cat-card-btn" onclick="selectVisualCat('Home Loan', this)">
+                    <div class="cat-card-icon"><i data-lucide="home" style="width:18px;"></i></div>
+                    <div class="cat-card-text">Home Loan</div>
+                </div>
+                <div class="cat-card-btn" onclick="selectVisualCat('Loan Against Property (LAP)', this)">
+                    <div class="cat-card-icon"><i data-lucide="building-2" style="width:18px;"></i></div>
+                    <div class="cat-card-text">LAP (Property)</div>
+                </div>
+                <div class="cat-card-btn" onclick="selectVisualCat('Business Loan', this)">
+                    <div class="cat-card-icon"><i data-lucide="briefcase" style="width:18px;"></i></div>
+                    <div class="cat-card-text">Business Loan</div>
+                </div>
+                <div class="cat-card-btn" onclick="selectVisualCat('Personal Loan', this)">
+                    <div class="cat-card-icon"><i data-lucide="user" style="width:18px;"></i></div>
+                    <div class="cat-card-text">Personal Loan</div>
+                </div>
+                <div class="cat-card-btn" onclick="selectVisualCat('Auto / Vehicle Loan', this)">
+                    <div class="cat-card-icon"><i data-lucide="car" style="width:18px;"></i></div>
+                    <div class="cat-card-text">Vehicle Loan</div>
+                </div>
+                <div class="cat-card-btn" onclick="selectVisualCat('Commercial Property Loan', this)">
+                    <div class="cat-card-icon"><i data-lucide="building" style="width:18px;"></i></div>
+                    <div class="cat-card-text">Commercial</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group" style="display:none;">
             <select id="loan_type" name="loan_type" required onchange="updateSubTypes()">
-                <option value="">-- Select Category --</option>
-                <option value="Secured Loans">Secured Loans</option>
-                <option value="Unsecured Loans">Unsecured Loans</option>
-                <option value="Working Capital">Working Capital</option>
-                <option value="Project Finance">Project Finance</option>
+                <option value="">-- Select Loan Type --</option>
+                <option value="Home Loan">Home Loan</option>
+                <option value="Loan Against Property (LAP)">Loan Against Property (LAP)</option>
+                <option value="Business Loan">Business Loan</option>
+                <option value="Personal Loan">Personal Loan</option>
+                <option value="Auto / Vehicle Loan">Auto / Vehicle Loan</option>
+                <option value="Commercial Property Loan">Commercial Property Loan</option>
+                <option value="Professional Loan">Professional Loan</option>
             </select>
         </div>
+
+        <!-- VISUAL SUB-TYPE CHIPS -->
+        <div class="form-group" id="visualSubGroup" style="display:none;">
+            <div class="category-picker-label"><i data-lucide="check-circle-2" style="width:16px; color:var(--primary);"></i> Select Sub-Type Option <span style="color:red">*</span></div>
+            <div class="subtype-chips-wrapper" id="visualSubChips"></div>
+        </div>
         
-        <div class="form-group">
-            <label for="loan_sub_type">Loan Sub Type <span style="color:red">*</span></label>
-            <select id="loan_sub_type" name="loan_sub_type" required>
+        <div class="form-group" style="display:none;">
+            <select id="loan_sub_type" name="loan_sub_type" required onchange="syncSubChip(this.value)">
                 <option value="">-- Select Sub Type --</option>
             </select>
         </div>
@@ -216,24 +269,98 @@ const loanData = {
         "Doctor Loan",
         "Chartered Accountant (CA) Loan",
         "Company Secretary (CS) Loan"
+    ],
+    "Secured Loans": [
+        "Home Loan - New Purchase",
+        "Home Loan - Balance Transfer & Top-up",
+        "Loan Against Property (LAP)",
+        "Plot Purchase & Construction",
+        "Commercial Property Loan"
+    ],
+    "Unsecured Loans": [
+        "Personal Loan for Salaried",
+        "Personal Loan for Self Employed",
+        "Unsecured Business Loan",
+        "Professional Loan (Doctor/CA/CS)"
+    ],
+    "Working Capital": [
+        "Cash Credit (CC) / Overdraft (OD)",
+        "Letter of Credit (LC) / Bank Guarantee (BG)",
+        "Trade Credit / Invoice Discounting",
+        "Machinery / Equipment Loan"
+    ],
+    "Project Finance": [
+        "Real Estate Project Finance",
+        "Industrial & Factory Construction Finance",
+        "Infrastructure & Commercial Project Finance"
     ]
 };
+
+function selectVisualCat(catName, el) {
+    document.querySelectorAll('.cat-card-btn').forEach(c => c.classList.remove('active'));
+    if(el) el.classList.add('active');
+    
+    const typeSelect = document.getElementById('loan_type');
+    typeSelect.value = catName;
+    updateSubTypes();
+}
 
 function updateSubTypes() {
     const typeSelect = document.getElementById('loan_type');
     const subTypeSelect = document.getElementById('loan_sub_type');
+    const visualGroup = document.getElementById('visualSubGroup');
+    const visualChips = document.getElementById('visualSubChips');
     
     subTypeSelect.innerHTML = '<option value="">-- Select Sub Type --</option>';
+    if (visualChips) visualChips.innerHTML = '';
     
     const selectedType = typeSelect.value;
+    
+    // Sync category cards if changed via select dropdown
+    document.querySelectorAll('.cat-card-btn').forEach(c => {
+        const txt = c.querySelector('.cat-card-text')?.innerText || '';
+        if (selectedType && (selectedType.includes(txt) || txt.includes(selectedType.split(' ')[0]))) {
+            c.classList.add('active');
+        } else {
+            c.classList.remove('active');
+        }
+    });
+
     if (selectedType && loanData[selectedType]) {
-        loanData[selectedType].forEach(subType => {
+        if (visualGroup) visualGroup.style.display = 'block';
+        loanData[selectedType].forEach((subType, idx) => {
             const option = document.createElement('option');
             option.value = subType;
             option.textContent = subType;
             subTypeSelect.appendChild(option);
+
+            // Create Visual Pill Chip
+            if (visualChips) {
+                const chip = document.createElement('div');
+                chip.className = 'chip-btn' + (idx === 0 ? ' active' : '');
+                chip.innerText = subType;
+                chip.onclick = function() {
+                    document.querySelectorAll('.chip-btn').forEach(cb => cb.classList.remove('active'));
+                    chip.classList.add('active');
+                    subTypeSelect.value = subType;
+                };
+                visualChips.appendChild(chip);
+            }
+
+            if (idx === 0) {
+                subTypeSelect.value = subType;
+            }
         });
+    } else {
+        if (visualGroup) visualGroup.style.display = 'none';
     }
+}
+
+function syncSubChip(val) {
+    document.querySelectorAll('.chip-btn').forEach(cb => {
+        if (cb.innerText === val) cb.classList.add('active');
+        else cb.classList.remove('active');
+    });
 }
 </script>
 

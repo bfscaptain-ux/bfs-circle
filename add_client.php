@@ -198,7 +198,7 @@ require_once 'header.php';
         const formData = new FormData(form);
         
         try {
-            const response = await fetch('?api=add_client', {
+            const response = await fetch('api.php?api=add_client', {
                 method: 'POST',
                 body: formData
             });

@@ -1,10 +1,6 @@
 <?php
 require_once 'config.php';
-// Admin only access check
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
-    header("Location: dashboard.php");
-    exit;
-}
+require_role(['Admin'], false);
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $stmt = $db->prepare("SELECT * FROM bankers WHERE id = ?");
@@ -16,7 +12,8 @@ if (!$banker) {
 }
 
 $page_title = 'Edit Bank Contact';
-$page_subtitle = ' Update relationship manager or banker contact details';
+$page_subtitle = 'Update relationship manager or banker contact details';
+$hide_main_header = true;
 require_once 'header.php';
 
 $selected_categories = explode(',', $banker['loan_category'] ?? '');
@@ -29,214 +26,315 @@ $selected_categories = array_map('trim', $selected_categories);
     const preselectedCity = <?php echo json_encode($banker['city'] ?? ''); ?>;
 </script>
 
-<div id="view-add-banker" class="view-container">
+<div id="view-add-banker" class="view-container" style="width:100%; font-family:'Inter', sans-serif;">
     <form id="banker-registration-form" onsubmit="saveBanker(event)">
         <input type="hidden" name="id" value="<?php echo $banker['id']; ?>">
-        <div class="card">
-            <div class="card-title-bar">
-                <div style="display:flex; align-items:center; gap:15px;">
-                    <a href="bankers_list.php" class="btn btn-secondary" style="padding:8px; border-radius:50%; width:36px; height:36px; display:flex; align-items:center; justify-content:center;" title="Back to List"><i data-lucide="arrow-left" style="width:18px;height:18px;margin:0;"></i></a>
-                    <h2 style="margin:0;">Edit Bank Relationship Manager</h2>
+        
+        <div class="card" style="border: 1px solid #e4e4e7; border-radius: 14px; box-shadow: 0 4px 24px rgba(0,0,0,0.04); background:#ffffff; padding:28px;">
+            
+            <!-- Card Executive Monochrome Header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e4e4e7; padding-bottom:20px; margin-bottom:28px; flex-wrap:wrap; gap:14px;">
+                <div style="display:flex; align-items:center; gap:14px;">
+                    <a href="bankers_list.php" style="background:#09090b; color:#ffffff; width:40px; height:40px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; text-decoration:none; transition:all 0.2s;" title="Back to Directory">
+                        <i data-lucide="arrow-left" style="width:20px;height:20px;"></i>
+                    </a>
+                    <div>
+                        <h2 style="margin:0; font-size:22px; font-weight:800; color:#09090b; letter-spacing:-0.4px;">Edit Bank Relationship Manager</h2>
+                        <p style="margin:3px 0 0 0; font-size:13px; color:#71717a; font-weight:500;">Update relationship manager details, DSA codes, onboarding docs, and loan criteria</p>
+                    </div>
                 </div>
-                <div class="badge-locked" style="background:#fef3c7; color:#d97706;"><i data-lucide="briefcase"></i> External Contact</div>
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="background:#09090b; color:#ffffff; font-size:12px; font-weight:700; padding:6px 14px; border-radius:20px; display:inline-flex; align-items:center; gap:6px;">
+                        <i data-lucide="briefcase" style="width:14px;height:14px;"></i> External Bank Contact
+                    </span>
+                </div>
             </div>
             
-            <!-- Bank & Contact Info -->
-            <div class="form-section-title"> Bank Details</div>
-            <div class="form-grid" style="grid-template-columns: repeat(2, 1fr);">
-                <div class="form-group full-width" style="display:flex; justify-content:space-between; align-items:center; gap: 20px;">
-                    <div style="flex-grow:1;">
-                        <label class="required">Full Name</label>
-                        <input type="text" name="full_name" placeholder="RM / Banker Name" value="<?php echo htmlspecialchars($banker['full_name'] ?? ''); ?>" required>
-                    </div>
-                    <div style="width:250px;">
-                        <label class="required">Status</label>
-                        <select name="status" required style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; font-weight: bold; color: <?php echo ($banker['status'] ?? 'Active') === 'Active' ? '#10b981' : '#ef4444'; ?>;" onchange="this.style.color = this.value === 'Active' ? '#10b981' : '#ef4444';">
-                            <option value="Active" <?php echo ($banker['status'] ?? 'Active') === 'Active' ? 'selected' : ''; ?>>Active (Working)</option>
-                            <option value="Inactive" <?php echo ($banker['status'] ?? '') === 'Inactive' ? 'selected' : ''; ?>>Inactive (Deactivated)</option>
-                        </select>
-                    </div>
+            <!-- SECTION 1: BANK & RM PRIMARY INFORMATION -->
+            <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:10px; padding:20px; margin-bottom:24px;">
+                <div style="font-size:12px; font-weight:800; color:#09090b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <span style="background:#09090b; color:#fff; width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">1</span>
+                    <span>Bank & Relationship Manager Primary Info</span>
                 </div>
                 
-                <div class="form-group">
-                    <label class="required">Bank Type</label>
-                    <select name="bank_type" id="bank_type_select" required>
-                        <option value="" disabled selected>Select Bank Type</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label class="required">Bank Name</label>
-                    <select name="bank_name" id="bank_name_select" required>
-                        <option value="" disabled selected>Select Type First</option>
-                    </select>
-                </div>
-                
-                <div class="form-group full-width" style="display:grid; grid-template-columns: repeat(3, 1fr); gap:20px;">
+                <div style="display:grid; grid-template-columns: 2fr 2fr 1fr; gap:16px; margin-bottom:16px;">
                     <div>
-                        <label class="required" style="display:flex; justify-content:space-between;">
-                            PIN Code
-                            <span id="pincode-loading" style="display:none; font-size:12px; color:#3b82f6;">Fetching...</span>
-                        </label>
-                        <input type="text" name="pincode" id="pincode-input" placeholder="e.g. 400001" value="<?php echo htmlspecialchars($banker['pincode'] ?? ''); ?>" oninput="fetchPincodeDetails(this.value)" maxlength="6">
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">RM Full Name</label>
+                        <input type="text" name="full_name" placeholder="e.g. Rajesh Kumar" value="<?php echo htmlspecialchars($banker['full_name'] ?? ''); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
                     </div>
                     <div>
-                        <label class="required">State</label>
-                        <select name="state" id="state-select" required onchange="updateCities()">
-                            <option value="" disabled selected>Select State</option>
-                        </select>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Position / Designation</label>
+                        <input type="text" name="designation" placeholder="e.g. Senior Branch Manager" value="<?php echo htmlspecialchars($banker['designation'] ?? ''); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
                     </div>
                     <div>
-                        <label class="required">City</label>
-                        <select name="city" id="city-select" required>
-                            <option value="" disabled selected>Select City first</option>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Account Status</label>
+                        <select name="status" required style="width:100%; padding:10px 12px; border:1px solid #09090b; border-radius:6px; font-size:13px; font-weight:700; color: <?php echo ($banker['status'] ?? 'Active') === 'Active' ? '#09090b' : '#ef4444'; ?>; box-sizing:border-box;" onchange="this.style.color = this.value === 'Active' ? '#09090b' : '#ef4444';">
+                            <option value="Active" <?php echo ($banker['status'] ?? 'Active') === 'Active' ? 'selected' : ''; ?>>🟢 Active</option>
+                            <option value="Inactive" <?php echo ($banker['status'] ?? '') === 'Inactive' ? 'selected' : ''; ?>>🔴 Inactive</option>
                         </select>
                     </div>
                 </div>
 
-                <div class="form-group full-width" style="display:grid; grid-template-columns: 1fr 2fr; gap:20px;">
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px;">
                     <div>
-                        <label class="required" style="display:flex; justify-content:space-between;">
-                            IFSC Code 
-                            <span id="ifsc-loading" style="display:none; font-size:12px; color:#3b82f6;">Fetching...</span>
-                        </label>
-                        <div style="display:flex; gap:10px;">
-                            <input type="text" name="ifsc_code" id="ifsc_code_input" placeholder="e.g. SBIN0001234" pattern="^[A-Z]{4}0[A-Z0-9]{6}$" title="Enter a valid 11-character IFSC Code" value="<?php echo htmlspecialchars($banker['ifsc_code'] ?? ''); ?>" required style="text-transform: uppercase; width: 100%;" oninput="if(this.value.length === 11) fetchIfscDetails()" maxlength="11">
-                            <select id="branch_dropdown" style="display:none; width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px;">
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Bank Type</label>
+                        <select name="bank_type" id="bank_type_select" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                            <option value="" disabled selected>Select Bank Type</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label class="required" style="font-size:12px; font-weight:700; color:#09090b; margin:0;">Bank Name</label>
+                            <button type="button" style="font-size:11px; padding:2px 8px; background:#09090b; color:#ffffff; border:none; border-radius:4px; font-weight:700; cursor:pointer;" onclick="toggleCustomBankInput(true)">+ Add New Bank</button>
+                        </div>
+                        <select name="bank_name" id="bank_name_select" required onchange="handleBankNameChange(this)" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                            <option value="" disabled selected>Select Type First</option>
+                        </select>
+
+                        <div id="custom_bank_container" style="display:none; margin-top:10px; background:#ffffff; border:1px solid #18181b; padding:14px; border-radius:8px; box-shadow:0 2px 10px rgba(0,0,0,0.05);">
+                            <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">
+                                ✏️ Enter New Custom Bank Name:
+                            </label>
+                            <div style="display:flex; gap:8px;">
+                                <input type="text" id="custom_bank_name" name="custom_bank_name" placeholder="e.g. Bandhan Housing Finance" style="flex:1; padding:9px 12px; border:1px solid #18181b; border-radius:6px; font-size:13px; background:#ffffff; color:#09090b; box-sizing:border-box;">
+                                <button type="button" class="btn" style="font-size:12px; padding:6px 14px; background:#18181b; color:#ffffff; border:none; border-radius:6px; cursor:pointer;" onclick="toggleCustomBankInput(false)">Cancel</button>
+                            </div>
+                            <small style="color:#52525b; font-size:11px; display:block; margin-top:6px; line-height:1.3;">
+                                ✨ This new bank will be automatically saved to your Bank Directory for future use.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 2: BRANCH LOCATION & ADDRESS -->
+            <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:10px; padding:20px; margin-bottom:24px;">
+                <div style="font-size:12px; font-weight:800; color:#09090b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <span style="background:#09090b; color:#fff; width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">2</span>
+                    <span>Branch Location & Address Details</span>
+                </div>
+
+                <!-- State -> City -> PIN Code Grid -->
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px; margin-bottom:16px;">
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">State</label>
+                        <select name="state" id="state-select" required onchange="updateCities()" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                            <option value="" disabled selected>Select State</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">City</label>
+                        <select name="city" id="city-select" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                            <option value="" disabled selected>Select City first</option>
+                        </select>
+                    </div>
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label class="required" style="font-size:12px; font-weight:700; color:#09090b; margin:0;">PIN Code</label>
+                            <span id="pincode-loading" style="display:none; font-size:11px; color:#09090b; font-weight:600;">Fetching...</span>
+                        </div>
+                        <input type="text" name="pincode" id="pincode-input" placeholder="e.g. 400001" value="<?php echo htmlspecialchars($banker['pincode'] ?? ''); ?>" oninput="fetchPincodeDetails(this.value)" maxlength="6" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
+                </div>
+
+                <!-- IFSC & Address Grid -->
+                <div style="display:grid; grid-template-columns: 1fr 2fr; gap:16px;">
+                    <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                            <label class="required" style="font-size:12px; font-weight:700; color:#09090b; margin:0;">IFSC Code</label>
+                            <span id="ifsc-loading" style="display:none; font-size:11px; color:#09090b; font-weight:600;">Fetching...</span>
+                        </div>
+                        <div style="display:flex; gap:8px;">
+                            <input type="text" name="ifsc_code" id="ifsc_code_input" placeholder="e.g. SBIN0001234" pattern="^[A-Z]{4}0[A-Z0-9]{6}$" title="Enter a valid 11-character IFSC Code" value="<?php echo htmlspecialchars($banker['ifsc_code'] ?? ''); ?>" required style="text-transform: uppercase; width: 100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; color:#09090b; box-sizing:border-box;" oninput="if(this.value.length === 11) fetchIfscDetails()" maxlength="11">
+                            <select id="branch_dropdown" style="display:none; width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; box-sizing:border-box;">
                                 <option value="">▼ Select Branch</option>
                             </select>
                         </div>
                     </div>
                     <div>
-                        <label class="required">Branch Street Address</label>
-                        <input type="text" name="address" id="address_input" placeholder="Local branch street address or building" value="<?php echo htmlspecialchars($banker['address'] ?? ''); ?>" required>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Branch Street Address</label>
+                        <input type="text" name="address" id="address_input" placeholder="Local branch street address or building details" value="<?php echo htmlspecialchars($banker['address'] ?? ''); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
                     </div>
                 </div>
-                
-                <div class="form-group">
-                    <label class="required">Position / Designation</label>
-                    <input type="text" name="designation" placeholder="e.g. Branch Manager, Loan Officer" value="<?php echo htmlspecialchars($banker['designation'] ?? ''); ?>" required>
+            </div>
+
+            <!-- SECTION 3: CONTACT & COMMUNICATION -->
+            <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:10px; padding:20px; margin-bottom:24px;">
+                <div style="font-size:12px; font-weight:800; color:#09090b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <span style="background:#09090b; color:#fff; width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">3</span>
+                    <span>Contact & Communication Emails</span>
                 </div>
-                <div class="form-group">
-                    <label>Our DSA Code (for this Bank) <span style="font-size:11px; color:#64748b;">(Optional)</span></label>
-                    <input type="text" name="dsa_code" placeholder="e.g. DSA-HDFC-9923" value="<?php echo htmlspecialchars($banker['dsa_code'] ?? ''); ?>" style="text-transform: uppercase;">
+
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px;">
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">RM Contact Mobile Number</label>
+                        <input type="text" name="contact_number" placeholder="Mobile / Direct Line" value="<?php echo htmlspecialchars($banker['contact_number'] ?? ''); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Banker RM Official Email</label>
+                        <input type="email" name="official_email" placeholder="rm.name@bank.com" value="<?php echo htmlspecialchars($banker['official_email'] ?? ''); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Bank Nodal / Official Email <span style="font-size:11px; color:#71717a; font-weight:500;">(For Deactivation Mails)</span></label>
+                        <input type="email" name="bank_official_email" placeholder="nodal.officer@bank.com / branch@bank.com" value="<?php echo htmlspecialchars($banker['bank_official_email'] ?? ''); ?>" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
                 </div>
             </div>
 
-            <!-- Contact Information -->
-            <div class="form-section-title"> Contact Information</div>
-            <div class="form-grid">
-                <div class="form-group">
-                    <label class="required">Phone Number</label>
-                    <input type="text" name="contact_number" placeholder="Mobile / Desk Number" value="<?php echo htmlspecialchars($banker['contact_number'] ?? ''); ?>" required>
+            <!-- SECTION 4: DSA CODE & ONBOARDING DOCUMENTS -->
+            <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:10px; padding:20px; margin-bottom:24px;">
+                <div style="font-size:12px; font-weight:800; color:#09090b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <span style="background:#09090b; color:#fff; width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">4</span>
+                    <span>DSA Code & Onboarding Agreement Documents</span>
                 </div>
-                <div class="form-group">
-                    <label class="required">Email Address</label>
-                    <input type="email" name="official_email" placeholder="official@bank.com" value="<?php echo htmlspecialchars($banker['official_email'] ?? ''); ?>" required>
+
+                <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:16px;">
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Assigned Bank DSA Code</label>
+                        <input type="text" name="dsa_code" placeholder="e.g. DSA-BOB-90812" value="<?php echo htmlspecialchars($banker['dsa_code'] ?? ''); ?>" style="text-transform: uppercase; width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:700; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Company Onboarding Google Drive Link</label>
+                        <input type="url" name="dsa_documents_drive_link" placeholder="https://drive.google.com/drive/folders/..." value="<?php echo htmlspecialchars($banker['dsa_documents_drive_link'] ?? ''); ?>" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:500; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">DSA Undertaking / Validity Certificate</label>
+                        <input type="file" name="dsa_undertaking_file" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; background:#ffffff; font-size:12px; color:#09090b; box-sizing:border-box;">
+                        <?php if(!empty($banker['dsa_undertaking_file'])): ?>
+                        <div style="margin-top:6px; font-size:12px;">
+                            📄 <a href="<?php echo htmlspecialchars($banker['dsa_undertaking_file']); ?>" target="_blank" style="color:#09090b; font-weight:700; text-decoration:underline;">View Uploaded DSA Document</a>
+                        </div>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
-            <!-- Loan Criteria -->
-            <div class="form-section-title"> Loan Portfolio Criteria</div>
-            <div class="form-grid">
-                <div class="form-group full-width">
-                    <label class="required">Loan Categories Handled</label>
-                    <div style="display: flex; gap: 15px; flex-wrap: wrap; margin-top: 8px;">
+            <!-- SECTION 5: LOAN PORTFOLIO & ELIGIBILITY CRITERIA -->
+            <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:10px; padding:20px; margin-bottom:24px;">
+                <div style="font-size:12px; font-weight:800; color:#09090b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <span style="background:#09090b; color:#fff; width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">5</span>
+                    <span>Loan Portfolio & ROI Criteria</span>
+                </div>
+
+                <div style="margin-bottom:18px;">
+                    <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:8px;">Loan Categories Handled</label>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                         <?php 
                         $opts = ['Home Loan', 'Personal Loan', 'Business Loan', 'Mortgage Loan', 'Education Loan', 'Vehicle Loan'];
                         foreach($opts as $opt): 
                             $checked = in_array($opt, $selected_categories) ? 'checked' : '';
                         ?>
-                        <label style="display:flex; align-items:center; gap:5px; font-weight:normal; cursor:pointer;">
-                            <input type="checkbox" name="loan_category[]" value="<?php echo $opt; ?>" <?php echo $checked; ?> style="width:18px;height:18px;"> <?php echo $opt; ?>
+                        <label style="background:#ffffff; border:1px solid #cbd5e1; border-radius:8px; padding:8px 14px; display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:600; color:#09090b; cursor:pointer; user-select:none; transition:all 0.15s;">
+                            <input type="checkbox" name="loan_category[]" value="<?php echo $opt; ?>" <?php echo $checked; ?> style="width:16px; height:16px; accent-color:#09090b;"> <?php echo $opt; ?>
                         </label>
                         <?php endforeach; ?>
                     </div>
                 </div>
-                <div class="form-group">
-                    <label class="required">Min Loan Limit (₹)</label>
-                    <input type="number" name="min_loan_limit" placeholder="e.g. 500000" min="0" value="<?php echo htmlspecialchars($banker['min_loan_limit']); ?>" required>
-                </div>
-                <div class="form-group">
-                    <label class="required">Max Loan Limit (₹)</label>
-                    <input type="number" name="max_loan_limit" placeholder="e.g. 50000000" min="0" value="<?php echo htmlspecialchars($banker['max_loan_limit']); ?>" required>
+
+                <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:16px;">
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Min Loan Limit (₹)</label>
+                        <input type="number" name="min_loan_limit" placeholder="e.g. 500000" min="0" value="<?php echo htmlspecialchars($banker['min_loan_limit']); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Max Loan Limit (₹)</label>
+                        <input type="number" name="max_loan_limit" placeholder="e.g. 50000000" min="0" value="<?php echo htmlspecialchars($banker['max_loan_limit']); ?>" required style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Min Interest Rate (Min ROI %)</label>
+                        <input type="number" step="0.01" name="min_roi" placeholder="e.g. 8.40" min="0" max="100" value="<?php echo htmlspecialchars($banker['min_roi'] ?? ''); ?>" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
+                    <div>
+                        <label style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Max Interest Rate (Max ROI %)</label>
+                        <input type="number" step="0.01" name="max_roi" placeholder="e.g. 14.50" min="0" max="100" value="<?php echo htmlspecialchars($banker['max_roi'] ?? ''); ?>" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                    </div>
                 </div>
             </div>
 
-            <!-- Coverage Area -->
-            <div class="form-section-title" style="margin-top:20px; color:#d97706; font-size:14px; border-bottom:1px solid #fde68a; padding-bottom:8px;"><i data-lucide="map" style="width:16px;height:16px;"></i> SERVICEABILITY & COVERAGE</div>
-            <div class="form-grid" style="margin-top:15px; align-items: start;">
-                <div class="form-group">
-                    <label class="required">Coverage Type</label>
-                    <select name="coverage_type" required onchange="toggleProfessionalCoverage(this.value)" style="padding: 12px; font-weight: 500;">
-                        <option value="" disabled <?php echo empty($banker['coverage_type']) ? 'selected' : ''; ?>>Select Coverage Area Type</option>
-                        <option value="PAN India" <?php echo ($banker['coverage_type']??'') == 'PAN India' ? 'selected' : ''; ?>> PAN India (All over India)</option>
-                        <option value="State Level" <?php echo ($banker['coverage_type']??'') == 'State Level' ? 'selected' : ''; ?>>️ State Level (Specific States)</option>
-                        <option value="City Level" <?php echo ($banker['coverage_type']??'') == 'City Level' ? 'selected' : ''; ?>>️ City Level (Specific Cities)</option>
-                        <option value="Local Radius (KM)" <?php echo ($banker['coverage_type']??'') == 'Local Radius (KM)' ? 'selected' : ''; ?>> Local Radius (Specific Distance)</option>
-                    </select>
+            <!-- SECTION 6: SERVICEABILITY & COVERAGE AREA -->
+            <div style="background:#fafafa; border:1px solid #e4e4e7; border-radius:10px; padding:20px; margin-bottom:24px;">
+                <div style="font-size:12px; font-weight:800; color:#09090b; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                    <span style="background:#09090b; color:#fff; width:24px; height:24px; border-radius:6px; display:inline-flex; align-items:center; justify-content:center; font-size:11px;">6</span>
+                    <span>Serviceability & Coverage Area</span>
                 </div>
                 
-                <div class="form-group" id="professional_coverage_container" style="display:none; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; width: 100%;">
-                    
-                    <!-- Hidden input to store final string for DB -->
-                    <input type="hidden" name="coverage_details" id="final_coverage_details" value="<?php echo htmlspecialchars($banker['coverage_details'] ?? ''); ?>">
-                    
-                    <!-- View for PAN India -->
-                    <div id="cov_pan_india" style="display:none; text-align:center; color:#059669; padding: 10px;">
-                        <i data-lucide="globe" style="width:32px; height:32px; margin-bottom:10px;"></i>
-                        <div style="font-weight:600; font-size:15px;">Covering all states and cities across India.</div>
+                <div style="display:grid; grid-template-columns: 1fr; gap:16px;">
+                    <div>
+                        <label class="required" style="font-size:12px; font-weight:700; color:#09090b; display:block; margin-bottom:6px;">Coverage Type</label>
+                        <select name="coverage_type" required onchange="toggleProfessionalCoverage(this.value)" style="width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#09090b; box-sizing:border-box;">
+                            <option value="" disabled <?php echo empty($banker['coverage_type']) ? 'selected' : ''; ?>>Select Coverage Area Type</option>
+                            <option value="PAN India" <?php echo ($banker['coverage_type']??'') == 'PAN India' ? 'selected' : ''; ?>>🌐 PAN India (All over India)</option>
+                            <option value="State Level" <?php echo ($banker['coverage_type']??'') == 'State Level' ? 'selected' : ''; ?>>🗺️ State Level (Specific States)</option>
+                            <option value="City Level" <?php echo ($banker['coverage_type']??'') == 'City Level' ? 'selected' : ''; ?>>🏙️ City Level (Specific Cities)</option>
+                            <option value="Local Radius (KM)" <?php echo ($banker['coverage_type']??'') == 'Local Radius (KM)' ? 'selected' : ''; ?>>📍 Local Radius (Specific Distance)</option>
+                        </select>
                     </div>
                     
-                    <!-- View for State Level -->
-                    <div id="cov_state_level" style="display:none;">
-                        <label style="font-weight:600; margin-bottom:10px; display:block;">Select Serviceable States:</label>
-                        <div id="states_grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px; max-height: 200px; overflow-y: auto; padding-right:10px;">
-                            <!-- Populated by JS -->
+                    <div id="professional_coverage_container" style="display:none; background: #ffffff; padding: 18px; border-radius: 8px; border: 1px solid #18181b; width: 100%; box-sizing:border-box;">
+                        
+                        <!-- Hidden input to store final string for DB -->
+                        <input type="hidden" name="coverage_details" id="final_coverage_details" value="<?php echo htmlspecialchars($banker['coverage_details'] ?? ''); ?>">
+                        
+                        <!-- View for PAN India -->
+                        <div id="cov_pan_india" style="display:none; text-align:center; color:#09090b; padding: 10px;">
+                            <i data-lucide="globe" style="width:32px; height:32px; margin-bottom:10px;"></i>
+                            <div style="font-weight:700; font-size:15px;">Covering all states and cities across India.</div>
                         </div>
-                    </div>
-                    
-                    <!-- View for City Level -->
-                    <div id="cov_city_level" style="display:none;">
-                        <label style="font-weight:600; margin-bottom:10px; display:block;">Enter Serviceable Cities:</label>
-                        <div style="display:flex; gap:10px; margin-bottom: 15px;">
-                            <input type="text" id="city_input" list="all_cities_list" placeholder="Type a city and press Enter..." style="flex:1;">
-                            <button type="button" class="btn btn-secondary" onclick="addCityChip()" style="padding: 10px 15px;">Add</button>
-                        </div>
-                        <datalist id="all_cities_list"></datalist>
-                        <div id="city_chips_container" style="display:flex; flex-wrap:wrap; gap:8px;">
-                            <!-- Chips go here -->
-                        </div>
-                    </div>
-                    
-                    <!-- View for Local Radius -->
-                    <div id="cov_radius" style="display:none;">
-                        <label style="font-weight:600; margin-bottom:10px; display:block;">Define Local Service Radius:</label>
-                        <div style="display:flex; gap:15px;">
-                            <div style="flex:1;">
-                                <label style="font-size:12px; color:#64748b;">Distance (in KM)</label>
-                                <input type="number" id="radius_km" placeholder="e.g. 50" min="1" oninput="updateRadiusFinal()">
-                            </div>
-                            <div style="flex:2;">
-                                <label style="font-size:12px; color:#64748b;">Base Location / Pincode</label>
-                                <input type="text" id="radius_base" placeholder="e.g. Mumbai 400001" oninput="updateRadiusFinal()">
+                        
+                        <!-- View for State Level -->
+                        <div id="cov_state_level" style="display:none;">
+                            <label style="font-weight:700; margin-bottom:10px; display:block; color:#09090b; font-size:13px;">Select Serviceable States:</label>
+                            <div id="states_grid" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap:10px; max-height: 200px; overflow-y: auto; padding-right:10px;">
+                                <!-- Populated by JS -->
                             </div>
                         </div>
-                        <div id="radius_preview" style="margin-top:15px; font-size:13px; color:#3b82f6; font-weight:500;"></div>
-                    </div>
+                        
+                        <!-- View for City Level -->
+                        <div id="cov_city_level" style="display:none;">
+                            <label style="font-weight:700; margin-bottom:10px; display:block; color:#09090b; font-size:13px;">Enter Serviceable Cities:</label>
+                            <div style="display:flex; gap:10px; margin-bottom: 15px;">
+                                <input type="text" id="city_input" list="all_cities_list" placeholder="Type a city and press Enter..." style="flex:1; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                <button type="button" class="btn" onclick="addCityChip()" style="padding: 9px 18px; background:#09090b; color:#ffffff; border:none; border-radius:6px; font-weight:700; font-size:13px; cursor:pointer;">Add</button>
+                            </div>
+                            <datalist id="all_cities_list"></datalist>
+                            <div id="city_chips_container" style="display:flex; flex-wrap:wrap; gap:8px;">
+                                <!-- Chips go here -->
+                            </div>
+                        </div>
+                        
+                        <!-- View for Local Radius -->
+                        <div id="cov_radius" style="display:none;">
+                            <label style="font-weight:700; margin-bottom:10px; display:block; color:#09090b; font-size:13px;">Define Local Service Radius:</label>
+                            <div style="display:flex; gap:15px;">
+                                <div style="flex:1;">
+                                    <label style="font-size:12px; color:#71717a; font-weight:600; display:block; margin-bottom:4px;">Distance (in KM)</label>
+                                    <input type="number" id="radius_km" placeholder="e.g. 50" min="1" oninput="updateRadiusFinal()" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                                <div style="flex:2;">
+                                    <label style="font-size:12px; color:#71717a; font-weight:600; display:block; margin-bottom:4px;">Base Location / Pincode</label>
+                                    <input type="text" id="radius_base" placeholder="e.g. Mumbai 400001" oninput="updateRadiusFinal()" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px;">
+                                </div>
+                            </div>
+                            <div id="radius_preview" style="margin-top:15px; font-size:13px; color:#09090b; font-weight:700;"></div>
+                        </div>
 
+                    </div>
                 </div>
             </div>
 
             <!-- Action panel -->
-            <div class="form-actions" style="margin-top: 30px; display: flex; justify-content: space-between; align-items: center;">
-                <button type="submit" class="btn btn-primary"><i data-lucide="save"></i> Update Banker Details</button>
-                <button type="button" class="btn" style="background:#fef2f2; color:#ef4444; border:1px solid #fca5a5;" onclick="deleteBanker(<?php echo $banker['id']; ?>)">
-                    <i data-lucide="trash-2"></i> Delete Contact
+            <div class="form-actions" style="margin-top: 28px; padding-top:20px; border-top:1px solid #e4e4e7; display:flex; justify-content:space-between; align-items:center;">
+                <button type="submit" class="btn" style="background:#09090b; color:#ffffff; font-weight:700; padding:12px 28px; border-radius:8px; border:none; display:inline-flex; align-items:center; gap:8px; cursor:pointer; font-size:14px; box-shadow:0 2px 8px rgba(0,0,0,0.15);">
+                    <i data-lucide="save" style="width:16px; height:16px;"></i> Update Banker Details
+                </button>
+                <button type="button" class="btn" style="background:#fef2f2; color:#ef4444; border:1px solid #fca5a5; font-weight:700; padding:12px 20px; border-radius:8px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; font-size:13px;" onclick="deleteBanker(<?php echo $banker['id']; ?>)">
+                    <i data-lucide="trash-2" style="width:16px; height:16px;"></i> Delete Contact
                 </button>
             </div>
         </div>
     </form>
 </div>
+
 
 <script>
     // Initialize locations
@@ -273,7 +371,7 @@ $selected_categories = array_map('trim', $selected_categories);
             lbl.style.gap = '6px';
             lbl.style.fontSize = '13px';
             lbl.style.cursor = 'pointer';
-            lbl.innerHTML = `<input type="checkbox" value="${state}" onchange="updateStatesFinal()" ${isChecked}> ${state}`;
+            lbl.innerHTML = `<input type="checkbox" value="${state}" onchange="updateStatesFinal()" ${isChecked} style="accent-color:#09090b;"> ${state}`;
             statesGrid.appendChild(lbl);
 
             // Collect all cities for the datalist
@@ -331,17 +429,51 @@ $selected_categories = array_map('trim', $selected_categories);
         const selectedState = stateSelect.value;
         
         citySelect.innerHTML = '<option value="" disabled selected>Select City</option>';
+        let cityMatched = false;
         if(selectedState && locationData[selectedState]) {
             locationData[selectedState].sort().forEach(city => {
                 const opt = document.createElement('option');
                 opt.value = city;
                 opt.textContent = city;
-                if (selectedCity && city === selectedCity) {
+                if (selectedCity && city.toUpperCase() === selectedCity.toUpperCase()) {
                     opt.selected = true;
+                    cityMatched = true;
                 }
                 citySelect.appendChild(opt);
             });
         }
+
+        // If preselected city exists but not in standard list
+        if(selectedCity && !cityMatched && selectedCity !== 'OTHER_CITY') {
+            const customOpt = document.createElement('option');
+            customOpt.value = selectedCity;
+            customOpt.textContent = selectedCity;
+            customOpt.selected = true;
+            citySelect.appendChild(customOpt);
+        }
+
+        const addCityOpt = document.createElement('option');
+        addCityOpt.value = 'OTHER_CITY';
+        addCityOpt.textContent = '➕ + Other City (Enter Manually)';
+        citySelect.appendChild(addCityOpt);
+        
+        citySelect.onchange = function() {
+            if(this.value === 'OTHER_CITY') {
+                const customCity = prompt('Enter City Name:');
+                if(customCity && customCity.trim() !== '') {
+                    const cleanCity = customCity.trim();
+                    const newOpt = document.createElement('option');
+                    newOpt.value = cleanCity;
+                    newOpt.textContent = cleanCity;
+                    newOpt.selected = true;
+                    citySelect.appendChild(newOpt);
+                    citySelect.value = cleanCity;
+                } else {
+                    citySelect.value = '';
+                }
+            }
+            if(typeof loadBranches === 'function') loadBranches();
+        };
     }
 
     function toggleProfessionalCoverage(type) {
@@ -394,8 +526,8 @@ $selected_categories = array_map('trim', $selected_categories);
         container.innerHTML = '';
         selectedCities.forEach(city => {
             const chip = document.createElement('div');
-            chip.style.background = '#e0e7ff';
-            chip.style.color = '#3730a3';
+            chip.style.background = '#09090b';
+            chip.style.color = '#ffffff';
             chip.style.padding = '5px 12px';
             chip.style.borderRadius = '16px';
             chip.style.fontSize = '13px';
@@ -432,10 +564,75 @@ $selected_categories = array_map('trim', $selected_categories);
         }
     }
 
+    function handleBankNameChange(select) {
+        const customContainer = document.getElementById('custom_bank_container');
+        const customInput = document.getElementById('custom_bank_name');
+        if (!customContainer || !customInput) return;
+
+        if (select.value === 'OTHER_CUSTOM' || select.value === 'Other (Manual Entry)') {
+            customContainer.style.display = 'block';
+            customInput.required = true;
+            customInput.focus();
+        } else {
+            customContainer.style.display = 'none';
+            customInput.required = false;
+        }
+    }
+
+    function toggleCustomBankInput(show) {
+        const nameSelect = document.getElementById('bank_name_select');
+        const customContainer = document.getElementById('custom_bank_container');
+        const customInput = document.getElementById('custom_bank_name');
+        
+        if (show) {
+            if (nameSelect) nameSelect.value = 'OTHER_CUSTOM';
+            if (customContainer) customContainer.style.display = 'block';
+            if (customInput) {
+                customInput.required = true;
+                customInput.focus();
+            }
+        } else {
+            if (nameSelect) nameSelect.value = '';
+            if (customContainer) customContainer.style.display = 'none';
+            if (customInput) {
+                customInput.required = false;
+                customInput.value = '';
+            }
+        }
+    }
+
     async function saveBanker(event) {
         event.preventDefault();
         const form = document.getElementById('banker-registration-form');
         
+        let bankName = document.getElementById('bank_name_select').value;
+        const bankType = document.getElementById('bank_type_select').value;
+        const customInput = document.getElementById('custom_bank_name');
+        
+        if (bankName === 'OTHER_CUSTOM' || bankName === 'Other (Manual Entry)' || (customInput && customInput.value.trim() !== '')) {
+            const enteredBank = customInput ? customInput.value.trim() : '';
+            if (enteredBank) bankName = enteredBank;
+
+            if (!bankName) {
+                showNotification('Please enter the custom bank name.', 'error');
+                return;
+            }
+            
+            const fd = new FormData();
+            fd.append('bank_type', bankType);
+            fd.append('bank_name', bankName);
+            
+            try {
+                const res = await fetch('api.php?api=add_custom_bank', { method: 'POST', body: fd });
+                const data = await res.json();
+                if (data.success && data.message !== 'Already exists') {
+                    showNotification('New bank saved to directory permanently!', 'info');
+                }
+            } catch (err) {
+                console.error('Connection failure while saving custom bank.', err);
+            }
+        }
+
         // Ensure at least one category is selected
         const checkboxes = form.querySelectorAll('input[name="loan_category[]"]:checked');
         if(checkboxes.length === 0) {
@@ -452,9 +649,10 @@ $selected_categories = array_map('trim', $selected_categories);
         }
 
         const formData = new FormData(form);
+        if (bankName) formData.set('bank_name', bankName);
         
         try {
-            const response = await fetch('?api=update_banker', {
+            const response = await fetch('api.php?api=update_banker', {
                 method: 'POST',
                 body: formData
             });
@@ -530,7 +728,7 @@ $selected_categories = array_map('trim', $selected_categories);
         
         document.getElementById('ifsc-loading').style.display = 'inline';
         try {
-            const res = await fetch(`?api=fetch_ifsc&ifsc=${ifsc}`);
+            const res = await fetch(`api.php?api=fetch_ifsc&ifsc=${ifsc}`);
             const data = await res.json();
             
             if (data.success && data.data) {
@@ -686,7 +884,7 @@ $selected_categories = array_map('trim', $selected_categories);
         }
 
         try {
-            const res = await fetch(`?api=get_branches&bank=${encodeURIComponent(bank)}&city=${encodeURIComponent(city)}`);
+            const res = await fetch(`api.php?api=get_branches&bank=${encodeURIComponent(bank)}&city=${encodeURIComponent(city)}`);
             const data = await res.json();
             
             dropdown.innerHTML = '<option value="">▼ Select Branch</option>';

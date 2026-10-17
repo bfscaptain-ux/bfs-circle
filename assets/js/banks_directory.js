@@ -113,6 +113,8 @@ function populateBankDropdowns(typeSelectId, nameSelectId, preselectedType = nul
     const typeSelect = document.getElementById(typeSelectId);
     const nameSelect = document.getElementById(nameSelectId);
     
+    if (!typeSelect || !nameSelect) return;
+    
     // Clear and populate Bank Types
     typeSelect.innerHTML = '<option value="" disabled selected>Select Bank Type</option>';
     for (const type in BANK_DIRECTORY) {
@@ -127,20 +129,41 @@ function populateBankDropdowns(typeSelectId, nameSelectId, preselectedType = nul
     const updateNames = (selectedType, preName = null) => {
         nameSelect.innerHTML = '<option value="" disabled selected>Select Bank Name</option>';
         if (selectedType && BANK_DIRECTORY[selectedType]) {
+            let nameMatched = false;
             BANK_DIRECTORY[selectedType].forEach(bank => {
                 const option = document.createElement('option');
                 option.value = bank;
                 option.textContent = bank;
-                if (bank === preName) option.selected = true;
+                if (preName && bank.trim().toLowerCase() === preName.trim().toLowerCase()) {
+                    option.selected = true;
+                    nameMatched = true;
+                }
                 nameSelect.appendChild(option);
             });
-            // Show input if 'Other' is selected
+
+            // If preselected name is not in directory, add it dynamically
+            if (preName && !nameMatched && preName !== 'OTHER_CUSTOM' && preName !== 'Other (Manual Entry)') {
+                const customOpt = document.createElement('option');
+                customOpt.value = preName;
+                customOpt.textContent = preName;
+                customOpt.selected = true;
+                nameSelect.appendChild(customOpt);
+            }
+
+            // Always add + Add Custom / New Bank option
+            const addOpt = document.createElement('option');
+            addOpt.value = 'OTHER_CUSTOM';
+            addOpt.textContent = '➕ + Add New Bank (Enter Manually)';
+            nameSelect.appendChild(addOpt);
         }
     };
 
     // Listen to changes
     typeSelect.addEventListener('change', (e) => {
         updateNames(e.target.value);
+        if (typeof handleBankNameChange === 'function') {
+            handleBankNameChange(nameSelect);
+        }
     });
 
     // Initial setup if preselected

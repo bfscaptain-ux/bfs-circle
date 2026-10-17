@@ -40,6 +40,34 @@ if ($ref) {
              ];
         }
     }
+
+    // 4. Check Existing Customer / Applicant Referral (CUST-123 or tracking_token or mobile)
+    if (!$partner) {
+        $app_ref_id = null;
+        if (strpos($ref, 'CUST-') === 0) {
+            $app_ref_id = intval(substr($ref, 5));
+        }
+        if ($app_ref_id > 0) {
+            $stmt_app = $db->prepare("SELECT id, customer_name, mobile, tracking_token FROM applicants WHERE id = ?");
+            $stmt_app->execute([$app_ref_id]);
+        } else {
+            $stmt_app = $db->prepare("SELECT id, customer_name, mobile, tracking_token FROM applicants WHERE tracking_token = ? OR (mobile = ? AND mobile != '')");
+            $stmt_app->execute([$ref, $ref]);
+        }
+        $app_data = $stmt_app->fetch();
+        if ($app_data) {
+            $partner = [
+                'full_name' => $app_data['customer_name'] . ' (Customer)',
+                'user_id' => 0,
+                'applicant_id' => $app_data['id'],
+                'referral_id' => 'CUST-' . $app_data['id'],
+                'username' => 'CUST_' . $app_data['id'],
+                'is_customer' => true,
+                'customer_name' => $app_data['customer_name'],
+                'customer_mobile' => $app_data['mobile']
+            ];
+        }
+    }
 }
 
 $success = false;
@@ -56,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $partner) {
     $aadhar = trim($_POST['aadhar'] ?? '');
     
     if ($name && $mobile) {
-        $added_by = $partner['username'] ?? $partner['full_name'];
+        $added_by = !empty($partner['is_customer']) ? $partner['customer_name'] : ($partner['username'] ?? $partner['full_name']);
         $notes = "Form Details - PAN: " . ($pan ?: 'N/A') . " | Aadhar: " . ($aadhar ?: 'N/A');
         
         $photo_path = null;
@@ -103,8 +131,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $partner) {
         $city = trim($_POST['city'] ?? '');
         $location = $address . ', ' . $city . ', ' . $state . ' - ' . $pincode;
         
-        $stmt = $db->prepare("INSERT INTO leads (lead_name, mobile, email, requirement, loan_amount, added_by, lead_source, stage, notes, photo, location) VALUES (?, ?, ?, ?, ?, ?, 'Partner Referral', 'New Lead', ?, ?, ?)");
-        $stmt->execute([$name, $mobile, $email, $requirement, $amount, $added_by, $notes, $photo_path, $location]);
+        $lead_source = !empty($partner['is_customer']) ? 'Customer Referral' : 'Partner Referral';
+        if (!empty($partner['is_customer'])) {
+            $notes .= " | Referred by Customer: " . ($partner['customer_name'] ?? '') . " (" . ($partner['customer_mobile'] ?? '') . ")";
+        }
+        $stmt = $db->prepare("INSERT INTO leads (lead_name, mobile, email, requirement, loan_amount, added_by, lead_source, stage, notes, photo, location) VALUES (?, ?, ?, ?, ?, ?, ?, 'New Lead', ?, ?, ?)");
+        $stmt->execute([$name, $mobile, $email, $requirement, $amount, $added_by, $lead_source, $notes, $photo_path, $location]);
+        $new_lead_id = $db->lastInsertId();
+
+        // Record in customer_referrals table
+        if (!empty($partner['is_customer']) && !empty($partner['applicant_id'])) {
+            try {
+                $stmt_cr = $db->prepare("INSERT INTO customer_referrals (referrer_applicant_id, referrer_name, referrer_mobile, referred_lead_id, friend_name, friend_mobile, loan_requirement, status, reward_amount) VALUES (?, ?, ?, ?, ?, ?, ?, 'Lead Received', 2000.0)");
+                $stmt_cr->execute([$partner['applicant_id'], $partner['customer_name'], $partner['customer_mobile'], $new_lead_id, $name, $mobile, $requirement]);
+            } catch (Exception $e) {}
+        }
         
         // Notification
         if (!empty($partner['user_id'])) {
@@ -337,6 +378,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $partner) {
 <script>
 const loanData = {
     "Home Loan": [
+        "Home Purchase",
         "New Home Purchase", 
         "Balance Transfer & Top-up", 
         "Plot Purchase & Construction", 
@@ -419,7 +461,7 @@ async function fetchPinDetails(pin) {
         status.innerHTML = 'Fetching...';
         try {
             // First try local DB
-            const res = await fetch(`?api=verify_pincode&pin=${pin}`);
+            const res = await fetch(`api.php?api=verify_pincode&pin=${pin}`);
             const data = await res.json();
             if (data && data.success) {
                 city.value = data.city;

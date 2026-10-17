@@ -1,13 +1,12 @@
 <?php
 require_once 'config.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
-    header("Location: dashboard.php");
-    exit;
-}
+require_role(['Admin'], false);
+
 
 $page_title = 'Register New Employee / Staff';
 $page_subtitle = ' Complete HRMS onboarding process and assign system access';
+$hide_main_header = true;
 require_once 'header.php';
 
 // Generate Employee ID (BF-EMP-YEAR-XXX)
@@ -411,7 +410,7 @@ $new_employee_id = $prefix . str_pad($next_num, 3, '0', STR_PAD_LEFT);
         const formData = new FormData(form);
         
         try {
-            const response = await fetch('?api=add_employee', {
+            const response = await fetch('api.php?api=add_employee', {
                 method: 'POST',
                 body: formData
             });

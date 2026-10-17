@@ -89,7 +89,7 @@ $preset_client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : '';
     async function refreshClientDropdowns() {
         try {
             // API search_clients is role-aware and returns only clients assigned to the logged-in staff member
-            const response = await fetch('?api=search_clients');
+            const response = await fetch('../api.php?api=search_clients');
             const clients = await response.json();
             if (!Array.isArray(clients)) return;
             
@@ -111,7 +111,7 @@ $preset_client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : '';
         if (!clientId) return;
         
         try {
-            const response = await fetch(`?api=client_details&id=${clientId}`);
+            const response = await fetch(`../api.php?api=client_details&id=${clientId}`);
             const c = await response.json();
             
             if (c.error) {
@@ -269,7 +269,7 @@ $preset_client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : '';
         });
         
         try {
-            const response = await fetch('?api=save_quotation', {
+            const response = await fetch('../api.php?api=save_quotation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: payload.toString()
@@ -389,7 +389,7 @@ $preset_client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : '';
         
         let savedData;
         try {
-            const res = await fetch('?api=save_quotation', {
+            const res = await fetch('../api.php?api=save_quotation', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: payload.toString()
@@ -408,10 +408,10 @@ $preset_client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : '';
 
         // 2. Fetch Client & Company Data for PDF Generation
         try {
-            const cliRes = await fetch(`?api=client_details&id=${clientId}`);
+            const cliRes = await fetch(`../api.php?api=client_details&id=${clientId}`);
             const cli = await cliRes.json();
             
-            const qListRes = await fetch(`?api=quotation_list`);
+            const qListRes = await fetch(`../api.php?api=quotation_list`);
             const qList = await qListRes.json();
             const companyProfile = qList.company_profile;
             
@@ -560,7 +560,7 @@ $preset_client_id = isset($_GET['client_id']) ? (int)$_GET['client_id'] : '';
                     fd.append('body', body);
                     fd.append('pdf_blob', pdfBlob, `Quotation_${savedData.quotation_number}.pdf`);
                     
-                    const emailRes = await fetch('?api=send_quotation_email', {
+                    const emailRes = await fetch('../api.php?api=send_quotation_email', {
                         method: 'POST',
                         body: fd
                     });

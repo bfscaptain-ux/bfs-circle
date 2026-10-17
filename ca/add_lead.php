@@ -286,7 +286,7 @@ function updateSubTypes() {
 
         try {
             const formData = new FormData(e.target);
-            const res = await fetch('?api=submit_lead', {
+            const res = await fetch('../api.php?api=submit_lead', {
                   method: 'POST',
                   body: formData
               });

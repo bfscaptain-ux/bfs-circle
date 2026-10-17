@@ -195,7 +195,7 @@ require_once __DIR__ . '/header.php';
             formData.append('assigned_to', '<?php echo htmlspecialchars($_SESSION['username']); ?>');
             
             try {
-                const response = await fetch('?api=add_client', {
+                const response = await fetch('../api.php?api=add_client', {
                     method: 'POST',
                     body: formData
                 });

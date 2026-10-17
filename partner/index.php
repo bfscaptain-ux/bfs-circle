@@ -7,6 +7,16 @@ $stmt->execute([$partner_id]);
 $partner = $stmt->fetch();
 
 if (!$partner) {
+    // Auto-heal: Try matching by mobile/username or full_name
+    $stmt_fb = $db->prepare("SELECT * FROM referrals WHERE mobile = ? OR full_name = ? LIMIT 1");
+    $stmt_fb->execute([$partner_username, $partner_name]);
+    $partner = $stmt_fb->fetch();
+    if ($partner) {
+        $db->prepare("UPDATE referrals SET user_id = ? WHERE id = ?")->execute([$partner_id, $partner['id']]);
+    }
+}
+
+if (!$partner) {
     echo "<div style='text-align:center; padding:50px 20px;'><i data-lucide='alert-triangle' style='width:48px; height:48px; color:var(--text-muted); margin-bottom:12px;'></i><h3 style='font-family:Outfit;'>Profile Not Found</h3><p style='color:var(--text-muted);'>Please contact admin to link your DSA profile.</p></div>";
     require_once 'includes/footer.php';
     exit;

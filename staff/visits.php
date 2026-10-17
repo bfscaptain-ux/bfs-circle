@@ -8,17 +8,14 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 $username = $_SESSION['username'] ?? 'Staff';
+$role = $_SESSION['role'] ?? 'Staff';
 
-$stmt = $db->prepare("SELECT department FROM employees WHERE user_id = ?");
+$stmt = $db->prepare("SELECT full_name, department FROM employees WHERE user_id = ?");
 $stmt->execute([$user_id]);
-$department = $stmt->fetchColumn();
+$emp_data = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$fullname = !empty($emp_data['full_name']) ? $emp_data['full_name'] : $username;
+$department = $emp_data['department'] ?? 'Lead Generation Team';
 
-if ($department !== 'Lead Generation Team') {
-    die("Access Denied: This mobile application is restricted to Field Employees (Lead Generation Team) only.");
-}
-
-$username = $_SESSION['username'];
-$role = $_SESSION['role'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -228,7 +225,7 @@ $role = $_SESSION['role'];
         <div class="header-top">
             <div>
                 <div class="user-greeting">Welcome back,</div>
-                <div class="user-name" id="staff_name"><?= htmlspecialchars($username) ?></div>
+                <div class="user-name" id="staff_name"><?= htmlspecialchars($fullname) ?></div>
             </div>
             <a href="../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
         </div>
@@ -265,7 +262,7 @@ $role = $_SESSION['role'];
             list.innerHTML = getSkeletonHTML(4);
             
             try {
-                const res = await fetch(`?api=get_field_visits&page=1`);
+                const res = await fetch(`../api.php?api=get_field_visits&page=1`);
                 const data = await res.json();
                 
                 if (data.data.length === 0) {

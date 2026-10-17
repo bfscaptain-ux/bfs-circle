@@ -1,8 +1,11 @@
 <?php
 require_once 'config.php';
+require_role(['Admin', 'RM']);
+
 
 $page_title = 'Lead Capture Form';
 $page_subtitle = ' Advanced Data Entry for New Leads';
+$hide_main_header = true;
 require_once 'header.php';
 
 // Fetch all staff members for assignment dropdowns
@@ -192,6 +195,7 @@ function previewPhoto(event) {
 <script>
 const loanData = {
     "Home Loan": [
+        "Home Purchase",
         "New Home Purchase", 
         "Balance Transfer & Top-up", 
         "Plot Purchase & Construction", 

@@ -1,30 +1,20 @@
-import os
+with open("employees_list.php", "r", encoding="utf-8") as f:
+    html = f.read()
 
-file_path = r'c:\Users\pc\Downloads\client mgmt2\staff\add_visit.php'
-with open(file_path, 'r', encoding='utf-8') as f:
-    content = f.read()
+html = html.replace("$_SESSION[\'role\']", "$_SESSION['role']")
+html = html.replace("?? \'\') === \'Admin\'", "?? '') === 'Admin'")
+html = html.replace("echo $emp[\'id\'];", "echo $emp['id'];")
+html = html.replace("$emp[\'full_name\']", "$emp['full_name']")
+html = html.replace("\\'Admin\\'", "'Admin'")
+html = html.replace("\\'role\\'", "'role'")
+html = html.replace("\\'id\\'", "'id'")
+html = html.replace("\\'full_name\\'", "'full_name'")
 
-target = """        }
-    
-    <!-- Leaflet JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {"""
+# Just clean up any stray backslashes inside PHP tags in that block
+html = html.replace("$_SESSION[\\'role\\']", "$_SESSION['role']")
+html = html.replace("?? \\'\\') === \\'Admin\\'", "?? '') === 'Admin'")
+html = html.replace("echo $emp[\\'id\\'];", "echo $emp['id'];")
+html = html.replace("$emp[\\'full_name\\']", "$emp['full_name']")
 
-repl = """        }
-    </script>
-    
-    <!-- Leaflet JS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {"""
-
-content = content.replace(target, repl)
-
-with open(file_path, 'w', encoding='utf-8') as f:
-    f.write(content)
-print("Fixed script syntax error")
+with open("employees_list.php", "w", encoding="utf-8") as f:
+    f.write(html)

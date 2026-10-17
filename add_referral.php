@@ -1,7 +1,9 @@
 <?php
 require_once 'config.php';
+require_role(['Admin'], false);
 $page_title = 'Add New Referral / DSA';
 $page_subtitle = ' Register a new referral partner or DSA';
+$hide_main_header = true;
 require_once 'header.php';
 ?>
 <script src="assets/js/banks_directory.js?v=<?php echo time(); ?>"></script>
@@ -29,8 +31,6 @@ require_once 'header.php';
                         <option value="Financial Advisor / DSA">Financial Advisor / DSA</option>
                         <option value="Builder / Real Estate">Builder / Real Estate</option>
                         <option value="Chartered Accountant (CA)">Chartered Accountant (CA)</option>
-                        <option value="Existing Customer">Existing Customer</option>
-                        <option value="Employee Referral">Employee Referral</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -369,33 +369,11 @@ require_once 'header.php';
                     <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 8px;"><strong style="color:var(--primary);"> Agent Details</strong></div>
                     <div class="form-group"><label>Occupation</label><input type="text" name="occupation" placeholder="Current Occupation"></div>
                 `;
-            } else if (val === 'Existing Customer') {
-                html = `
-                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 8px;"><strong style="color:var(--primary);"> Customer Details</strong></div>
-                    <div class="form-group"><label>Existing Loan Account / Applicant ID</label><input type="text" name="existing_loan_id" placeholder="Loan ID"></div>
-                `;
-            } else if (val === 'Employee Referral') {
-                html = `
-                    <div class="form-group" style="grid-column: 1 / -1; margin-bottom: 8px;"><strong style="color:var(--primary);"> Employee Details</strong></div>
-                    <div class="form-group"><label>Employee ID</label><input type="text" name="employee_id" placeholder="EMP-1234"></div>
-                    <div class="form-group"><label>Department</label><input type="text" name="department" placeholder="e.g. Sales"></div>
-                `;
             }
             
             if (html !== '') {
                 dynamicContainer.innerHTML = html;
                 dynamicContainer.style.display = 'grid';
-                
-                // Hide banking section for Employee
-                const bankingSection = document.querySelectorAll('.form-section-title')[1];
-                const bankingGrid = bankingSection.nextElementSibling;
-                if (val === 'Employee Referral') {
-                    bankingSection.style.display = 'none';
-                    bankingGrid.style.display = 'none';
-                } else {
-                    bankingSection.style.display = 'block';
-                    bankingGrid.style.display = 'grid';
-                }
             } else {
                 dynamicContainer.innerHTML = '';
                 dynamicContainer.style.display = 'none';
@@ -413,7 +391,7 @@ document.getElementById('addReferralForm').addEventListener('submit', async func
 
     try {
         const formData = new FormData(this);
-        const res = await fetch('?api=add_referral', {
+        const res = await fetch('api.php?api=add_referral', {
             method: 'POST',
             body: formData
         });

@@ -2,6 +2,7 @@
 require_once 'config.php';
 $page_title = 'Financial Calculators';
 $page_subtitle = 'Select an advanced financial tool to proceed';
+$hide_main_header = true;
 require_once 'header.php';
 ?>
 

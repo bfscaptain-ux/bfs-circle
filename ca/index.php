@@ -3,11 +3,9 @@ require_once '../config.php';
 $active_page = 'index';
 $page_title = 'Dashboard';
 
-// Ensure user is logged in and is a CA
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'CA') {
-    header("Location: ../login.php");
-    exit;
-}
+define('IS_SUBFOLDER', true);
+require_role(['CA', 'CA/CS']);
+
 
 $user_id = $_SESSION['user_id'];
 $username = $_SESSION['username'];

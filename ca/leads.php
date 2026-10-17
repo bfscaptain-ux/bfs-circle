@@ -1,9 +1,8 @@
 <?php
-require_once '../config.php';
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'CA') {
-    header("Location: ../login.php");
-    exit;
-}
+define('IS_SUBFOLDER', true);
+require_once __DIR__ . '/../config.php';
+require_role(['CA', 'CA/CS']);
+
 
 $page_title = 'Live Application Tracker';
 $active_page = 'leads';

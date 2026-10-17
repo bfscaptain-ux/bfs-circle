@@ -1,431 +1,806 @@
 <?php
 require_once 'config.php';
+require_role(['Admin'], false);
 $page_title = 'Staff & HRMS Directory';
-$page_subtitle = ' View and manage employee profiles and system access';
+$page_subtitle = 'Executive Staff Surveillance, Attendance Tracking, Payroll Ledgers & HR Intelligence';
+$hide_main_header = true;
 require_once 'header.php';
 
-// Fetch employees with their active status from the users table
-$stmt = $db->query("SELECT e.*, u.is_active, u.username FROM employees e JOIN users u ON e.user_id = u.id ORDER BY e.created_at DESC");
-$employees = $stmt->fetchAll();
+$is_admin = (($_SESSION['role'] ?? '') === 'Admin');
+
+// Fetch employees with their active status from users table (only internal staff: Staff, RM, Admin)
+$stmt = $db->query("
+    SELECT e.*, u.is_active, u.username, u.role
+    FROM employees e 
+    JOIN users u ON e.user_id = u.id 
+    WHERE u.role IN ('Staff', 'RM', 'Admin')
+    ORDER BY e.id DESC
+");
+$employees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calculate Directory Summary Metrics
+$total_employees = count($employees);
+$active_employees = 0;
+$total_base_payroll = 0;
+
+foreach ($employees as $e) {
+    if ($e['is_active']) $active_employees++;
+    $total_base_payroll += (float)($e['monthly_base_salary'] ?: 0);
+}
+
+// Attendance Today Count
+$today = date('Y-m-d');
+$att_today_count = (int)$db->query("SELECT COUNT(*) FROM employee_attendance WHERE attendance_date = '$today' AND status IN ('Present', 'Half Day')")->fetchColumn();
 ?>
 
-<div id="view-employees" class="view-container">
-    <div class="card">
-        <div class="card-title-bar" style="flex-wrap: wrap; gap: 16px;">
-            <h2 style="margin: 0;"><i data-lucide="users" style="vertical-align: middle; margin-right: 8px;"></i> Registered Staff Directory</h2>
-            <div class="hr-header-actions">
-                <div class="search-box">
-                    <i data-lucide="search"></i>
-                    <input type="text" id="staffSearch" placeholder="Search by name, ID, or phone..." onkeyup="filterStaff()">
-                </div>
-                <div class="filter-box">
-                    <select id="staffDepartmentFilter" onchange="filterStaff()">
-                        <option value="">All Departments</option>
-                        <option value="Lead Generation Team">Lead Generation Team</option>
-                        <option value="Digital Marketing Team">Digital Marketing Team</option>
-                        <option value="Content & Education Team">Content & Education Team</option>
-                        <option value="Customer Relationship Team">Customer Relationship Team</option>
-                        <option value="IT & Systems Team">IT & Systems Team</option>
-                        <option value="Operations & HR">Operations & HR</option>
-                    </select>
-                </div>
-                <?php if (($_SESSION['role'] ?? '') === 'Admin'): ?>
-                <a href="add_employee.php" class="btn btn-primary btn-add-emp"><i data-lucide="user-plus"></i> Add New Employee</a>
-                <?php endif; ?>
+<style>
+/* Pure Professional Monochrome Corporate Theme (Black & White) */
+:root {
+    --bw-black: #0f172a;
+    --bw-dark: #1e293b;
+    --bw-mid: #475569;
+    --bw-muted: #64748b;
+    --bw-light: #f8fafc;
+    --bw-border: #e2e8f0;
+    --bw-border-dark: #cbd5e1;
+}
+
+.hrms-metrics-banner {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+}
+
+.hrms-metric-card {
+    background: #ffffff;
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    transition: all 0.2s ease;
+}
+
+.hrms-metric-card:hover {
+    border-color: var(--bw-black);
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+}
+
+.hrms-icon-box {
+    width: 42px;
+    height: 42px;
+    border-radius: 8px;
+    background: var(--bw-black);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.hrms-control-bar {
+    background: #ffffff;
+    border: 1px solid var(--bw-border);
+    border-radius: 12px;
+    padding: 10px 16px;
+    margin-bottom: 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    overflow-x: auto;
+}
+
+.mono-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+    min-width: 0;
+}
+
+.mono-search-wrapper {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+}
+
+.mono-search-icon {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 15px;
+    height: 15px;
+    color: var(--bw-muted);
+    pointer-events: none;
+}
+
+.mono-input-field {
+    width: 100% !important;
+    height: 38px !important;
+    padding: 0 12px 0 36px !important;
+    border: 1px solid var(--bw-border-dark) !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    color: var(--bw-black) !important;
+    background: #ffffff !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+    transition: all 0.2s ease !important;
+}
+
+.mono-input-field:focus {
+    border-color: var(--bw-black) !important;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08) !important;
+}
+
+.mono-select-field {
+    height: 38px !important;
+    padding: 0 28px 0 12px !important;
+    border: 1px solid var(--bw-border-dark) !important;
+    border-radius: 8px !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    color: var(--bw-black) !important;
+    background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%230f172a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 10px center !important;
+    background-size: 14px !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+    outline: none !important;
+    box-sizing: border-box !important;
+    cursor: pointer !important;
+    flex-shrink: 0 !important;
+    transition: all 0.2s ease !important;
+}
+
+.mono-select-field:focus {
+    border-color: var(--bw-black) !important;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.08) !important;
+}
+
+#staffDepartmentFilter {
+    width: 210px !important;
+}
+
+#staffStatusFilter {
+    width: 170px !important;
+}
+
+/* Premium Segmented View Switcher */
+.view-switch-segmented {
+    display: inline-flex;
+    background: var(--bw-light);
+    border: 1px solid var(--bw-border-dark);
+    padding: 3px;
+    border-radius: 9px;
+    gap: 3px;
+    flex-shrink: 0;
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.seg-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 7px 15px;
+    font-size: 12.5px;
+    font-weight: 700;
+    border-radius: 7px;
+    border: none;
+    background: transparent;
+    color: var(--bw-muted);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    white-space: nowrap;
+}
+
+.seg-btn:hover {
+    color: var(--bw-black);
+    background: rgba(15, 23, 42, 0.04);
+}
+
+.seg-btn.active {
+    background: var(--bw-black) !important;
+    color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.18) !important;
+}
+
+.btn-mono-primary {
+    background: var(--bw-black);
+    color: #ffffff;
+    border: 1px solid var(--bw-black);
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-mono-primary:hover {
+    background: #1e293b;
+    border-color: #1e293b;
+    color: #ffffff;
+}
+
+.btn-mono-outline {
+    background: #ffffff;
+    color: var(--bw-black);
+    border: 1px solid var(--bw-black);
+    padding: 7px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-mono-outline:hover {
+    background: var(--bw-light);
+    border-color: var(--bw-black);
+    color: var(--bw-black);
+}
+
+.btn-mono-subtle {
+    background: var(--bw-light);
+    color: var(--bw-black);
+    border: 1px solid var(--bw-border-dark);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    text-decoration: none;
+    transition: all 0.2s;
+}
+
+.btn-mono-subtle:hover {
+    background: #ffffff;
+    border-color: var(--bw-black);
+    color: var(--bw-black);
+}
+</style>
+
+<div class="view-container">
+    <!-- Clean Action Bar (No Duplicate Title) -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; flex-wrap:wrap; gap:12px;">
+        <div style="font-size:13px; color:var(--bw-muted); font-weight:600;">
+            Manage employee directory, daily attendance logs, monthly base salaries, and performance dossiers.
+        </div>
+        <div style="display:flex; gap:10px; align-items:center;">
+            <?php if ($is_admin): ?>
+                <a href="attendance_sheet.php" class="btn-mono-outline">
+                    <i data-lucide="calendar-check" style="width:14px;"></i> Master Attendance Register
+                </a>
+                <a href="add_employee.php" class="btn-mono-primary">
+                    <i data-lucide="user-plus" style="width:14px;"></i> + Add New Employee
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- 4 High-Impact Monochrome Metric Cards -->
+    <div class="hrms-metrics-banner">
+        <div class="hrms-metric-card">
+            <div class="hrms-icon-box">
+                <i data-lucide="users" style="width:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px; font-weight:900; color:var(--bw-black); font-family:'Outfit',sans-serif;"><?= $total_employees ?></div>
+                <div style="font-size:11px; font-weight:700; color:var(--bw-muted); text-transform:uppercase; letter-spacing:0.5px;">Registered Staff</div>
             </div>
         </div>
 
-        <style>
-            .hr-header-actions {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 12px;
-                align-items: center;
-            }
-            .search-box {
-                position: relative;
-                display: flex;
-                align-items: center;
-            }
-            .search-box i {
-                position: absolute;
-                left: 12px;
-                color: var(--text-muted);
-                width: 16px;
-                height: 16px;
-            }
-            .search-box input {
-                padding: 10px 12px 10px 36px;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                width: 280px;
-                font-size: 14px;
-                transition: all 0.3s;
-                background: #f8fafc;
-            }
-            .search-box input:focus {
-                background: #fff;
-                border-color: var(--primary);
-                box-shadow: 0 0 0 3px rgba(239, 108, 0, 0.1);
-                outline: none;
-            }
-            .filter-box select {
-                padding: 10px 16px;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                font-size: 14px;
-                background: #f8fafc;
-                cursor: pointer;
-                transition: all 0.3s;
-                appearance: none;
-                /* Add custom arrow */
-                background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-                background-repeat: no-repeat;
-                background-position: right 12px center;
-                background-size: 16px;
-                padding-right: 40px;
-            }
-            .filter-box select:focus {
-                border-color: var(--primary);
-                box-shadow: 0 0 0 3px rgba(239, 108, 0, 0.1);
-                outline: none;
-            }
-            .btn-add-emp {
-                padding: 10px 20px;
-                border-radius: 8px;
-                font-weight: 600;
-                box-shadow: 0 4px 10px rgba(239, 108, 0, 0.2);
-            }
-            /* (Rest of existing styles below...) */
-            .staff-grid {
-                display: grid;
-                grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-                gap: 24px;
-                padding: 20px;
-                background: #f8fafc;
-                border-radius: 0 0 12px 12px;
-            }
-            .staff-card {
-                background: #ffffff;
-                border-radius: 16px;
-                padding: 24px;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-                border: 1px solid #e2e8f0;
-                transition: all 0.3s ease;
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                text-align: center;
-                position: relative;
-                overflow: hidden;
-            }
-            .staff-card::before {
-                content: '';
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 4px;
-                background: linear-gradient(90deg, #ff8a00, #e52e71);
-                opacity: 0;
-                transition: opacity 0.3s ease;
-            }
-            .staff-card:hover {
-                transform: translateY(-5px);
-                box-shadow: 0 12px 24px rgba(255, 138, 0, 0.15);
-                border-color: rgba(255, 138, 0, 0.3);
-            }
-            .staff-card:hover::before {
-                opacity: 1;
-            }
-            .staff-avatar {
-                width: 80px;
-                height: 80px;
-                border-radius: 50%;
-                object-fit: cover;
-                border: 3px solid #fff;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-                margin-bottom: 12px;
-            }
-            .staff-avatar-placeholder {
-                width: 80px;
-                height: 80px;
-                border-radius: 50%;
-                background: linear-gradient(135deg, var(--primary-light), #ffe0b2);
-                color: var(--primary);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                font-size: 32px;
-                font-weight: 700;
-                border: 3px solid #fff;
-                box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-                margin-bottom: 12px;
-            }
-            .staff-name {
-                font-size: 18px;
-                font-weight: 700;
-                color: var(--text-dark);
-                margin: 0 0 4px 0;
-            }
-            .staff-role {
-                font-size: 14px;
-                color: var(--primary);
-                font-weight: 600;
-                margin: 0 0 12px 0;
-            }
-            .staff-dept {
-                font-size: 13px;
-                color: var(--text-muted);
-                background: #f1f5f9;
-                padding: 4px 12px;
-                border-radius: 20px;
-                margin-bottom: 16px;
-            }
-            .staff-contact {
-                display: flex;
-                flex-direction: column;
-                gap: 8px;
-                width: 100%;
-                text-align: left;
-                background: #fafafa;
-                padding: 12px;
-                border-radius: 8px;
-                margin-bottom: 16px;
-                font-size: 13px;
-                color: var(--text-dark);
-            }
-            .staff-contact div {
-                display: flex;
-                align-items: center;
-                gap: 8px;
-            }
-            .staff-contact i {
-                color: var(--primary);
-                width: 14px;
-                height: 14px;
-            }
-            .staff-actions {
-                width: 100%;
-                display: flex;
-                gap: 10px;
-                margin-top: auto;
-            }
-            .staff-actions button {
-                flex: 1;
-                justify-content: center;
-            }
-            .status-badge-absolute {
-                position: absolute;
-                top: 12px;
-                right: 12px;
-            }
-            .emp-id-badge {
-                position: absolute;
-                top: 12px;
-                left: 12px;
-                font-size: 11px;
-                background: #e0e7ff;
-                color: #4338ca;
-                padding: 2px 8px;
-                border-radius: 12px;
-                font-weight: 600;
-            }
-            .empty-state {
-                grid-column: 1 / -1;
-                text-align: center;
-                padding: 60px 20px;
-                color: var(--text-muted);
-            }
-        </style>
+        <div class="hrms-metric-card">
+            <div class="hrms-icon-box" style="background:#ffffff; color:var(--bw-black); border:1px solid var(--bw-black);">
+                <i data-lucide="user-check" style="width:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px; font-weight:900; color:var(--bw-black); font-family:'Outfit',sans-serif;"><?= $active_employees ?></div>
+                <div style="font-size:11px; font-weight:700; color:var(--bw-muted); text-transform:uppercase; letter-spacing:0.5px;">Active Officers</div>
+            </div>
+        </div>
 
-        <div class="staff-grid" id="staffGrid">
-            <?php if (empty($employees)): ?>
-                <div class="empty-state">
-                    <i data-lucide="users" style="width: 48px; height: 48px; margin-bottom: 16px; opacity: 0.5;"></i>
-                    <h3>No Staff Registered Yet</h3>
-                    <p>Click "Add New Employee" to start building your directory.</p>
-                </div>
-            <?php else: ?>
-                <?php foreach ($employees as $emp): ?>
-                    <div class="staff-card staff-row" data-department="<?php echo htmlspecialchars($emp['department']); ?>">
-                        <span class="emp-id-badge"><?php echo htmlspecialchars($emp['emp_id']); ?></span>
-                        
-                        <?php if($emp['is_active']): ?>
-                            <span class="badge badge-success status-badge-absolute">Active</span>
+        <div class="hrms-metric-card">
+            <div class="hrms-icon-box">
+                <i data-lucide="banknote" style="width:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px; font-weight:900; color:var(--bw-black); font-family:'Outfit',sans-serif;">₹<?= number_format($total_base_payroll) ?></div>
+                <div style="font-size:11px; font-weight:700; color:var(--bw-muted); text-transform:uppercase; letter-spacing:0.5px;">Monthly Base Payroll</div>
+            </div>
+        </div>
+
+        <div class="hrms-metric-card">
+            <div class="hrms-icon-box" style="background:#ffffff; color:var(--bw-black); border:1px solid var(--bw-black);">
+                <i data-lucide="calendar-check" style="width:20px;"></i>
+            </div>
+            <div>
+                <div style="font-size:22px; font-weight:900; color:var(--bw-black); font-family:'Outfit',sans-serif;"><?= $att_today_count ?> / <?= $total_employees ?></div>
+                <div style="font-size:11px; font-weight:700; color:var(--bw-muted); text-transform:uppercase; letter-spacing:0.5px;">Present Today</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified Single-Row Filter Toolbar & Segmented View Switcher -->
+    <div class="hrms-control-bar">
+        <div class="mono-filter-group">
+            <div class="mono-search-wrapper">
+                <i data-lucide="search" class="mono-search-icon"></i>
+                <input type="text" id="staffSearch" onkeyup="filterStaff()" class="mono-input-field" placeholder="Search by name, ID, mobile...">
+            </div>
+
+            <select id="staffDepartmentFilter" onchange="filterStaff()" class="mono-select-field">
+                <option value="">All Departments</option>
+                <option value="Lead Generation Team">Lead Generation Team</option>
+                <option value="Digital Marketing Team">Digital Marketing Team</option>
+                <option value="Content & Education Team">Content & Education Team</option>
+                <option value="Customer Relationship Team">Customer Relationship Team</option>
+                <option value="IT & Systems Team">IT & Systems Team</option>
+                <option value="Operations & HR">Operations & HR</option>
+            </select>
+
+            <select id="staffStatusFilter" onchange="filterStaff()" class="mono-select-field">
+                <option value="">All Employment Statuses</option>
+                <option value="Active">Active Staff</option>
+                <option value="Inactive">Inactive Staff</option>
+            </select>
+        </div>
+
+        <div class="view-switch-segmented">
+            <button id="btn-view-grid" onclick="switchViewMode('grid')" class="seg-btn active">
+                <i data-lucide="layout-grid" style="width:14px; height:14px;"></i>
+                <span>Grid Cards</span>
+            </button>
+            <button id="btn-view-table" onclick="switchViewMode('table')" class="seg-btn">
+                <i data-lucide="list" style="width:14px; height:14px;"></i>
+                <span>Data Table</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- GRID CARDS VIEW -->
+    <div class="staff-grid" id="staffGrid">
+        <?php if (empty($employees)): ?>
+            <div style="grid-column:1/-1; text-align:center; padding:60px 20px; background:#ffffff; border-radius:12px; border:1px solid var(--bw-border); color:var(--bw-muted);">
+                <i data-lucide="users" style="width:42px; height:42px; margin-bottom:12px; color:var(--bw-black);"></i>
+                <h3 style="color:var(--bw-black); margin:0 0 6px 0; font-weight:800;">No Staff Officers Registered Yet</h3>
+                <p style="margin:0; font-size:13px;">Click "+ Add New Employee" above to build your HRMS directory.</p>
+            </div>
+        <?php else: ?>
+            <?php foreach ($employees as $emp): 
+                $isAct = $emp['is_active'];
+                $dispName = $emp['full_name'];
+                $code = $emp['emp_id'];
+                $dept = $emp['department'];
+                $role = $emp['designation'];
+                $salary = (float)($emp['monthly_base_salary'] ?: 0);
+                $comm = (float)($emp['commission_rate'] ?: 1.0);
+            ?>
+                <div class="staff-card staff-row-item" data-department="<?= htmlspecialchars($dept) ?>" data-status="<?= $isAct ? 'Active' : 'Inactive' ?>" data-search="<?= strtolower(htmlspecialchars($dispName . ' ' . $code . ' ' . $emp['username'] . ' ' . $emp['mobile'] . ' ' . $dept)) ?>">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                        <span class="badge" style="background:var(--bw-light); color:var(--bw-black); border:1px solid var(--bw-border-dark); font-weight:800; font-size:11px; font-family:'Outfit',sans-serif;"><?= htmlspecialchars($code) ?></span>
+                        <?php if ($isAct): ?>
+                            <span class="badge" style="background:var(--bw-black); color:#ffffff; font-weight:700; font-size:10.5px;">ACTIVE</span>
                         <?php else: ?>
-                            <span class="badge badge-danger status-badge-absolute">Inactive</span>
+                            <span class="badge" style="background:var(--bw-light); color:var(--bw-muted); border:1px solid var(--bw-border-dark); font-weight:700; font-size:10.5px;">INACTIVE</span>
                         <?php endif; ?>
+                    </div>
 
+                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:16px;">
                         <?php if(!empty($emp['photo_path']) && file_exists(__DIR__ . '/' . $emp['photo_path'])): ?>
-                            <img src="<?php echo htmlspecialchars($emp['photo_path']); ?>" alt="Profile" class="staff-avatar">
+                            <img src="<?php echo htmlspecialchars($emp['photo_path']); ?>" alt="Profile" class="staff-avatar-img">
                         <?php else: ?>
                             <div class="staff-avatar-placeholder">
-                                <?php echo substr(htmlspecialchars($emp['full_name']), 0, 1); ?>
+                                <?= strtoupper(substr(htmlspecialchars($dispName), 0, 1)) ?>
                             </div>
                         <?php endif; ?>
 
-                        <h3 class="staff-name"><?php echo htmlspecialchars($emp['full_name']); ?></h3>
-                        <div class="staff-role"><?php echo htmlspecialchars($emp['designation']); ?></div>
-                        <div class="staff-dept"><?php echo htmlspecialchars($emp['department']); ?></div>
+                        <h3 style="font-size:16.5px; font-weight:800; color:var(--bw-black); margin:10px 0 2px 0;"><?= htmlspecialchars($dispName) ?></h3>
+                        <div style="font-size:13px; font-weight:700; color:var(--bw-dark);"><?= htmlspecialchars($role) ?></div>
+                        <div style="margin-top:6px;"><span class="badge" style="background:var(--bw-light); color:var(--bw-mid); border:1px solid var(--bw-border); font-size:11px; font-weight:600;"><?= htmlspecialchars($dept) ?></span></div>
+                    </div>
 
-                        <div class="staff-contact">
-                            <div><i data-lucide="phone"></i> <?php echo htmlspecialchars($emp['mobile']); ?></div>
-                            <div><i data-lucide="mail"></i> <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px;"><?php echo htmlspecialchars($emp['official_email']); ?></span></div>
+                    <div style="background:var(--bw-light); border-radius:8px; border:1px solid var(--bw-border); padding:12px; margin-bottom:16px; font-size:12.5px;">
+                        <div style="display:flex; align-items:center; gap:8px; color:var(--bw-dark); margin-bottom:6px;">
+                            <i data-lucide="phone" style="width:13px; color:var(--bw-black);"></i>
+                            <span><?= htmlspecialchars($emp['mobile']) ?></span>
                         </div>
-
-                        <div class="staff-actions" style="flex-direction: column; gap: 8px;">
-                            <button data-emp="<?php echo htmlspecialchars(json_encode($emp), ENT_QUOTES, 'UTF-8'); ?>" onclick="viewEmployee(this)" class="btn btn-secondary" style="border:1px solid var(--primary); color:var(--primary); background:transparent;">
-                                <i data-lucide="eye"></i> Full Profile
-                            </button>
-                            <a href="employee_performance_view.php?username=<?php echo urlencode($emp['username'] ?? ''); ?>" class="btn btn-primary" style="text-decoration:none; text-align:center;">
-                                 View Performance
-                            </a>
-                            <?php if (($_SESSION['role'] ?? '') === 'Admin'): ?>
-                            <button onclick="deleteEmployee(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars(addslashes($emp['full_name'])); ?>')" class="btn btn-danger" style="background:#ef4444; border:none; color:white; margin-top:8px;">
-                                <i data-lucide="trash-2"></i> Delete
-                            </button>
-                            <?php endif; ?>
+                        <div style="display:flex; align-items:center; gap:8px; color:var(--bw-dark); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                            <i data-lucide="mail" style="width:13px; color:var(--bw-black);"></i>
+                            <span><?= htmlspecialchars($emp['official_email']) ?></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-top:8px; pt-8px; border-top:1px dashed var(--bw-border); font-size:11.5px;">
+                            <div>Base Salary: <strong style="color:var(--bw-black);">₹<?= number_format($salary) ?></strong></div>
+                            <div>Commission: <strong style="color:var(--bw-black);"><?= $comm ?>%</strong></div>
                         </div>
                     </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
+
+                    <div style="display:flex; flex-direction:column; gap:6px; margin-top:auto;">
+                        <a href="view_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-primary" style="justify-content:center; padding:8px 12px;">
+                            <i data-lucide="eye" style="width:13px;"></i> View 360° Profile
+                        </a>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
+                            <button onclick="openQuickAttendanceModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>')" class="btn-mono-outline" title="Log Attendance Today"><i data-lucide="calendar" style="width:12px;"></i> Attendance</button>
+                            <button onclick="openQuickSalaryModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>', <?= $salary ?>)" class="btn-mono-outline" title="Record Payout"><i data-lucide="banknote" style="width:12px;"></i> Payout</button>
+                        </div>
+                        <?php if ($is_admin): ?>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:2px;">
+                                <a href="edit_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-subtle" style="text-align:center;"><i data-lucide="edit-3" style="width:12px;"></i> Edit</a>
+                                <button onclick="deleteEmployee(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>')" class="btn-mono-subtle" style="color:var(--bw-black);"><i data-lucide="trash-2" style="width:12px;"></i> Delete</button>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+
+    <!-- HIGH-DENSITY DATA TABLE VIEW -->
+    <div id="staffTableView" style="display:none; background:#ffffff; border-radius:12px; border:1px solid var(--bw-border); padding:20px; box-shadow:0 1px 3px rgba(0,0,0,0.02);">
+        <div style="overflow-x:auto;">
+            <table class="data-table" style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th>Employee Code &amp; Officer</th>
+                        <th>Designation &amp; Department</th>
+                        <th>Contact Details</th>
+                        <th>Base Salary (₹)</th>
+                        <th>Commission Rate</th>
+                        <th>Status</th>
+                        <th style="text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="staffTableTbody">
+                    <?php foreach ($employees as $emp): 
+                        $isAct = $emp['is_active'];
+                        $dispName = $emp['full_name'];
+                    ?>
+                        <tr class="staff-row-item" data-department="<?= htmlspecialchars($emp['department']) ?>" data-status="<?= $isAct ? 'Active' : 'Inactive' ?>" data-search="<?= strtolower(htmlspecialchars($dispName . ' ' . $emp['emp_id'] . ' ' . $emp['username'] . ' ' . $emp['mobile'] . ' ' . $emp['department'])) ?>">
+                            <td>
+                                <div style="font-weight:700; color:var(--bw-black); font-size:13.5px;"><?= htmlspecialchars($dispName) ?></div>
+                                <div style="font-size:11.5px; color:var(--bw-muted);">Code: <span style="font-weight:700; color:var(--bw-black);"><?= htmlspecialchars($emp['emp_id']) ?></span> • <?= htmlspecialchars($emp['username']) ?></div>
+                            </td>
+                            <td>
+                                <div style="font-weight:600; color:var(--bw-dark);"><?= htmlspecialchars($emp['designation']) ?></div>
+                                <div style="font-size:11px; color:var(--bw-muted);"><?= htmlspecialchars($emp['department']) ?></div>
+                            </td>
+                            <td>
+                                <div style="font-size:12.5px; color:var(--bw-dark);">📞 <?= htmlspecialchars($emp['mobile']) ?></div>
+                                <div style="font-size:11.5px; color:var(--bw-muted);">✉️ <?= htmlspecialchars($emp['official_email']) ?></div>
+                            </td>
+                            <td>
+                                <strong style="color:var(--bw-black);">₹<?= number_format((float)($emp['monthly_base_salary'] ?: 0)) ?></strong>
+                            </td>
+                            <td>
+                                <span class="badge" style="background:var(--bw-light); color:var(--bw-black); border:1px solid var(--bw-border-dark);"><?= (float)($emp['commission_rate'] ?: 1.0) ?>%</span>
+                            </td>
+                            <td>
+                                <?= $isAct 
+                                    ? '<span class="badge" style="background:var(--bw-black); color:#ffffff;">Active</span>' 
+                                    : '<span class="badge" style="background:var(--bw-light); color:var(--bw-muted); border:1px solid var(--bw-border-dark);">Inactive</span>' ?>
+                            </td>
+                            <td style="text-align:right;">
+                                <div style="display:inline-flex; gap:6px;">
+                                    <a href="view_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-primary" style="padding:5px 10px; font-size:11px;"><i data-lucide="eye" style="width:12px;"></i> Profile</a>
+                                    <button onclick="openQuickAttendanceModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>')" class="btn-mono-outline" style="padding:5px 10px; font-size:11px;"><i data-lucide="calendar" style="width:12px;"></i> Attendance</button>
+                                    <button onclick="openQuickSalaryModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>', <?= (float)($emp['monthly_base_salary'] ?: 0) ?>)" class="btn-mono-outline" style="padding:5px 10px; font-size:11px;"><i data-lucide="banknote" style="width:12px;"></i> Payout</button>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
 
-<!-- Employee Details Modal -->
-<div class="modal" id="employee-modal">
-    <div class="modal-content" style="max-width:800px;">
-        <div class="modal-header">
-            <h3>Staff Profile Details</h3>
-            <button class="modal-close" onclick="closeModal()"><i data-lucide="x"></i></button>
+<!-- QUICK ATTENDANCE MODAL -->
+<div id="quick-attendance-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
+    <div style="background:#fff; border-radius:12px; width:90%; max-width:480px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden;">
+        <div style="padding:16px 20px; background:var(--bw-black); color:#fff; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i data-lucide="calendar-check" style="width:18px;"></i>
+                <span style="font-weight:800; font-size:15px;">Record Daily Attendance</span>
+            </div>
+            <button onclick="closeQuickAttendanceModal()" style="background:none; border:none; color:#fff; cursor:pointer; font-size:20px;">&times;</button>
         </div>
-        <div class="modal-body" id="employee-modal-body">
-            <!-- Content will be injected by JS -->
+        <form id="quick-attendance-form" onsubmit="submitQuickAttendance(event)" style="padding:20px;">
+            <input type="hidden" name="employee_id" id="att_emp_id" value="">
+            <input type="hidden" name="emp_username" id="att_emp_username" value="">
+
+            <div style="background:var(--bw-light); border:1px solid var(--bw-border-dark); padding:10px 14px; border-radius:8px; margin-bottom:16px;">
+                <div style="font-size:11px; color:var(--bw-muted); font-weight:700; text-transform:uppercase;">Staff Member</div>
+                <div id="att_emp_name_display" style="font-size:14px; font-weight:700; color:var(--bw-black); margin-top:2px;">-</div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label class="required" style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Attendance Date</label>
+                <input type="date" name="attendance_date" id="att_date" value="<?= date('Y-m-d') ?>" required class="mono-input" style="width:100%; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label class="required" style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Attendance Status</label>
+                <select name="status" id="att_status" required class="mono-select" style="width:100%; box-sizing:border-box;">
+                    <option value="Present">Present (Full Day)</option>
+                    <option value="Half Day">Half Day</option>
+                    <option value="On Leave">On Leave (Unpaid)</option>
+                    <option value="Paid Leave">Paid Leave (CL / SL)</option>
+                    <option value="Absent">Absent</option>
+                </select>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Check-In Time</label>
+                    <input type="time" name="check_in_time" id="att_cin_time" class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Check-Out Time</label>
+                    <input type="time" name="check_out_time" id="att_cout_time" class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div style="margin-bottom:20px;">
+                <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Remarks / Notes</label>
+                <input type="text" name="notes" id="att_notes" placeholder="e.g. On-site client visit" class="mono-input" style="width:100%; box-sizing:border-box;">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" onclick="closeQuickAttendanceModal()" class="btn-mono-outline">Cancel</button>
+                <button type="submit" id="att_submit_btn" class="btn-mono-primary"><i data-lucide="check" style="width:14px;"></i> Save Attendance Log</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- QUICK SALARY PAYOUT MODAL -->
+<div id="quick-salary-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
+    <div style="background:#fff; border-radius:12px; width:90%; max-width:560px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25); overflow:hidden;">
+        <div style="padding:16px 20px; background:var(--bw-black); color:#fff; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i data-lucide="banknote" style="width:18px;"></i>
+                <span style="font-weight:800; font-size:15px;">Record Salary &amp; Incentive Payout</span>
+            </div>
+            <button onclick="closeQuickSalaryModal()" style="background:none; border:none; color:#fff; cursor:pointer; font-size:20px;">&times;</button>
         </div>
+        <form id="quick-salary-form" onsubmit="submitQuickSalary(event)" style="padding:20px;">
+            <input type="hidden" name="employee_id" id="sal_emp_id" value="">
+            <input type="hidden" name="emp_username" id="sal_emp_username" value="">
+
+            <div style="background:var(--bw-light); border:1px solid var(--bw-border-dark); padding:10px 14px; border-radius:8px; margin-bottom:16px;">
+                <div style="font-size:11px; color:var(--bw-muted); font-weight:700; text-transform:uppercase;">Recipient Staff Member</div>
+                <div id="sal_emp_name_display" style="font-size:14px; font-weight:700; color:var(--bw-black); margin-top:2px;">-</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+                <div>
+                    <label class="required" style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Payout Month</label>
+                    <input type="month" name="payment_month" id="sal_month" value="<?= date('Y-m') ?>" required class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label class="required" style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Payment Date</label>
+                    <input type="date" name="payment_date" id="sal_date" value="<?= date('Y-m-d') ?>" required class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+                <div>
+                    <label class="required" style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Base Salary (₹)</label>
+                    <input type="number" step="0.01" name="base_salary" id="sal_base" oninput="calcNetSalary()" required class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Disbursal Incentive (₹)</label>
+                    <input type="number" step="0.01" name="incentive_amount" id="sal_incentive" oninput="calcNetSalary()" value="0" class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:14px;">
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Performance Bonus (₹)</label>
+                    <input type="number" step="0.01" name="bonus_amount" id="sal_bonus" oninput="calcNetSalary()" value="0" class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">TDS / Deductions (₹)</label>
+                    <input type="number" step="0.01" name="deductions_amount" id="sal_deductions" oninput="calcNetSalary()" value="0" class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div style="background:var(--bw-light); border:1px solid var(--bw-border-dark); padding:12px; border-radius:8px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-weight:700; font-size:13px; color:var(--bw-dark);">Net Payable Amount:</span>
+                <span style="font-size:18px; font-weight:900; color:var(--bw-black); font-family:'Outfit',sans-serif;" id="sal_net_display">₹0</span>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-bottom:20px;">
+                <div>
+                    <label class="required" style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Payment Mode</label>
+                    <select name="payment_mode" id="sal_mode" required class="mono-select" style="width:100%; box-sizing:border-box;">
+                        <option value="Bank Transfer">NEFT / RTGS Bank Transfer</option>
+                        <option value="UPI">UPI Transfer</option>
+                        <option value="Cheque">Bank Cheque</option>
+                        <option value="Cash">Cash Payout</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:12px; font-weight:700; color:var(--bw-dark); margin-bottom:4px; display:block;">Transaction UTR / Ref No</label>
+                    <input type="text" name="transaction_ref" id="sal_tx_ref" placeholder="e.g. UTR12345678" class="mono-input" style="width:100%; box-sizing:border-box;">
+                </div>
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:10px;">
+                <button type="button" onclick="closeQuickSalaryModal()" class="btn-mono-outline">Cancel</button>
+                <button type="submit" id="sal_submit_btn" class="btn-mono-primary"><i data-lucide="check" style="width:14px;"></i> Issue Payout Receipt</button>
+            </div>
+        </form>
     </div>
 </div>
 
 <script>
+function switchViewMode(mode) {
+    const grid = document.getElementById('staffGrid');
+    const table = document.getElementById('staffTableView');
+    const btnGrid = document.getElementById('btn-view-grid');
+    const btnTable = document.getElementById('btn-view-table');
 
-    function deleteEmployee(empId, empName) {
-        if (confirm('Are you sure you want to permanently delete ' + empName + '?')) {
-            fetch('?api=delete_employee', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
-                body: 'emp_id=' + empId
-            })
-            .then(res => res.json())
-            .then(data => {
-                if(data.success) {
-                    alert('Employee deleted successfully.');
-                    location.reload();
-                } else {
-                    alert(data.error || 'Failed to delete employee.');
-                }
-            });
-        }
+    if (mode === 'grid') {
+        grid.style.display = 'grid';
+        table.style.display = 'none';
+        btnGrid.classList.add('active');
+        btnTable.classList.remove('active');
+    } else {
+        grid.style.display = 'none';
+        table.style.display = 'block';
+        btnGrid.classList.remove('active');
+        btnTable.classList.add('active');
     }
+}
 
-    function viewEmployee(btn) {
-        const empJson = btn.getAttribute('data-emp');
-        const emp = JSON.parse(empJson);
-        const body = document.getElementById('employee-modal-body');
-        
-        let teamDataHtml = '';
-        try {
-            const teamData = JSON.parse(emp.team_specific_data || '{}');
-            if(Object.keys(teamData).length > 0) {
-                teamDataHtml = `<h4 style="margin-top:20px; border-bottom:1px solid #eee; padding-bottom:10px;">Team Specific Operations</h4><div class="form-grid">`;
-                for(const [key, value] of Object.entries(teamData)) {
-                    // beautify key
-                    const prettyKey = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    teamDataHtml += `<div><strong>${prettyKey}:</strong> ${value || 'N/A'}</div>`;
-                }
-                teamDataHtml += `</div>`;
-            }
-        } catch(e) {}
+function filterStaff() {
+    const search = (document.getElementById('staffSearch').value || '').toLowerCase().trim();
+    const deptFilter = document.getElementById('staffDepartmentFilter').value;
+    const statusFilter = document.getElementById('staffStatusFilter').value;
 
-        const profileImg = emp.photo_path ? `<img src="${emp.photo_path}" style="width:100px; height:100px; border-radius:50%; object-fit:cover; border:3px solid var(--primary);">` : `<div style="width:100px; height:100px; border-radius:50%; background:var(--primary-light); color:var(--primary); display:flex; align-items:center; justify-content:center; font-size:40px; font-weight:bold; border:3px solid var(--primary);">${emp.full_name.charAt(0)}</div>`;
+    const items = document.querySelectorAll('.staff-row-item');
+    items.forEach(el => {
+        const dSearch = el.getAttribute('data-search') || '';
+        const dDept = el.getAttribute('data-department') || '';
+        const dStatus = el.getAttribute('data-status') || '';
 
-        body.innerHTML = `
-            <div style="display:flex; gap:20px; align-items:center; margin-bottom:20px; background:#f8fafc; padding:20px; border-radius:8px;">
-                ${profileImg}
-                <div>
-                    <h2 style="margin:0; color:var(--text-dark);">${emp.full_name} <span class="badge badge-info">${emp.emp_id}</span></h2>
-                    <p style="margin:5px 0; font-size:16px; color:var(--text-muted);">${emp.designation} - ${emp.department}</p>
-                    <span class="badge badge-${emp.is_active ? 'success' : 'danger'}">${emp.is_active ? 'Account Active' : 'Account Suspended'}</span>
-                    <span class="badge badge-primary"><i data-lucide="shield" style="width:12px;height:12px;margin-right:4px;"></i>${emp.access_role}</span>
-                </div>
-            </div>
+        let show = true;
+        if (search && !dSearch.includes(search)) show = false;
+        if (deptFilter && dDept !== deptFilter) show = false;
+        if (statusFilter && dStatus !== statusFilter) show = false;
 
-            <div class="form-grid">
-                <div><strong>Mobile:</strong> ${emp.mobile}</div>
-                <div><strong>Official Email:</strong> ${emp.official_email}</div>
-                <div><strong>Personal Email:</strong> ${emp.personal_email || 'N/A'}</div>
-                <div><strong>Date of Joining:</strong> ${emp.doj || 'N/A'}</div>
-                <div><strong>Work Mode:</strong> ${emp.work_mode || 'N/A'}</div>
-                <div><strong>Reporting Manager:</strong> ${emp.reporting_manager || 'N/A'}</div>
-                <div style="grid-column: 1 / -1;"><strong>Current Address:</strong> ${emp.current_address}</div>
-                <div style="grid-column: 1 / -1;"><strong>Permanent Address:</strong> ${emp.permanent_address}</div>
-            </div>
+        el.style.display = show ? '' : 'none';
+    });
+}
 
-            <h4 style="margin-top:20px; border-bottom:1px solid #eee; padding-bottom:10px;">Emergency Contact</h4>
-            <div class="form-grid">
-                <div><strong>Contact Name:</strong> ${emp.emergency_contact_name}</div>
-                <div><strong>Relation:</strong> ${emp.emergency_relation}</div>
-                <div><strong>Phone Number:</strong> ${emp.emergency_phone}</div>
-            </div>
+function openQuickAttendanceModal(empId, empName, username) {
+    document.getElementById('att_emp_id').value = empId;
+    document.getElementById('att_emp_username').value = username;
+    document.getElementById('att_emp_name_display').innerText = empName + ' (' + username + ')';
+    document.getElementById('att_notes').value = '';
+    document.getElementById('quick-attendance-modal').style.display = 'flex';
+    lucide.createIcons();
+}
 
-            ${teamDataHtml}
+function closeQuickAttendanceModal() {
+    document.getElementById('quick-attendance-modal').style.display = 'none';
+}
 
-            <h4 style="margin-top:20px; border-bottom:1px solid #eee; padding-bottom:10px;">KYC & Documents</h4>
-            <div class="form-grid">
-                <div><strong>PAN Number:</strong> ${emp.pan_number || 'N/A'} 
-                    ${emp.pan_path ? `<a href="${emp.pan_path}" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:10px; padding:2px 8px;"><i data-lucide="download"></i> View</a>` : ''}
-                </div>
-                <div><strong>Aadhaar Number:</strong> ${emp.aadhar_number || 'N/A'}
-                    ${emp.aadhar_path ? `<a href="${emp.aadhar_path}" target="_blank" class="btn btn-sm btn-secondary" style="margin-left:10px; padding:2px 8px;"><i data-lucide="download"></i> View</a>` : ''}
-                </div>
-            </div>
-            
-            <h4 style="margin-top:20px; border-bottom:1px solid #eee; padding-bottom:10px;">Salary Bank Account</h4>
-            <div class="form-grid">
-                <div><strong>Account Holder:</strong> ${emp.bank_holder_name || 'N/A'}</div>
-                <div><strong>Account No:</strong> ${emp.bank_account_no || 'N/A'}</div>
-                <div><strong>Bank Name:</strong> ${emp.bank_name || 'N/A'}</div>
-                <div><strong>IFSC Code:</strong> ${emp.bank_ifsc || 'N/A'}</div>
-            </div>
-        `;
-        
-        lucide.createIcons();
-        document.getElementById('employee-modal').style.display = 'flex';
-    }
+async function submitQuickAttendance(e) {
+    e.preventDefault();
+    const form = document.getElementById('quick-attendance-form');
+    const formData = new FormData(form);
+    const btn = document.getElementById('att_submit_btn');
 
-    function closeModal() {
-        document.getElementById('employee-modal').style.display = 'none';
-    }
+    btn.disabled = true;
+    btn.innerText = 'Saving...';
 
-    function filterStaff() {
-        const searchQuery = document.getElementById('staffSearch').value.toLowerCase();
-        const deptFilter = document.getElementById('staffDepartmentFilter').value;
-        const rows = document.querySelectorAll('.staff-row');
-
-        rows.forEach(row => {
-            const textContent = row.textContent.toLowerCase();
-            const department = row.getAttribute('data-department');
-            
-            const matchesSearch = textContent.includes(searchQuery);
-            const matchesDept = deptFilter === "" || department === deptFilter;
-
-            if (matchesSearch && matchesDept) {
-                row.style.display = 'flex';
-            } else {
-                row.style.display = 'none';
-            }
+    try {
+        const res = await fetch('api.php?api=record_employee_attendance', {
+            method: 'POST',
+            body: formData
         });
+        const data = await res.json();
+        if (data && data.success) {
+            showNotification(data.message, 'success');
+            closeQuickAttendanceModal();
+        } else {
+            showNotification(data.error || 'Failed to record attendance', 'error');
+        }
+    } catch (err) {
+        showNotification('Network error', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" style="width:14px;"></i> Save Attendance Log';
+        lucide.createIcons();
     }
+}
+
+function openQuickSalaryModal(empId, empName, username, baseSal) {
+    document.getElementById('sal_emp_id').value = empId;
+    document.getElementById('sal_emp_username').value = username;
+    document.getElementById('sal_emp_name_display').innerText = empName + ' (' + username + ')';
+    document.getElementById('sal_base').value = baseSal || 0;
+    document.getElementById('sal_incentive').value = 0;
+    document.getElementById('sal_bonus').value = 0;
+    document.getElementById('sal_deductions').value = 0;
+    document.getElementById('sal_tx_ref').value = '';
+    calcNetSalary();
+
+    document.getElementById('quick-salary-modal').style.display = 'flex';
+    lucide.createIcons();
+}
+
+function closeQuickSalaryModal() {
+    document.getElementById('quick-salary-modal').style.display = 'none';
+}
+
+function calcNetSalary() {
+    const base = parseFloat(document.getElementById('sal_base').value) || 0;
+    const inc = parseFloat(document.getElementById('sal_incentive').value) || 0;
+    const bon = parseFloat(document.getElementById('sal_bonus').value) || 0;
+    const ded = parseFloat(document.getElementById('sal_deductions').value) || 0;
+    const net = Math.max(0, (base + inc + bon) - ded);
+    document.getElementById('sal_net_display').innerText = '₹' + net.toLocaleString('en-IN');
+}
+
+async function submitQuickSalary(e) {
+    e.preventDefault();
+    const form = document.getElementById('quick-salary-form');
+    const formData = new FormData(form);
+    const btn = document.getElementById('sal_submit_btn');
+
+    btn.disabled = true;
+    btn.innerText = 'Processing Payout...';
+
+    try {
+        const res = await fetch('api.php?api=record_employee_salary_payment', {
+            method: 'POST',
+            body: formData
+        });
+        const data = await res.json();
+        if (data && data.success) {
+            showNotification(data.message, 'success');
+            closeQuickSalaryModal();
+        } else {
+            showNotification(data.error || 'Failed to record salary payout', 'error');
+        }
+    } catch (err) {
+        showNotification('Network error', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i data-lucide="check" style="width:14px;"></i> Issue Payout Receipt';
+        lucide.createIcons();
+    }
+}
+
+function deleteEmployee(id, name) {
+    if (confirm('Are you sure you want to delete employee "' + name + '"? This will remove their user login access.')) {
+        window.location.href = 'fix_employee.py?action=delete&id=' + id;
+    }
+}
 </script>
 
 <?php require_once 'footer.php'; ?>

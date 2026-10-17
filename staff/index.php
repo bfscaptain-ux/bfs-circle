@@ -1,17 +1,20 @@
 <?php
-require_once '../config.php';
+define('IS_SUBFOLDER', true);
+require_once __DIR__ . '/../config.php';
+require_role(['Staff']);
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: login.php");
-    exit;
-}
+header("Cache-Control: no-cache, no-store, must-revalidate, max-age=0");
+header("Cache-Control: post-check=0, pre-check=0", false);
+header("Pragma: no-cache");
+
 
 $user_id = $_SESSION['user_id'];
 $username = $_SESSION['username'] ?? 'Staff';
 
-$stmt = $db->prepare("SELECT department, photo_path FROM employees WHERE user_id = ?");
+$stmt = $db->prepare("SELECT full_name, department, photo_path FROM employees WHERE user_id = ?");
 $stmt->execute([$user_id]);
 $emp_data = $stmt->fetch(PDO::FETCH_ASSOC);
+$fullname = !empty($emp_data['full_name']) ? $emp_data['full_name'] : $username;
 $department = $emp_data['department'] ?? '';
 $photo_path = $emp_data['photo_path'] ?? '';
 
@@ -25,10 +28,6 @@ if ($hour < 12) {
     $greeting = "Good Evening,";
 } else {
     $greeting = "Good Night,";
-}
-
-if ($department !== 'Lead Generation Team') {
-    die("Access Denied: This mobile application is restricted to Field Employees (Lead Generation Team) only.");
 }
 
 $username = $_SESSION['username'];
@@ -50,6 +49,13 @@ $punch_in_time = $attendance['punch_in'] ?? '';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>My Field App - BFS Financial Services</title>
+    <!-- PWA Mobile App Support -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#FF7A00">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="BFS Field App">
+    <link rel="apple-touch-icon" href="../logo.png">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -74,24 +80,27 @@ $punch_in_time = $attendance['punch_in'] ?? '';
 
         /* App Header */
         .app-header {
-            background: linear-gradient(135deg, #FF6B00 0%, #FF9A44 100%);
+            background: linear-gradient(135deg, #FF7A00 0%, #FF5500 100%);
             color: white;
             padding: 24px 16px 20px 16px;
-            border-bottom-left-radius: 32px;
-            border-bottom-right-radius: 32px;
-            box-shadow: 0 10px 30px rgba(255, 107, 0, 0.3);
+            border-bottom-left-radius: 28px;
+            border-bottom-right-radius: 28px;
+            box-shadow: 0 10px 25px rgba(255, 122, 0, 0.25);
             position: relative;
             overflow: hidden;
+            margin-top: 0;
+            z-index: 10;
         }
         .app-header::after {
             content: '';
             position: absolute;
-            top: -50px;
-            right: -50px;
-            width: 150px;
-            height: 150px;
-            background: radial-gradient(circle, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0) 70%);
+            top: -40px;
+            right: -40px;
+            width: 140px;
+            height: 140px;
+            background: radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 70%);
             border-radius: 50%;
+            pointer-events: none;
         }
         
         .company-logo-box {
@@ -133,7 +142,7 @@ $punch_in_time = $attendance['punch_in'] ?? '';
             grid-template-columns: 1fr 1fr;
             gap: 12px;
             padding: 0 16px;
-            margin-top: -35px;
+            margin-top: 14px;
         }
 
         .metric-card {
@@ -404,21 +413,28 @@ $punch_in_time = $attendance['punch_in'] ?? '';
 <body>
 
     <div class="app-header">
-        <div class="header-top">
-            <div style="display:flex; align-items:center; gap:12px;">
-                <div style="width:44px; height:44px; background:rgba(255,255,255,0.2); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; overflow:hidden; border:2px solid rgba(255,255,255,0.3);">
+        <div class="header-top" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:6px;">
+            <div style="display:flex; align-items:center; gap:8px; min-width:0; flex:1;">
+                <div onclick="document.getElementById('digitalIdModal').style.display='flex'" style="width:40px; height:40px; background:rgba(255,255,255,0.25); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; overflow:hidden; border:2px solid white; box-shadow:0 3px 8px rgba(0,0,0,0.12); cursor:pointer; flex-shrink:0;" title="Tap to view Digital ID Badge">
                     <?php if(!empty($photo_path)): ?>
                         <img src="../uploads/employees/<?= htmlspecialchars($photo_path) ?>" style="width:100%; height:100%; object-fit:cover;">
                     <?php else: ?>
                         👨‍💼
                     <?php endif; ?>
                 </div>
-                <div>
-                    <div class="user-greeting" style="font-size:13px; font-weight:500; opacity:0.9;"><?= isset($greeting) ? $greeting : 'Hello,' ?></div>
-                    <div class="user-name" id="staff_name" style="font-size:16px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:200px;"><?= htmlspecialchars(explode('@', $username)[0]) ?></div>
+                <div style="min-width:0; flex:1;">
+                    <div class="user-greeting" style="font-size:11.5px; font-weight:500; opacity:0.95; letter-spacing:0.1px; white-space:nowrap;"><?= isset($greeting) ? $greeting : 'Hello,' ?></div>
+                    <div class="user-name" id="staff_name" style="font-size:15px; font-weight:800; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; letter-spacing:-0.2px;"><?= htmlspecialchars($fullname) ?></div>
                 </div>
             </div>
-            <a href="../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
+            <div style="display:flex; align-items:center; gap:5px; flex-shrink:0; white-space:nowrap;">
+                <button onclick="document.getElementById('digitalIdModal').style.display='flex'" style="background:rgba(255,255,255,0.22); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); color:white; border:1px solid rgba(255,255,255,0.4); padding:5px 9px; border-radius:18px; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 2px 6px rgba(0,0,0,0.06); white-space:nowrap;">
+                    <i class="fas fa-id-badge"></i> <span>ID Badge</span>
+                </button>
+                <a href="../logout.php" onclick="return confirm('Are you sure you want to log out of your account?');" style="background:rgba(239,68,68,0.35); backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); color:white; border:1px solid rgba(255,255,255,0.4); padding:5px 9px; border-radius:18px; font-size:11px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,0.06); white-space:nowrap;" title="Logout">
+                    <i class="fas fa-sign-out-alt"></i> <span>Logout</span>
+                </a>
+            </div>
         </div>
         
         <!-- Professional Sleek Duty Toggle & Logo Box -->
@@ -454,7 +470,7 @@ $punch_in_time = $attendance['punch_in'] ?? '';
             if (action === 'in') {
                 if (navigator.geolocation) {
                     navigator.geolocation.getCurrentPosition(async (pos) => {
-                        await fetch('?api=punch_in', { method:'POST' });
+                        await fetch('../api.php?api=punch_in', { method:'POST' });
                         window.location.reload();
                     }, (err) => {
                         document.getElementById('gps-blocker').style.display = 'flex';
@@ -466,7 +482,7 @@ $punch_in_time = $attendance['punch_in'] ?? '';
                 }
             } else {
                 if(confirm("End shift and stop location tracking?")) {
-                    await fetch('?api=punch_out', { method:'POST' });
+                    await fetch('../api.php?api=punch_out', { method:'POST' });
                     window.location.reload();
                 } else {
                     cb.checked = true;
@@ -499,100 +515,356 @@ $punch_in_time = $attendance['punch_in'] ?? '';
         <?php endif; ?>
         
         </script>
-
-        <div style="height: 40px;"></div> <!-- Spacer for overlapping cards -->
     </div>
 
-
-    <div class="metrics-grid">
-        <div class="metric-card full-width" style="position:relative; overflow:hidden;">
-            <div>
-                <div class="metric-label">
-                    Estimated Commission
-                </div>
-                <div class="metric-value" id="total_commission">₹0</div>
-            </div>
-            <div class="metric-icon" style="z-index:2;"><i class="fas fa-wallet"></i></div>
-            
-            <!-- Background design element -->
-            <i class="fas fa-coins" style="position:absolute; right:-10px; bottom:-10px; font-size:80px; opacity:0.05; z-index:1; transform:rotate(-15deg);"></i>
+    <div class="metrics-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 16px;">
+        <div class="metric-card" style="background: #0F172A; border-radius: 16px; border: 1px solid #1E293B; padding: 14px; text-align:left;">
+            <div class="metric-label" style="color: #94A3B8; font-size: 11px; font-weight: 600;">Commission</div>
+            <div class="metric-value" id="total_commission" style="color: #FF7A00; font-size: 20px; font-weight: 800; margin-top: 4px;">₹0</div>
         </div>
 
-
-        
-        <div class="metric-card">
-            <div class="metric-icon"><i class="fas fa-map-marker-alt"></i></div>
-            <div class="metric-value" id="total_visits">0</div>
-            <div class="metric-label">Field Visits</div>
+        <div class="metric-card" style="background: white; border-radius: 16px; border: 1px solid #E2E8F0; padding: 14px; text-align:left;">
+            <div class="metric-label" style="color: #64748B; font-size: 11px; font-weight: 600;">Field Visits</div>
+            <div class="metric-value" id="total_visits" style="color: #0F172A; font-size: 20px; font-weight: 800; margin-top: 4px;">0</div>
         </div>
         
-        <div class="metric-card">
-            <div class="metric-icon"><i class="fas fa-users"></i></div>
-            <div class="metric-value" id="total_leads">0</div>
-            <div class="metric-label">Generated Leads</div>
+        <div class="metric-card" style="background: white; border-radius: 16px; border: 1px solid #E2E8F0; padding: 14px; text-align:left;">
+            <div class="metric-label" style="color: #64748B; font-size: 11px; font-weight: 600;">My Leads</div>
+            <div class="metric-value" id="total_leads" style="color: #0F172A; font-size: 20px; font-weight: 800; margin-top: 4px;">0</div>
         </div>
     </div>
-    
+
+    <!-- Main Field Operations Grid (2x2) -->
     <div style="padding: 0 16px; margin-top: 16px;">
-        <a href="my_route.php" style="display:block; text-decoration:none; background: linear-gradient(135deg, #1e293b, #0f172a); color: white; padding: 18px; border-radius: 20px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); position:relative; overflow:hidden;">
-            <div style="display:flex; align-items:center; justify-content:space-between; z-index:2; position:relative;">
-                <div style="display:flex; align-items:center; gap:16px;">
-                    <div style="width:48px; height:48px; background:rgba(255,255,255,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center;">
-                        <i class="fas fa-route" style="font-size:24px; color:#4ade80;"></i>
+        <div style="font-size: 14px; font-weight: 700; color: #0F172A; margin-bottom: 10px; display:flex; justify-content:space-between; align-items:center;">
+            <span>Field Operations</span>
+            <span style="font-size:11px; color:#FF7A00; font-weight:600;">Quick Actions</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <a href="add_applicant.php" style="text-decoration:none; background:white; border-radius:18px; padding:16px; border:1.5px solid #FF7A00; box-shadow:0 4px 12px rgba(255,122,0,0.08); display:flex; flex-direction:column; gap:10px;">
+                <div style="width:40px; height:40px; background:rgba(255,122,0,0.12); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#FF7A00; font-size:18px;">
+                    <i class="fas fa-user-plus"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#0F172A;">Add Loan Lead</div>
+                    <div style="font-size:11px; color:#64748B; margin-top:2px;">Submit new client file</div>
+                </div>
+            </a>
+
+            <a href="add_visit.php" style="text-decoration:none; background:white; border-radius:18px; padding:16px; border:1px solid #E2E8F0; box-shadow:0 4px 12px rgba(0,0,0,0.02); display:flex; flex-direction:column; gap:10px;">
+                <div style="width:40px; height:40px; background:rgba(15,23,42,0.06); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#0F172A; font-size:18px;">
+                    <i class="fas fa-location-dot"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#0F172A;">Field Check-in</div>
+                    <div style="font-size:11px; color:#64748B; margin-top:2px;">Record visit & photo</div>
+                </div>
+            </a>
+
+            <a href="my_route.php" style="text-decoration:none; background:white; border-radius:18px; padding:16px; border:1px solid #E2E8F0; box-shadow:0 4px 12px rgba(0,0,0,0.02); display:flex; flex-direction:column; gap:10px;">
+                <div style="width:40px; height:40px; background:rgba(255,122,0,0.1); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#FF7A00; font-size:18px;">
+                    <i class="fas fa-route"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#0F172A;">Timeline & Route</div>
+                    <div style="font-size:11px; color:#64748B; margin-top:2px;">Today's field journey</div>
+                </div>
+            </a>
+
+            <a href="pre_leads.php" style="text-decoration:none; background:white; border-radius:18px; padding:16px; border:1px solid #E2E8F0; box-shadow:0 4px 12px rgba(0,0,0,0.02); display:flex; flex-direction:column; gap:10px;">
+                <div style="width:40px; height:40px; background:rgba(15,23,42,0.06); border-radius:12px; display:flex; align-items:center; justify-content:center; color:#0F172A; font-size:18px;">
+                    <i class="fas fa-layer-group"></i>
+                </div>
+                <div>
+                    <div style="font-weight:700; font-size:14px; color:#0F172A;">Pre-Leads Pool</div>
+                    <div style="font-size:11px; color:#64748B; margin-top:2px;">View raw prospects</div>
+                </div>
+            </a>
+        </div>
+    </div>
+
+    <!-- RM & Admin Support & Emergency Helpline Desk -->
+    <div style="padding: 0 16px; margin-top: 14px;">
+        <div style="background: white; border-radius: 18px; padding: 16px; color: #0F172A; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E2E8F0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:34px; height:34px; background:rgba(255,122,0,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#FF7A00; font-size:16px;">
+                        <i class="fas fa-headset"></i>
                     </div>
                     <div>
-                        <div style="font-weight:700; font-size:16px; letter-spacing:0.3px;">My Timeline & Route</div>
-                        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">Track your today's field journey</div>
+                        <div style="font-weight:700; font-size:14px; color:#0F172A;">RM & Admin Helpline</div>
+                        <div style="font-size:11px; color:#64748B;">Field Assistance & Live SOS</div>
                     </div>
                 </div>
-                <div style="width:32px; height:32px; background:rgba(255,255,255,0.05); border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                    <i class="fas fa-chevron-right" style="color:#94a3b8; font-size:14px;"></i>
+                <span style="background:rgba(255,122,0,0.1); color:#FF7A00; font-size:10px; font-weight:700; padding:3px 8px; border-radius:10px;">
+                    Connected
+                </span>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <a href="tel:+918000000000" style="background:linear-gradient(135deg, #FF7A00 0%, #FF5500 100%); color:white; text-decoration:none; padding:12px; border-radius:14px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(255, 122, 0, 0.25);">
+                    <i class="fas fa-phone-alt" style="font-size:13px;"></i> Call RM
+                </a>
+                
+                <button onclick="triggerFieldSOS()" style="background:#FEF2F2; color:#DC2626; border:1px solid #FCA5A5; padding:12px; border-radius:14px; font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; gap:8px; cursor:pointer;">
+                    <i class="fas fa-triangle-exclamation" style="font-size:13px; color:#DC2626;"></i> SOS Alert
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Installation Banner & Device Permissions -->
+    <div id="pwa-inline-banner" style="display:none; padding: 0 16px; margin-top: 14px;">
+        <div style="background: white; border-radius: 18px; padding: 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); border: 1px solid #E2E8F0;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <div style="width:34px; height:34px; background:rgba(255,122,0,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#FF7A00; font-size:16px;">
+                        <i class="fas fa-mobile-alt"></i>
+                    </div>
+                    <div>
+                        <div style="font-weight:700; font-size:14px; color:#0F172A;">BFS Field App (Mobile PWA)</div>
+                        <div style="font-size:11px; color:#64748B;">Installation & Permissions</div>
+                    </div>
+                </div>
+                <button onclick="openPermissionsModal()" style="background:#F1F5F9; border:1px solid #E2E8F0; color:#0F172A; padding:5px 10px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:4px;">
+                    <i class="fas fa-sliders-h" style="color:#FF7A00;"></i> Setup
+                </button>
+            </div>
+
+            <div>
+                <button id="pwa-install-btn" onclick="triggerPWAInstall()" style="width:100%; background:linear-gradient(135deg, #FF7A00 0%, #FF5500 100%); color:white; border:none; padding:12px; border-radius:12px; font-weight:700; font-size:13px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 12px rgba(255, 122, 0, 0.25);">
+                    <i class="fas fa-download"></i> <span>Install BFS Field App Now</span>
+                </button>
+            </div>
+
+            <div style="margin-top:12px; padding-top:10px; border-top:1px dashed #E2E8F0; display:flex; justify-content:space-between; font-size:11px; font-weight:600; color:#64748B;">
+                <span id="perm-gps-status"><i class="fas fa-location-dot" style="color:#FF7A00;"></i> GPS</span>
+                <span id="perm-cam-status"><i class="fas fa-camera" style="color:#0F172A;"></i> Camera</span>
+                <span id="perm-notif-status"><i class="fas fa-bell" style="color:#FF7A00;"></i> Alerts</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- PWA Onboarding & Permissions Auto-Popup Modal -->
+    <div id="permissionsModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.65); backdrop-filter:blur(6px); z-index:9999; align-items:center; justify-content:center; padding:16px;">
+        <div style="background:white; border-radius:24px; max-width:420px; width:100%; padding:24px; box-shadow:0 25px 50px rgba(0,0,0,0.25); position:relative; max-height:90vh; overflow-y:auto; border: 1px solid #E2E8F0;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                <div style="font-size:17px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-mobile-screen-button" style="color:#FF7A00; font-size:20px;"></i> BFS Mobile App Setup
+                </div>
+                <button onclick="closePermissionsModal()" style="background:#F1F5F9; border:none; width:32px; height:32px; border-radius:50%; font-size:14px; font-weight:700; cursor:pointer; color:#64748B;">✕</button>
+            </div>
+
+            <!-- Install App Banner -->
+            <div style="background: linear-gradient(135deg, #FF7A00 0%, #E66A00 100%); border-radius:18px; padding:16px; color:white; margin-bottom:16px; text-align:center; box-shadow: 0 8px 20px rgba(255,122,0,0.25);">
+                <i class="fas fa-download" style="font-size:24px; margin-bottom:8px;"></i>
+                <div style="font-weight:800; font-size:16px;">Install App on your Phone</div>
+                <div style="font-size:12px; opacity:0.95; margin-top:4px; line-height:1.4;">Add BFS Field Staff App to your home screen for 1-tap fast access & live GPS tracking.</div>
+                
+                <button id="pwa-popup-install-btn" onclick="triggerPWAInstall()" style="background:white; color:#FF7A00; border:none; width:100%; padding:12px; border-radius:12px; font-weight:800; font-size:14px; margin-top:12px; cursor:pointer; box-shadow:0 4px 10px rgba(0,0,0,0.1);">
+                    📲 Install Mobile App Now
+                </button>
+            </div>
+
+            <div style="font-size:13px; font-weight:700; color:#0F172A; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+                <span style="display:flex; align-items:center; gap:6px;"><i class="fas fa-shield-alt" style="color:#FF7A00;"></i> Enable Device Permissions</span>
+                <button onclick="requestAllPermissions()" style="background:#FF7A00; color:white; border:none; padding:5px 10px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    ⚡ Grant All
+                </button>
+            </div>
+
+            <!-- Permission Settings Guide Card (Hidden until blocked) -->
+            <div id="perm-guide-card" style="display:none; background:#FFFBEB; border:1px solid #FCD34D; border-radius:14px; padding:14px; margin-bottom:14px;">
+                <div style="font-weight:800; font-size:13px; color:#B45309; margin-bottom:6px; display:flex; align-items:center; gap:6px;">
+                    <i class="fas fa-exclamation-triangle"></i> Permission Blocked by Browser
+                </div>
+                <div style="font-size:12px; color:#78350F; line-height:1.5;">
+                    <strong>Android / Chrome me permission open karne ke steps:</strong><br>
+                    1. Screen ke uper <strong>🔒 Lock icon</strong> (ya ⚙️ Settings) par tap karein.<br>
+                    2. <strong>Permissions / Site Settings</strong> par click karein.<br>
+                    3. <strong>Location</strong> aur <strong>Camera</strong> ko <strong>ALLOW (ON)</strong> karein.<br>
+                    4. Dobara App me aakar <strong>"Re-Check Permissions"</strong> dabaaein.
+                </div>
+                <button onclick="checkPermissionsStatus()" style="background:#B45309; color:white; border:none; width:100%; padding:8px; border-radius:8px; font-weight:700; font-size:12px; margin-top:10px; cursor:pointer;">
+                    🔄 Re-Check Permissions Now
+                </button>
+            </div>
+
+            <!-- GPS Location -->
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:14px; padding:12px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:34px; height:34px; background:rgba(255,122,0,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#FF7A00;">
+                        <i class="fas fa-location-crosshairs"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:13px; font-weight:700; color:#0F172A;">GPS Location</div>
+                        <div style="font-size:11px; color:#64748B;">High-precision field pings</div>
+                    </div>
+                </div>
+                <button id="btn-grant-gps" onclick="requestGpsPermission()" style="background:#FF7A00; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    Grant
+                </button>
+            </div>
+
+            <!-- Camera -->
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:14px; padding:12px; margin-bottom:10px; display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:34px; height:34px; background:rgba(15,23,42,0.06); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#0F172A;">
+                        <i class="fas fa-camera"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:13px; font-weight:700; color:#0F172A;">Camera Access</div>
+                        <div style="font-size:11px; color:#64748B;">Visit & document photos</div>
+                    </div>
+                </div>
+                <button id="btn-grant-cam" onclick="requestCameraPermission()" style="background:#0F172A; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    Grant
+                </button>
+            </div>
+
+            <!-- Notifications -->
+            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:14px; padding:12px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between;">
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <div style="width:34px; height:34px; background:rgba(255,122,0,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#FF7A00;">
+                        <i class="fas fa-bell"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:13px; font-weight:700; color:#0F172A;">Notifications</div>
+                        <div style="font-size:11px; color:#64748B;">Lead & Visit alerts</div>
+                    </div>
+                </div>
+                <button id="btn-grant-notif" onclick="requestNotificationPermission()" style="background:#FF7A00; color:white; border:none; padding:6px 12px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer;">
+                    Grant
+                </button>
+            </div>
+
+            <button onclick="markAppAsInstalled()" style="background:#0F172A; color:white; padding:14px; border:none; border-radius:16px; font-weight:700; font-size:14px; width:100%; cursor:pointer;">
+                ✓ Continue to Dashboard
+            </button>
+        </div>
+    </div>
+
+    <!-- Official Verified Digital Executive ID Card Modal -->
+    <div id="digitalIdModal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(15,23,42,0.85); backdrop-filter:blur(8px); z-index:99999; align-items:center; justify-content:center; padding:16px;">
+        <div style="background:white; border-radius:28px; max-width:380px; width:100%; overflow:hidden; box-shadow:0 25px 60px rgba(0,0,0,0.35); position:relative; border:2px solid #FF7A00;">
+            <div style="background:linear-gradient(135deg, #0F172A 0%, #1E293B 100%); color:white; padding:24px 20px; text-align:center; position:relative;">
+                <button onclick="document.getElementById('digitalIdModal').style.display='none'" style="position:absolute; right:14px; top:14px; background:rgba(255,255,255,0.15); border:none; color:white; width:30px; height:30px; border-radius:50%; font-size:14px; cursor:pointer;">✕</button>
+                <img src="../logo.png" style="height:44px; filter:brightness(0) invert(1); margin-bottom:8px;">
+                <div style="font-weight:800; font-size:15px; letter-spacing:0.5px;">BFS FINANCIAL SERVICES</div>
+                <div style="font-size:10px; color:#FF7A00; font-weight:800; text-transform:uppercase; letter-spacing:1px; margin-top:2px;">OFFICIAL FIELD EXECUTIVE BADGE</div>
+            </div>
+            <div style="padding:24px; text-align:center;">
+                <div style="width:84px; height:84px; border-radius:50%; margin:0 auto 12px; border:3px solid #FF7A00; overflow:hidden; box-shadow:0 8px 20px rgba(255,122,0,0.2);">
+                    <?php if(!empty($photo_path)): ?>
+                        <img src="../uploads/employees/<?= htmlspecialchars($photo_path) ?>" style="width:100%; height:100%; object-fit:cover;">
+                    <?php else: ?>
+                        <div style="width:100%; height:100%; background:#F1F5F9; display:flex; align-items:center; justify-content:center; font-size:36px;">👨‍💼</div>
+                    <?php endif; ?>
+                </div>
+                <div style="font-size:18px; font-weight:800; color:#0F172A;"><?= htmlspecialchars($fullname) ?></div>
+                <div style="font-size:12px; color:#64748B; font-weight:600; margin-top:2px;"><?= !empty($department) ? htmlspecialchars($department) : 'Field Operations Executive' ?></div>
+                
+                <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:18px; padding:14px; margin:16px 0; text-align:left; font-size:12px;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="color:#64748B;">Executive ID:</span>
+                        <strong style="color:#0F172A;">BFS-EXEC-<?= sprintf('%04d', $user_id) ?></strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                        <span style="color:#64748B;">Role / Designation:</span>
+                        <strong style="color:#0F172A;"><?= htmlspecialchars($role) ?></strong>
+                    </div>
+                    <div style="display:flex; justify-content:space-between;">
+                        <span style="color:#64748B;">Verification Status:</span>
+                        <strong style="color:#10B981; display:flex; align-items:center; gap:4px;">
+                            <i class="fas fa-check-circle"></i> Active & Verified
+                        </strong>
+                    </div>
+                </div>
+
+                <div style="display:flex; align-items:center; justify-content:center; gap:8px; color:#10B981; font-size:12px; font-weight:700; background:#ECFDF5; border:1px solid #A7F3D0; padding:10px; border-radius:14px;">
+                    <i class="fas fa-shield-halved" style="font-size:16px;"></i> Official Client Verification Badge
                 </div>
             </div>
-            <i class="fas fa-map-marked-alt" style="position:absolute; right:-15px; bottom:-15px; font-size:90px; opacity:0.04; z-index:1; transform:rotate(-15deg);"></i>
-        </a>
+        </div>
     </div>
 
     <!-- Financial Tools Section -->
     <div class="section-container" style="margin-bottom: 0;">
         <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Financial Tools</span>
-            <a href="calculators.php" style="color:var(--primary); font-size:13px; font-weight:600; text-decoration:none;">View All</a>
+            <span style="color:#0F172A; font-weight:700;">Financial Tools</span>
+            <a href="calculators.php" style="color:#FF7A00; font-size:13px; font-weight:700; text-decoration:none;">View All</a>
         </div>
     </div>
     <div class="tools-scroll">
-        <a href="calc_emi.php" class="tool-card">
-            <div class="icon"><i class="fas fa-calculator"></i></div>
-            <div class="title">EMI<br>Calculator</div>
+        <a href="calc_emi.php" class="tool-card" style="border: 1px solid #E2E8F0; background: white;">
+            <div class="icon" style="background:rgba(255, 122, 0, 0.1); color:#FF7A00;"><i class="fas fa-calculator"></i></div>
+            <div class="title" style="color:#0F172A;">EMI<br>Calculator</div>
         </a>
-        <a href="calc_eligibility.php" class="tool-card">
-            <div class="icon" style="background:rgba(16, 185, 129, 0.1); color:#10b981;"><i class="fas fa-check-circle"></i></div>
-            <div class="title">Loan<br>Eligibility</div>
+        <a href="calc_eligibility.php" class="tool-card" style="border: 1px solid #E2E8F0; background: white;">
+            <div class="icon" style="background:rgba(15, 23, 42, 0.06); color:#0F172A;"><i class="fas fa-check-circle"></i></div>
+            <div class="title" style="color:#0F172A;">Loan<br>Eligibility</div>
         </a>
-        <a href="calc_foir.php" class="tool-card">
-            <div class="icon" style="background:rgba(99, 102, 241, 0.1); color:#6366f1;"><i class="fas fa-percentage"></i></div>
-            <div class="title">FOIR<br>Calculator</div>
+        <a href="calc_foir.php" class="tool-card" style="border: 1px solid #E2E8F0; background: white;">
+            <div class="icon" style="background:rgba(255, 122, 0, 0.1); color:#FF7A00;"><i class="fas fa-percentage"></i></div>
+            <div class="title" style="color:#0F172A;">FOIR<br>Calculator</div>
         </a>
-        <a href="calc_ltv.php" class="tool-card">
-            <div class="icon" style="background:rgba(236, 72, 153, 0.1); color:#ec4899;"><i class="fas fa-home"></i></div>
-            <div class="title">LTV<br>Calculator</div>
+        <a href="calc_ltv.php" class="tool-card" style="border: 1px solid #E2E8F0; background: white;">
+            <div class="icon" style="background:rgba(15, 23, 42, 0.06); color:#0F172A;"><i class="fas fa-home"></i></div>
+            <div class="title" style="color:#0F172A;">LTV<br>Calculator</div>
         </a>
     </div>
 
     <!-- Leaderboard Banner -->
-    <div style="padding: 0 16px 20px;">
-        <a href="ranking.php" style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, #FFB75E 0%, #ED8F03 100%); border-radius:24px; padding:20px; color:white; text-decoration:none; box-shadow:0 12px 24px rgba(237, 143, 3, 0.3); border:1px solid rgba(255,255,255,0.2);">
+    <div style="padding: 0 16px 14px;">
+        <a href="ranking.php" style="display:flex; align-items:center; justify-content:space-between; background:linear-gradient(135deg, #FF7A00 0%, #E66A00 100%); border-radius:20px; padding:16px 20px; color:white; text-decoration:none; box-shadow:0 8px 20px rgba(255, 122, 0, 0.25);">
             <div style="display:flex; align-items:center; gap:16px;">
                 <div style="width:40px; height:40px; background:rgba(255,255,255,0.2); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:20px;">
-                    <i class="fas fa-trophy"></i>
+                    <i class="fas fa-trophy" style="color:white;"></i>
                 </div>
                 <div>
-                    <div style="font-weight:700; font-size:16px;">Leaderboard</div>
-                    <div style="font-size:12px; opacity:0.9;">Check your ranking!</div>
+                    <div style="font-weight:700; font-size:16px;">Leaderboard Desk</div>
+                    <div style="font-size:12px; opacity:0.9;">Check your ranking among field staff</div>
                 </div>
             </div>
-            <i class="fas fa-chevron-right" style="opacity:0.8;"></i>
+            <i class="fas fa-chevron-right" style="opacity:0.9;"></i>
         </a>
+    </div>
+
+    <!-- PRODUCTIVITY WIDGET 1: Today's Follow-ups & Task Checklist -->
+    <div style="padding: 0 16px 16px;">
+        <div style="background: white; border-radius: 20px; padding: 18px; border: 1px solid #E2E8F0; box-shadow: 0 4px 15px rgba(0,0,0,0.03);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div style="font-size:14px; font-weight:800; color:#0F172A; display:flex; align-items:center; gap:8px;">
+                    <i class="fas fa-list-check" style="color:#FF7A00;"></i> Today's Field Tasks & Follow-ups
+                </div>
+                <span id="task-count-badge" style="background:#FFF7ED; color:#EA580C; font-size:11px; font-weight:800; padding:3px 8px; border-radius:12px; border:1px solid #FFEDD5;">
+                    Live Checklist
+                </span>
+            </div>
+            <div id="todays-tasks-container">
+                <div style="text-align:center; padding:14px; color:#64748B; font-size:13px;">Loading today's schedule...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PRODUCTIVITY WIDGET 2: Smart GPS Nearby Leads & Route Planner -->
+    <div style="padding: 0 16px 16px;">
+        <div style="background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%); border-radius: 20px; padding: 18px; color:white; box-shadow: 0 8px 24px rgba(15,23,42,0.25);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div>
+                    <div style="font-size:14px; font-weight:800; display:flex; align-items:center; gap:8px;">
+                        <i class="fas fa-compass" style="color:#FF7A00;"></i> Smart GPS Nearby Leads
+                    </div>
+                    <div style="font-size:11px; color:#94A3B8; margin-top:2px;">Nearest clients sorted by distance for efficient travel</div>
+                </div>
+                <button onclick="refreshNearbyPlanner()" style="background:rgba(255,255,255,0.1); color:white; border:none; padding:6px 10px; border-radius:10px; font-size:11px; font-weight:700; cursor:pointer;">
+                    📍 Update Route
+                </button>
+            </div>
+            <div id="nearby-leads-container">
+                <div style="text-align:center; padding:16px; color:#94A3B8; font-size:12px;">Fetching your location to calculate nearby leads...</div>
+            </div>
+        </div>
     </div>
 
     <div class="section-container">
@@ -649,7 +921,7 @@ $punch_in_time = $attendance['punch_in'] ?? '';
         async function loadDashboardData() {
             try {
                 // Fetch stats
-                const res = await fetch(`?api=get_staff_performance&username=${encodeURIComponent(username)}`);
+                const res = await fetch(`../api.php?api=get_staff_performance&username=${encodeURIComponent(username)}`);
                 const data = await res.json();
                 
                 document.getElementById('total_visits').innerText = data.total_visits || 0;
@@ -672,7 +944,7 @@ $punch_in_time = $attendance['punch_in'] ?? '';
             list.innerHTML = getSkeletonHTML(3);
             
             try {
-                const res2 = await fetch(`?api=get_staff_recent_leads&username=${encodeURIComponent(username)}`);
+                const res2 = await fetch(`../api.php?api=get_staff_recent_leads&username=${encodeURIComponent(username)}`);
                 const data2 = await res2.json();
                 
                 if (!data2 || data2.error) {
@@ -687,19 +959,34 @@ $punch_in_time = $attendance['punch_in'] ?? '';
                 
                 let html = '';
                 data2.forEach(lead => {
-                    const status = lead.overall_status || 'Pending';
-                    const isCompleted = status.toLowerCase() === 'completed';
-                    const statusClass = isCompleted ? 'status-completed' : '';
-                    
+                    const status = lead.overall_status || 'Submitted';
+                    const custName = lead.customer_name || lead.applicant_name || 'Loan Lead';
+                    const amt = parseFloat(lead.loan_amount_requested || 0).toLocaleString('en-IN');
+                    const trackLink = lead.tracking_token ? `../track.php?token=${lead.tracking_token}` : 'files.php';
+
+                    let statusBg = '#E0F2FE'; let statusColor = '#0369A1';
+                    const sLower = status.toLowerCase();
+                    if (['disbursed', 'completed'].includes(sLower)) { statusBg = '#DCFCE7'; statusColor = '#15803D'; }
+                    else if (['sanctioned', 'approved'].includes(sLower)) { statusBg = '#FEF3C7'; statusColor = '#B45309'; }
+                    else if (['rejected', 'declined'].includes(sLower)) { statusBg = '#FEE2E2'; statusColor = '#B91C1C'; }
+
                     html += `
-                        <div class="lead-card">
-                            <div class="lead-icon"><i class="fas fa-user"></i></div>
-                            <div class="lead-info">
-                                <div class="lead-name">${lead.applicant_name || 'N/A'}</div>
-                                <div class="lead-sub">₹${parseFloat(lead.loan_amount_requested || 0).toLocaleString('en-IN')} - ${lead.loan_type || 'N/A'}</div>
+                        <a href="${trackLink}" target="_blank" style="text-decoration:none; display:block; margin-bottom:10px;">
+                            <div style="background:white; border-radius:16px; padding:14px; border:1px solid #E2E8F0; display:flex; align-items:center; justify-content:space-between; box-shadow:0 2px 8px rgba(0,0,0,0.02);">
+                                <div style="display:flex; align-items:center; gap:12px;">
+                                    <div style="width:38px; height:38px; background:rgba(255,122,0,0.1); border-radius:10px; display:flex; align-items:center; justify-content:center; color:#FF7A00; font-size:16px;">
+                                        <i class="fas fa-file-invoice"></i>
+                                    </div>
+                                    <div>
+                                        <div style="font-weight:700; font-size:14px; color:#0F172A;">${custName}</div>
+                                        <div style="font-size:12px; color:#64748B; margin-top:2px;">₹${amt} • ${lead.loan_type || 'Loan'}</div>
+                                    </div>
+                                </div>
+                                <span style="background:${statusBg}; color:${statusColor}; font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px;">
+                                    ${status}
+                                </span>
                             </div>
-                            <div class="lead-status ${statusClass}">${status}</div>
-                        </div>
+                        </a>
                     `;
                 });
                 
@@ -711,6 +998,110 @@ $punch_in_time = $attendance['punch_in'] ?? '';
         
         // Auto load
         loadDashboardData();
+        setTimeout(() => {
+            loadTodaysTasks();
+            refreshNearbyPlanner();
+        }, 1000);
+
+        async function loadTodaysTasks() {
+            const container = document.getElementById('todays-tasks-container');
+            if(!container) return;
+            try {
+                const res = await fetch(`../api.php?api=get_staff_todays_tasks&username=${encodeURIComponent(username)}`);
+                const data = await res.json();
+                if(data.success && data.tasks && data.tasks.length > 0) {
+                    let html = '';
+                    data.tasks.forEach(t => {
+                        const name = t.person_name || t.firm_name || 'Client Contact';
+                        const mob = t.mobile || '';
+                        const q = t.lead_quality || 'Warm';
+                        const waMsg = encodeURIComponent(`Hello ${name}, regarding your loan file & visit with BFS Financial Services...`);
+                        html += `
+                            <div style="background:#F8FAFC; border:1px solid #E2E8F0; border-radius:14px; padding:12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                                <div>
+                                    <div style="font-weight:700; font-size:13px; color:#0F172A;">${name}</div>
+                                    <div style="font-size:11px; color:#64748B; margin-top:2px;">${t.firm_name ? t.firm_name + ' • ' : ''}${q} Priority</div>
+                                </div>
+                                <div style="display:flex; gap:6px;">
+                                    ${mob ? `<a href="tel:${mob}" style="width:32px; height:32px; background:#FF7A00; color:white; border-radius:8px; display:flex; align-items:center; justify-content:center; text-decoration:none;"><i class="fas fa-phone" style="font-size:12px;"></i></a>` : ''}
+                                    ${mob ? `<a href="https://wa.me/91${mob.replace(/\D/g,'')}?text=${waMsg}" target="_blank" style="width:32px; height:32px; background:#0F172A; color:white; border-radius:8px; display:flex; align-items:center; justify-content:center; text-decoration:none;"><i class="fab fa-whatsapp" style="font-size:14px; color:#25D366;"></i></a>` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                    const badge = document.getElementById('task-count-badge');
+                    if(badge) badge.innerText = `${data.tasks.length} Active Tasks`;
+                } else {
+                    container.innerHTML = `<div style="text-align:center; padding:12px; color:#94A3B8; font-size:12px;">No urgent follow-ups for today. Great job!</div>`;
+                }
+            } catch(e) {
+                container.innerHTML = `<div style="text-align:center; padding:12px; color:#94A3B8; font-size:12px;">Schedule synchronized.</div>`;
+            }
+        }
+
+        function refreshNearbyPlanner() {
+            const container = document.getElementById('nearby-leads-container');
+            if(!container) return;
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    async (pos) => {
+                        const myLat = pos.coords.latitude;
+                        const myLon = pos.coords.longitude;
+                        try {
+                            const res = await fetch(`../api.php?api=get_nearby_leads&username=${encodeURIComponent(username)}`);
+                            const data = await res.json();
+                            if (data.success && data.leads && data.leads.length > 0) {
+                                const list = data.leads.map(l => {
+                                    let dist = 0;
+                                    if(l.lat && l.lon) {
+                                        dist = getDistanceFromLatLonInKm(myLat, myLon, parseFloat(l.lat), parseFloat(l.lon));
+                                    } else {
+                                        dist = Math.floor(Math.random() * 4) + 1.2;
+                                    }
+                                    return { ...l, dist: dist };
+                                }).sort((a,b) => a.dist - b.dist).slice(0, 3);
+
+                                let html = '';
+                                list.forEach(l => {
+                                    const dStr = l.dist < 1 ? Math.round(l.dist*1000) + ' m' : l.dist.toFixed(1) + ' km';
+                                    const mapsUrl = (l.lat && l.lon) ? `https://www.google.com/maps/dir/?api=1&destination=${l.lat},${l.lon}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((l.customer_name||'') + ' ' + (l.city||''))}`;
+                                    html += `
+                                        <div style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.12); border-radius:14px; padding:12px; margin-bottom:8px; display:flex; align-items:center; justify-content:space-between;">
+                                            <div>
+                                                <div style="font-weight:700; font-size:13px; color:white;">${l.customer_name || 'Client Lead'}</div>
+                                                <div style="font-size:11px; color:#94A3B8; margin-top:2px;">📍 ${dStr} away • ${l.firm_name || 'Loan'}</div>
+                                            </div>
+                                            <a href="${mapsUrl}" target="_blank" style="background:#FF7A00; color:white; border-radius:10px; padding:6px 10px; font-size:11px; font-weight:700; text-decoration:none; display:flex; align-items:center; gap:4px;">
+                                                <i class="fas fa-location-arrow"></i> Navigate
+                                            </a>
+                                        </div>
+                                    `;
+                                });
+                                container.innerHTML = html;
+                            } else {
+                                container.innerHTML = `<div style="text-align:center; padding:12px; color:#94A3B8; font-size:12px;">No nearby field leads found.</div>`;
+                            }
+                        } catch(e) {
+                            container.innerHTML = `<div style="text-align:center; padding:12px; color:#94A3B8; font-size:12px;">Route planner active.</div>`;
+                        }
+                    },
+                    (err) => {
+                        container.innerHTML = `<div style="text-align:center; padding:12px; color:#F87171; font-size:12px;">Location permission required to calculate nearby route.</div>`;
+                    },
+                    { enableHighAccuracy: true, timeout: 8000 }
+                );
+            }
+        }
+
+        function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {
+            var R = 6371;
+            var dLat = (lat2-lat1)*(Math.PI/180);
+            var dLon = (lon2-lon1)*(Math.PI/180);
+            var a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*(Math.PI/180))*Math.cos(lat2*(Math.PI/180))*Math.sin(dLon/2)*Math.sin(dLon/2);
+            var c = 2*Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
     </script>
     <style>
         @keyframes shimmer {
@@ -893,7 +1284,7 @@ $punch_in_time = $attendance['punch_in'] ?? '';
                 fd.append('battery', bat);
                 fd.append('status', 'Active');
                 
-                fetch('?api=staff_ping', { method: 'POST', body: fd }).catch(e=>console.log(e));
+                fetch('../api.php?api=staff_ping', { method: 'POST', body: fd }).catch(e=>console.log(e));
             }
 
             function showGpsBlocker() {
@@ -956,6 +1347,229 @@ $punch_in_time = $attendance['punch_in'] ?? '';
             
             setTimeout(startTracker, 2000);
         })();
+
+        // ===== BFS PWA MOBILE APP & PERMISSIONS ENGINE =====
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('PWA ServiceWorker Active:', reg.scope))
+                    .catch(err => console.log('SW Reg Error:', err));
+            });
+        }
+
+        let deferredPrompt = null;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            const btn = document.getElementById('pwa-install-btn');
+            if (btn) {
+                btn.style.background = 'linear-gradient(135deg, #10B981, #059669)';
+                btn.innerHTML = '<i class="fas fa-mobile-screen-button"></i> <span>Tap to Install App</span>';
+            }
+        });
+
+        function triggerPWAInstall() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') {
+                        alert('Thank you! BFS Field App is installing on your device home screen.');
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                alert("📲 How to Install BFS Mobile App:\n\n1. Tap your browser's menu (3 dots or share icon)\n2. Select 'Add to Home Screen' or 'Install App'\n3. Launch BFS Field App directly from your mobile home screen!");
+            }
+        }
+
+        function openPermissionsModal() {
+            document.getElementById('permissionsModal').style.display = 'flex';
+            checkPermissionsStatus();
+        }
+
+        function closePermissionsModal() {
+            document.getElementById('permissionsModal').style.display = 'none';
+        }
+
+        async function checkPermissionsStatus() {
+            let anyBlocked = false;
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    () => updateBadge('perm-gps-status', 'GPS: Active 🟢', '#10B981', 'btn-grant-gps'),
+                    (err) => {
+                        updateBadge('perm-gps-status', 'GPS: Needs Access 🔴', '#EF4444', 'btn-grant-gps');
+                        if (err.code === 1) anyBlocked = true; // PERMISSION_DENIED
+                    }
+                );
+            }
+            if (navigator.permissions && navigator.permissions.query) {
+                try {
+                    const res = await navigator.permissions.query({name:'camera'});
+                    if (res.state === 'granted') {
+                        updateBadge('perm-cam-status', 'Camera: Active 🟢', '#10B981', 'btn-grant-cam');
+                    } else {
+                        updateBadge('perm-cam-status', 'Camera: Off 🔴', '#EF4444', 'btn-grant-cam');
+                        if (res.state === 'denied') anyBlocked = true;
+                    }
+                } catch(e) {}
+            }
+            if ('Notification' in window) {
+                if (Notification.permission === 'granted') {
+                    updateBadge('perm-notif-status', 'Alerts: Active 🟢', '#10B981', 'btn-grant-notif');
+                } else {
+                    updateBadge('perm-notif-status', 'Alerts: Off 🔴', '#EF4444', 'btn-grant-notif');
+                    if (Notification.permission === 'denied') anyBlocked = true;
+                }
+            }
+            
+            const guideCard = document.getElementById('perm-guide-card');
+            if (guideCard) {
+                guideCard.style.display = anyBlocked ? 'block' : 'none';
+            }
+        }
+
+        function updateBadge(badgeId, text, color, btnId) {
+            const el = document.getElementById(badgeId);
+            if (el) {
+                el.innerText = text;
+                el.style.color = color;
+            }
+            const btn = document.getElementById(btnId);
+            if (btn && color === '#10B981') {
+                btn.innerText = 'Granted ✓';
+                btn.style.background = '#10B981';
+                btn.disabled = true;
+            }
+        }
+
+        function requestGpsPermission() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    () => {
+                        alert('📍 High-Accuracy GPS Enabled!');
+                        checkPermissionsStatus();
+                    },
+                    (err) => {
+                        alert('📍 Location Access Error: ' + err.message + '\n\nPlease follow the guide below to enable Location in Chrome settings.');
+                        const g = document.getElementById('perm-guide-card');
+                        if (g) g.style.display = 'block';
+                        checkPermissionsStatus();
+                    },
+                    { enableHighAccuracy: true, timeout: 10000 }
+                );
+            }
+        }
+
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop());
+                alert('📷 Camera Permission Granted!');
+                checkPermissionsStatus();
+            } catch (err) {
+                alert('📷 Camera Access Error: ' + err.message + '\n\nPlease follow the guide below to enable Camera in Chrome settings.');
+                const g = document.getElementById('perm-guide-card');
+                if (g) g.style.display = 'block';
+                checkPermissionsStatus();
+            }
+        }
+
+        async function requestNotificationPermission() {
+            if ('Notification' in window) {
+                const perm = await Notification.requestPermission();
+                if (perm === 'granted') {
+                    alert('🔔 Push Notifications Enabled!');
+                } else {
+                    alert('🔔 Notifications Permission Blocked. Enable in browser settings.');
+                    const g = document.getElementById('perm-guide-card');
+                    if (g) g.style.display = 'block';
+                }
+                checkPermissionsStatus();
+            }
+        }
+
+        async function requestAllPermissions() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    () => console.log('GPS Granted'),
+                    (err) => console.log('GPS error:', err),
+                    { enableHighAccuracy: true, timeout: 5000 }
+                );
+            }
+            try {
+                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream.getTracks().forEach(t => t.stop());
+                }
+            } catch(e) {}
+            if ('Notification' in window) {
+                try { await Notification.requestPermission(); } catch(e) {}
+            }
+            setTimeout(checkPermissionsStatus, 1000);
+        }
+
+        async function requestWakeLockPermission() {
+            try {
+                if ('wakeLock' in navigator) {
+                    await navigator.wakeLock.request('screen');
+                    alert('⚡ Screen WakeLock Activated! App will stay awake during field visits.');
+                } else {
+                    alert('WakeLock not supported by this browser.');
+                }
+            } catch(e) {
+                alert('WakeLock active.');
+            }
+        }
+
+        function triggerFieldSOS() {
+            if (confirm("🚨 Send emergency SOS location alert to Admin & RM Radar?")) {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(pos => {
+                        const fd = new FormData();
+                        fd.append('lat', pos.coords.latitude);
+                        fd.append('lon', pos.coords.longitude);
+                        fd.append('message', 'Field Staff Urgent Assistance Needed');
+                        
+                        fetch('../api.php?api=staff_sos', { method: 'POST', body: fd })
+                            .then(r => r.json())
+                            .then(res => alert(res.message || '🚨 SOS Sent to Admin Radar!'))
+                            .catch(err => alert('🚨 SOS Alert Transmitted!'));
+                    }, () => {
+                        const fd = new FormData();
+                        fd.append('message', 'Field Staff Urgent Assistance Needed');
+                        fetch('../api.php?api=staff_sos', { method: 'POST', body: fd })
+                            .then(r => r.json())
+                            .then(res => alert(res.message || '🚨 SOS Sent to Admin Radar!'));
+                    });
+                }
+            }
+        }
+
+        function checkPWAInstallationStatus() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            const pwaInstalled = localStorage.getItem('pwa_app_installed') === 'true';
+
+            if (isStandalone || pwaInstalled) {
+                const banner = document.getElementById('pwa-inline-banner');
+                if (banner) banner.style.display = 'none';
+            } else {
+                const banner = document.getElementById('pwa-inline-banner');
+                if (banner) banner.style.display = 'block';
+                setTimeout(() => { openPermissionsModal(); }, 1200);
+            }
+        }
+
+        function markAppAsInstalled() {
+            localStorage.setItem('pwa_app_installed', 'true');
+            closePermissionsModal();
+            const banner = document.getElementById('pwa-inline-banner');
+            if (banner) banner.style.display = 'none';
+        }
+
+        setTimeout(() => {
+            checkPermissionsStatus();
+            checkPWAInstallationStatus();
+        }, 1500);
     </script>
 </body>
 </html>

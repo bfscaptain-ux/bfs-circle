@@ -1,5 +1,38 @@
 <?php
 // Shared header for CA Portal
+define('IS_SUBFOLDER', true);
+require_once __DIR__ . '/../../config.php';
+require_role(['CA', 'CA/CS', 'Chartered Accountant (CA)']);
+
+$ca_id = $_SESSION['user_id'];
+$ca_username = $_SESSION['username'];
+
+$stmt_ca_h = $db->prepare("SELECT name, full_name, profile_photo FROM users WHERE id = ?");
+$stmt_ca_h->execute([$ca_id]);
+$u_ca = $stmt_ca_h->fetch(PDO::FETCH_ASSOC);
+
+$ca_name = !empty($u_ca['name']) ? $u_ca['name'] : (!empty($u_ca['full_name']) ? $u_ca['full_name'] : $ca_username);
+$ca_photo = $u_ca['profile_photo'] ?? '';
+
+if (empty($ca_photo)) {
+    $stmt_ref_photo = $db->prepare("SELECT profile_photo, full_name FROM referrals WHERE user_id = ? OR mobile = ? LIMIT 1");
+    $stmt_ref_photo->execute([$ca_id, $ca_username]);
+    if ($rf = $stmt_ref_photo->fetch(PDO::FETCH_ASSOC)) {
+        if (!empty($rf['profile_photo'])) $ca_photo = $rf['profile_photo'];
+        if (empty($ca_name) && !empty($rf['full_name'])) $ca_name = $rf['full_name'];
+    }
+}
+
+$has_ca_photo = false;
+$ca_photo_path = '';
+if (!empty($ca_photo)) {
+    $clean_path = ltrim($ca_photo, './');
+    if (file_exists(__DIR__ . '/../../' . $clean_path)) {
+        $has_ca_photo = true;
+        $ca_photo_path = '../' . $clean_path;
+    }
+}
+
 if (!isset($page_title)) $page_title = 'CA Premium Portal';
 if (!isset($active_page)) $active_page = 'index';
 ?>
@@ -103,6 +136,7 @@ if (!isset($active_page)) $active_page = 'index';
             width: 34px; height: 34px; background: var(--primary);
             border-radius: 50%; display: flex; align-items: center; justify-content: center;
             color: white; font-weight: 700; font-size: 14px;
+            overflow: hidden; position: relative;
         }
         .user-name { font-weight: 600; font-size: 14px; color: var(--text-main); }
 
@@ -331,8 +365,14 @@ if (!isset($active_page)) $active_page = 'index';
                     
                     <!-- Profile Avatar -->
                     <a href="profile.php" class="user-profile ripple" style="text-decoration:none;">
-                        <div class="avatar"><?php echo strtoupper(substr($_SESSION['username'], 0, 1)); ?></div>
-                        <div class="user-name"><?php echo htmlspecialchars($_SESSION['username']); ?></div>
+                        <div class="avatar">
+                            <?php if ($has_ca_photo): ?>
+                                <img src="<?php echo htmlspecialchars($ca_photo_path); ?>" alt="<?php echo htmlspecialchars($ca_name); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+                            <?php else: ?>
+                                <?php echo strtoupper(substr($ca_name ?? 'C', 0, 1)); ?>
+                            <?php endif; ?>
+                        </div>
+                        <div class="user-name"><?php echo htmlspecialchars($ca_name); ?></div>
                         <i data-lucide="chevron-down" style="color:var(--text-muted); width:16px; margin-right:8px;"></i>
                     </a>
                     

@@ -8,17 +8,12 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 $username = $_SESSION['username'] ?? 'Staff';
+$role = $_SESSION['role'] ?? 'Staff';
 
 $stmt = $db->prepare("SELECT department FROM employees WHERE user_id = ?");
 $stmt->execute([$user_id]);
-$department = $stmt->fetchColumn();
+$department = $stmt->fetchColumn() ?: 'Lead Generation Team';
 
-if ($department !== 'Lead Generation Team') {
-    die("Access Denied: This mobile application is restricted to Field Employees (Lead Generation Team) only.");
-}
-
-$username = $_SESSION['username'];
-$role = $_SESSION['role'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -452,6 +447,46 @@ $role = $_SESSION['role'];
                         <img id="image_preview" src="#" style="width:100%; display:block;">
                     </div>
                 </div>
+
+                <!-- Card 4: Meeting Voice Note Recording -->
+                <div style="margin-top:20px; margin-bottom:15px;">
+                    <label style="display:block; font-size:13px; color:#64748b; margin-bottom:6px; font-weight:600;">
+                        <i class="fas fa-microphone" style="color:#ef4444; margin-right:4px;"></i> Meeting Voice Note / Audio Recording
+                    </label>
+                    <div id="voice_note_box" style="border:1.5px solid #fed7aa; border-radius:14px; padding:16px; background:#fffaf5; text-align:center;">
+                        
+                        <!-- Idle State -->
+                        <div id="voice_idle_state">
+                            <button type="button" id="record_voice_btn" onclick="toggleManualVoiceRecord()" style="background:#EF4444; color:white; border:none; padding:12px 20px; border-radius:30px; font-size:14px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:8px; box-shadow:0 4px 12px rgba(239,68,68,0.3);">
+                                <i class="fas fa-microphone"></i> Tap to Record Voice Note
+                            </button>
+                            <div style="font-size:11.5px; color:#94a3b8; margin-top:8px;">Record key discussion points or client voice note</div>
+                        </div>
+
+                        <!-- Recording State -->
+                        <div id="voice_recording_state" style="display:none;">
+                            <div style="color:#ef4444; font-weight:700; font-size:14px; margin-bottom:10px; display:flex; align-items:center; justify-content:center; gap:8px;">
+                                <span style="width:10px; height:10px; background:#ef4444; border-radius:50%; display:inline-block; animation: pulse 1s infinite;"></span>
+                                Recording Voice Note... <span id="manual_voice_timer" style="font-family:monospace; font-size:16px;">00:00</span>
+                            </div>
+                            <button type="button" onclick="stopManualVoiceRecord()" style="background:#0F172A; color:white; border:none; padding:10px 18px; border-radius:24px; font-size:13px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+                                <i class="fas fa-stop-circle" style="color:#ef4444;"></i> Stop Recording
+                            </button>
+                        </div>
+
+                        <!-- Recorded State (Audio Preview) -->
+                        <div id="voice_preview_state" style="display:none;">
+                            <div style="font-size:12px; font-weight:700; color:#0f172a; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:#16a34a;"><i class="fas fa-check-circle"></i> Voice Note Recorded</span>
+                                <button type="button" onclick="deleteVoiceRecord()" style="background:none; border:none; color:#ef4444; font-size:11px; font-weight:700; cursor:pointer;">
+                                    <i class="fas fa-trash"></i> Delete & Re-record
+                                </button>
+                            </div>
+                            <audio id="manual_audio_preview" controls style="width:100%; height:38px; outline:none; border-radius:8px;"></audio>
+                        </div>
+
+                    </div>
+                </div>
             </div>
 
             <input type="hidden" name="latitude" id="lat"><input type="hidden" name="longitude" id="lon"><input type="hidden" name="verified_address" id="v_addr">
@@ -620,13 +655,15 @@ $role = $_SESSION['role'];
 
         async function startCheckIn() {
             // Voice Recording Request
+            audioChunks = [];
+            audioBlob = null;
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 mediaRecorder = new MediaRecorder(stream);
                 mediaRecorder.ondataavailable = e => {
-                    if(e.data.size > 0) audioChunks.push(e.data);
+                    if (e.data && e.data.size > 0) audioChunks.push(e.data);
                 };
-                mediaRecorder.start();
+                mediaRecorder.start(500);
                 document.getElementById('recording_status').innerText = "Recording meeting audio...";
             } catch (err) {
                 console.error("Mic error:", err);
@@ -673,12 +710,87 @@ $role = $_SESSION['role'];
         function endCheckIn() {
             // Stop Voice Recording
             if (mediaRecorder && mediaRecorder.state !== 'inactive') {
-                mediaRecorder.onstop = () => {
-                    audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                };
+                try { mediaRecorder.requestData(); } catch(e) {}
                 mediaRecorder.stop();
-                // Stop all tracks to release mic
-                mediaRecorder.stream.getTracks().forEach(t => t.stop());
+                if (mediaRecorder.stream) {
+                    mediaRecorder.stream.getTracks().forEach(t => t.stop());
+                }
+            }
+            if (audioChunks.length > 0) {
+                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const player = document.getElementById('manual_audio_preview');
+                if (player) {
+                    player.src = audioUrl;
+                    document.getElementById('voice_idle_state').style.display = 'none';
+                    document.getElementById('voice_recording_state').style.display = 'none';
+                    document.getElementById('voice_preview_state').style.display = 'block';
+                }
+            }
+
+            // Manual Voice Recording Functions
+            let manualRecorder = null;
+            let manualAudioChunks = [];
+            let manualVoiceTimer = null;
+            let manualSeconds = 0;
+
+            async function toggleManualVoiceRecord() {
+                manualAudioChunks = [];
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    manualRecorder = new MediaRecorder(stream);
+                    manualRecorder.ondataavailable = e => {
+                        if (e.data && e.data.size > 0) manualAudioChunks.push(e.data);
+                    };
+                    manualRecorder.start(500);
+                    
+                    document.getElementById('voice_idle_state').style.display = 'none';
+                    document.getElementById('voice_recording_state').style.display = 'block';
+                    document.getElementById('voice_preview_state').style.display = 'none';
+                    
+                    manualSeconds = 0;
+                    document.getElementById('manual_voice_timer').innerText = '00:00';
+                    manualVoiceTimer = setInterval(() => {
+                        manualSeconds++;
+                        const m = Math.floor(manualSeconds / 60).toString().padStart(2, '0');
+                        const s = (manualSeconds % 60).toString().padStart(2, '0');
+                        document.getElementById('manual_voice_timer').innerText = `${m}:${s}`;
+                    }, 1000);
+                } catch (err) {
+                    alert('Microphone access denied or not supported on this device.');
+                }
+            }
+
+            function stopManualVoiceRecord() {
+                if (manualVoiceTimer) clearInterval(manualVoiceTimer);
+                if (manualRecorder && manualRecorder.state !== 'inactive') {
+                    try { manualRecorder.requestData(); } catch(e) {}
+                    manualRecorder.stop();
+                    if (manualRecorder.stream) {
+                        manualRecorder.stream.getTracks().forEach(t => t.stop());
+                    }
+                }
+                setTimeout(() => {
+                    if (manualAudioChunks.length > 0) {
+                        audioBlob = new Blob(manualAudioChunks, { type: 'audio/webm' });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        const player = document.getElementById('manual_audio_preview');
+                        if (player) {
+                            player.src = audioUrl;
+                            document.getElementById('voice_idle_state').style.display = 'none';
+                            document.getElementById('voice_recording_state').style.display = 'none';
+                            document.getElementById('voice_preview_state').style.display = 'block';
+                        }
+                    }
+                }, 300);
+            }
+
+            function deleteVoiceRecord() {
+                audioBlob = null;
+                manualAudioChunks = [];
+                document.getElementById('voice_idle_state').style.display = 'block';
+                document.getElementById('voice_recording_state').style.display = 'none';
+                document.getElementById('voice_preview_state').style.display = 'none';
             }
 
             // Geo-fence check (if checkIn location was captured)
@@ -723,12 +835,15 @@ $role = $_SESSION['role'];
 
             const form = document.getElementById('fieldVisitForm');
             const formData = new FormData(form);
+            if (!audioBlob && audioChunks.length > 0) {
+                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+            }
             if (audioBlob) {
                 formData.append('audio_file', audioBlob, 'meeting_recording.webm');
             }
             
             try {
-                const response = await fetch('?api=save_field_visit', {
+                const response = await fetch('../api.php?api=save_field_visit', {
                     method: 'POST',
                     body: formData
                 });

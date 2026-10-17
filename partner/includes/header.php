@@ -1,18 +1,39 @@
 <?php
+define('IS_SUBFOLDER', true);
 require_once __DIR__ . '/../../config.php';
+require_role(['Partner', 'DSA', 'Connector', 'Individual', 'Financial Advisor / DSA']);
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Partner') {
-    header('Location: ../login.php');
-    exit;
-}
 
 $partner_id = $_SESSION['user_id'];
 $partner_username = $_SESSION['username'];
 
-// Fetch partner name
-$stmt_header = $db->prepare("SELECT name FROM users WHERE id = ?");
+// Fetch partner user details & photo
+$stmt_header = $db->prepare("SELECT name, full_name, profile_photo FROM users WHERE id = ?");
 $stmt_header->execute([$partner_id]);
-$partner_name = $stmt_header->fetchColumn() ?: $partner_username;
+$u_header = $stmt_header->fetch(PDO::FETCH_ASSOC);
+
+$partner_name = !empty($u_header['name']) ? $u_header['name'] : (!empty($u_header['full_name']) ? $u_header['full_name'] : $partner_username);
+$partner_photo = $u_header['profile_photo'] ?? '';
+
+// Check referrals if not in users
+if (empty($partner_photo)) {
+    $stmt_ref_photo = $db->prepare("SELECT profile_photo, full_name FROM referrals WHERE user_id = ? OR mobile = ? LIMIT 1");
+    $stmt_ref_photo->execute([$partner_id, $partner_username]);
+    if ($rf = $stmt_ref_photo->fetch(PDO::FETCH_ASSOC)) {
+        if (!empty($rf['profile_photo'])) $partner_photo = $rf['profile_photo'];
+        if (empty($partner_name) && !empty($rf['full_name'])) $partner_name = $rf['full_name'];
+    }
+}
+
+$has_custom_photo = false;
+$photo_display_path = '';
+if (!empty($partner_photo)) {
+    $clean_path = ltrim($partner_photo, './');
+    if (file_exists(__DIR__ . '/../../' . $clean_path)) {
+        $has_custom_photo = true;
+        $photo_display_path = '../' . $clean_path;
+    }
+}
 
 // Count unread notifications
 $stmt_notif = $db->prepare("SELECT COUNT(id) FROM notifications WHERE user_id = ? AND is_read = 0");
@@ -125,6 +146,8 @@ $unread_count = $stmt_notif->fetchColumn();
             text-decoration: none;
             box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
             font-size: 18px;
+            overflow: hidden;
+            position: relative;
         }
         
         .user-avatar:active {
@@ -320,7 +343,13 @@ $unread_count = $stmt_notif->fetchColumn();
             <?php endif; ?>
         </div>
         <a href="../login.php?logout=1" style="color:white; text-decoration:none;"><i data-lucide="log-out" style="width:20px;"></i></a>
-        <a href="profile.php" class="user-avatar" title="View Profile"><?php echo strtoupper(substr($partner_name ?? 'P', 0, 1)); ?></a>
+        <a href="profile.php" class="user-avatar" title="View Profile">
+            <?php if ($has_custom_photo): ?>
+                <img src="<?php echo htmlspecialchars($photo_display_path); ?>" alt="<?php echo htmlspecialchars($partner_name); ?>" style="width:100%; height:100%; object-fit:cover; display:block;">
+            <?php else: ?>
+                <?php echo strtoupper(substr($partner_name ?? 'P', 0, 1)); ?>
+            <?php endif; ?>
+        </a>
     </div>
 </div>
 

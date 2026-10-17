@@ -4,11 +4,6 @@ $page_title = 'Gold Loan Value Calculator';
 $page_subtitle = 'Calculate max loan limit against gold weight and purity';
 require_once 'includes/header.php';
 $back_url = 'calculators.php';
-} else {
-    require_once 'includes/header.php';
-$back_url = 'calculators.php';
-    $back_url = 'calculators.php';
-}
 ?>
 <style>
     .calc-layout { display: flex; gap: 30px; align-items: flex-start; }

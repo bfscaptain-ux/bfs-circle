@@ -480,7 +480,7 @@ $current_page = 'add_field_visit.php';
             const formData = new FormData(form);
             
             try {
-                const response = await fetch('?api=save_field_visit', {
+                const response = await fetch('api.php?api=save_field_visit', {
                     method: 'POST',
                     body: formData
                 });

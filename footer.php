@@ -146,6 +146,11 @@
         // Lucide icons initialization
         lucide.createIcons();
 
+        // Application Base Path helper for subfolder routes (e.g. /rm/, /staff/)
+        function getAppBasePath() {
+            return (typeof window !== 'undefined' && window.BASE_PATH) ? window.BASE_PATH : '';
+        }
+
         // Modals global management
         function closeTemplatePreviewModal() {
             document.getElementById("template-preview-modal").style.display = "none";
@@ -170,7 +175,7 @@
         async function approveDeleteTemplate(id) {
             if(!confirm("Permanently delete this template?")) return;
             let fd = new FormData(); fd.append("id", id);
-            let res = await fetch("?api=approve_delete_template", {method:"POST", body:fd});
+            let res = await fetch(getAppBasePath() + "api.php?api=approve_delete_template", {method:"POST", body:fd});
             let json = await res.json();
             showNotification(json.message || (json.error ? "Error" : "Success"), json.success ? "success" : "error");
             if(json.success && typeof loadTemplatesList === 'function') loadTemplatesList();
@@ -178,7 +183,7 @@
         
         async function rejectDeleteTemplate(id) {
             let fd = new FormData(); fd.append("id", id);
-            let res = await fetch("?api=reject_delete_template", {method:"POST", body:fd});
+            let res = await fetch(getAppBasePath() + "api.php?api=reject_delete_template", {method:"POST", body:fd});
             let json = await res.json();
             showNotification(json.message || (json.error ? "Error" : "Success"), json.success ? "success" : "error");
             if(json.success && typeof loadTemplatesList === 'function') loadTemplatesList();
@@ -187,7 +192,7 @@
         async function approveDeletePpt(id) {
             if(!confirm("Permanently delete this presentation?")) return;
             let fd = new FormData(); fd.append("id", id);
-            let res = await fetch("?api=approve_delete_ppt", {method:"POST", body:fd});
+            let res = await fetch(getAppBasePath() + "api.php?api=approve_delete_ppt", {method:"POST", body:fd});
             let json = await res.json();
             showNotification(json.message || (json.error ? "Error" : "Success"), json.success ? "success" : "error");
             if(json.success && typeof loadPptsList === 'function') loadPptsList();
@@ -195,7 +200,7 @@
         
         async function rejectDeletePpt(id) {
             let fd = new FormData(); fd.append("id", id);
-            let res = await fetch("?api=reject_delete_ppt", {method:"POST", body:fd});
+            let res = await fetch(getAppBasePath() + "api.php?api=reject_delete_ppt", {method:"POST", body:fd});
             let json = await res.json();
             showNotification(json.message || (json.error ? "Error" : "Success"), json.success ? "success" : "error");
             if(json.success && typeof loadPptsList === 'function') loadPptsList();
@@ -218,7 +223,7 @@
             e.preventDefault();
             let fd = new FormData(e.target);
             fd.append("api", "save_reminder");
-            let res = await fetch("?api=save_reminder", {method:"POST", body:fd});
+            let res = await fetch(getAppBasePath() + "api.php?api=save_reminder", {method:"POST", body:fd});
             let json = await res.json();
             if(json.success) {
                 showNotification("Reminder set successfully", "success");
@@ -244,7 +249,7 @@
             toggleSplitOptions();
             
             if(systemUsersList.length === 0) {
-                fetch('?api=get_users')
+                fetch(getAppBasePath() + 'api.php?api=get_users')
                     .then(res => res.json())
                     .then(data => {
                         if(Array.isArray(data)) systemUsersList = data;
@@ -488,7 +493,7 @@
                 const action = window.bulkUploadDestination === 'pre_leads' ? 'bulk_upload_preleads' : 'bulk_upload_leads';
                 fd.append('leads_json', JSON.stringify(finalData));
                 
-                const res = await fetch(`?api=${action}`, { method:'POST', body: fd });
+                const res = await fetch(`${getAppBasePath()}api.php?api=${action}`, { method:'POST', body: fd });
                 const json = await res.json();
                 
                 if(json.success) {
@@ -587,7 +592,7 @@
             async function checkDueReminders() {
                 try {
                     // Try fetching from reminders.php api endpoint (as it handles get_reminders)
-                    const res = await fetch('reminders.php?api=get_reminders');
+                    const res = await fetch(getAppBasePath() + 'reminders.php?api=get_reminders');
                     if (!res.ok) return;
                     const data = await res.json();
                     if (!Array.isArray(data)) return;
@@ -643,7 +648,7 @@
                                 const popup = Swal.getPopup();
                                 if (popup) {
                                     popup.style.cursor = 'pointer';
-                                    popup.onclick = () => window.location.href = 'reminders.php';
+                                    popup.onclick = () => window.location.href = getAppBasePath() + 'reminders.php';
                                 }
                             }, 100);
                         }
@@ -662,37 +667,51 @@
     <!-- Background Auto-Cron for Document Reminders -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            // Trigger the background cron job to send missing document emails
-            // The script itself handles the "once-per-day per applicant" logic
-            fetch('cron_document_reminders.php')
-                .then(res => res.json())
-                .then(data => {
-                    if(data.success && data.emails_sent > 0) {
-                        console.log('Automated doc reminders sent: ' + data.emails_sent);
-                    }
+            // Trigger background cron job safely
+            fetch(getAppBasePath() + 'cron_document_reminders.php')
+                .then(res => res.text())
+                .then(text => {
+                    try {
+                        const data = JSON.parse(text);
+                        if(data && data.success && data.emails_sent > 0) {
+                            console.log('Automated doc reminders sent: ' + data.emails_sent);
+                        }
+                    } catch(e){}
                 })
-                .catch(err => console.error('Auto-cron error:', err));
+                .catch(() => {});
         });
     </script>
 
-    <!-- PWA Service Worker Registration -->
+    <!-- Automatic PWA ServiceWorker Cache Auto-Purge -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(reg => console.log('PWA ServiceWorker registered successfully!'))
-                    .catch(err => console.error('PWA ServiceWorker registration failed: ', err));
-            });
+            navigator.serviceWorker.getRegistrations().then(registrations => {
+                for (let reg of registrations) {
+                    reg.unregister();
+                }
+            }).catch(e => {});
+            if (window.caches) {
+                caches.keys().then(keys => {
+                    keys.forEach(key => caches.delete(key));
+                }).catch(e => {});
+            }
         }
     </script>
 
     <!-- 10x Field Force Tracker Engine (Strict Enforcement + WakeLock) -->
     <?php if(isset($_SESSION['role']) && $_SESSION['role'] === 'Staff'): ?>
-    <div id="gps-blocker" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.95); z-index:999999; flex-direction:column; align-items:center; justify-content:center; color:white; padding:20px; text-align:center;">
-        <i class="fas fa-map-marker-slash" style="font-size:60px; color:#ef4444; margin-bottom:20px;"></i>
-        <h2 style="margin-bottom:10px;">Location is Disabled!</h2>
-        <p style="margin-bottom:20px; font-size:14px; opacity:0.8; max-width:300px;">You are currently <b>On Duty</b>. Company policy requires live GPS tracking to be active. Please enable your Location (GPS) and grant permission to continue using the app.</p>
-        <button onclick="window.location.reload()" style="background:#22c55e; color:white; padding:12px 24px; border:none; border-radius:8px; font-weight:bold; font-size:16px;">I Have Enabled GPS - Refresh</button>
+    <div id="gps-blocker" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.92); backdrop-filter:blur(8px); z-index:999999; flex-direction:column; align-items:center; justify-content:center; color:white; padding:20px; text-align:center;">
+        <i class="fas fa-map-marker-slash" style="font-size:56px; color:#ef4444; margin-bottom:18px;"></i>
+        <h2 style="margin-bottom:10px; font-size:22px; font-weight:800;">Location (GPS) Access Required</h2>
+        <p style="margin-bottom:20px; font-size:13.5px; opacity:0.85; max-width:320px; line-height:1.5;">Field Staff On-Duty tracking requires device GPS. Enable Location in your browser / phone settings.</p>
+        <div style="display:flex; flex-direction:column; gap:10px; width:100%; max-width:290px;">
+            <button onclick="window.location.reload()" style="background:#22c55e; color:white; padding:12px 20px; border:none; border-radius:12px; font-weight:bold; font-size:15px; cursor:pointer; box-shadow:0 4px 12px rgba(34,197,94,0.3);">
+                🔄 Refresh Page After Enabling GPS
+            </button>
+            <button onclick="sessionStorage.setItem('gps_bypass', 'true'); hideGpsBlocker();" style="background:rgba(255,255,255,0.15); border:1px solid rgba(255,255,255,0.3); color:white; padding:10px; border-radius:12px; font-size:13px; font-weight:700; cursor:pointer;">
+                🧪 Skip GPS (Testing / PC Mode)
+            </button>
+        </div>
     </div>
 
     <script>
@@ -711,7 +730,6 @@
             
             async function sendPing(lat, lon) {
                 const now = Date.now();
-                // Avoid spamming, wait at least 30 seconds between pings
                 if (now - lastPingTime < 30000) return;
                 
                 const bat = await getBattery();
@@ -723,9 +741,7 @@
                 fd.append('status', 'Active');
                 
                 try {
-                    await fetch('?api=x', { method: 'POST', body: fd }); // Use absolute root path or appropriate path
-                    // fallback if api.php is in same dir
-                    // We will use standard relative fetch
+                    await fetch(getAppBasePath() + 'api.php?api=x', { method: 'POST', body: fd });
                 } catch(e) {
                     console.error("Ping failed", e);
                 }
@@ -737,7 +753,6 @@
                 try {
                     if ('wakeLock' in navigator) {
                         wakeLock = await navigator.wakeLock.request('screen');
-                        wakeLock.addEventListener('release', () => { console.log('Wake Lock released'); });
                     }
                 } catch (err) {}
             }
@@ -750,16 +765,18 @@
                 fd.append('battery', bat);
                 fd.append('status', 'Active');
                 
-                // Determine root path automatically. Use ?api=staff_ping if in root, else ../?api=staff_ping
                 let basePath = window.location.pathname.includes('/staff/') ? '../' : './';
                 fetch(basePath + '?api=staff_ping', { method: 'POST', body: fd }).catch(e=>console.log(e));
             }
 
             function showGpsBlocker() {
-                document.getElementById('gps-blocker').style.display = 'flex';
+                if (sessionStorage.getItem('gps_bypass') === 'true') return;
+                const el = document.getElementById('gps-blocker');
+                if (el) el.style.display = 'flex';
             }
             function hideGpsBlocker() {
-                document.getElementById('gps-blocker').style.display = 'none';
+                const el = document.getElementById('gps-blocker');
+                if (el) el.style.display = 'none';
             }
 
             function startTracker() {

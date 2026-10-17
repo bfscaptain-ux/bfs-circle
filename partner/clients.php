@@ -9,14 +9,20 @@ $referral_id = $partner ? $partner['referral_id'] : '';
 $partner_full_name = $partner ? $partner['full_name'] : $partner_name;
 
 // Fetch all clients referred by this partner
-$stmt_app = $db->prepare("SELECT a.*, (SELECT rejection_reason FROM applicant_bank_assignments aba WHERE aba.applicant_id = a.id AND aba.status = 'Rejected' ORDER BY aba.id DESC LIMIT 1) as rejection_reason FROM applicants a WHERE a.referral_id = ? ORDER BY a.created_at DESC");
-$stmt_app->execute([$referral_id]);
-$clients = $stmt_app->fetchAll(PDO::FETCH_ASSOC);
+$clients = [];
+if (!empty($referral_id)) {
+    $stmt_app = $db->prepare("SELECT a.*, (SELECT rejection_reason FROM applicant_bank_assignments aba WHERE aba.applicant_id = a.id AND aba.status = 'Rejected' ORDER BY aba.id DESC LIMIT 1) as rejection_reason FROM applicants a WHERE a.referral_id = ? AND a.referral_id != '' ORDER BY a.created_at DESC");
+    $stmt_app->execute([$referral_id]);
+    $clients = $stmt_app->fetchAll(PDO::FETCH_ASSOC);
+}
 
 // Also fetch simple leads added directly
-$stmt_leads = $db->prepare("SELECT * FROM leads WHERE added_by = ? ORDER BY created_at DESC");
-$stmt_leads->execute([$partner_full_name]);
-$raw_leads = $stmt_leads->fetchAll(PDO::FETCH_ASSOC);
+$raw_leads = [];
+if (!empty($partner) && (!empty($partner_full_name) || !empty($partner_username))) {
+    $stmt_leads = $db->prepare("SELECT * FROM leads WHERE (added_by = ? AND added_by != '') OR (added_by = ? AND added_by != '') ORDER BY created_at DESC");
+    $stmt_leads->execute([$partner_full_name, $partner_username]);
+    $raw_leads = $stmt_leads->fetchAll(PDO::FETCH_ASSOC);
+}
 
 // Combine and sort (Simple array merge for UI)
 $all_clients = [];

@@ -5,3 +5,14 @@ crm.db
 # Uploads
 uploads/
 
+# WhatsApp CRM Engine
+wa/node_modules/
+wa/.next/
+wa/.baileys_auth/
+
+# Temporary / Waste directories
+west/
+waist/
+backups/
+scratch/
+

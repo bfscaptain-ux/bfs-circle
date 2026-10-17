@@ -24,11 +24,6 @@
         <span>Tools</span>
     </a>
     
-    <a href="../activity_log.php" class="nav-item">
-        <i data-lucide="activity"></i>
-        <span>Logs</span>
-    </a>
-    
     <a href="leaderboard.php" class="nav-item <?php echo ($current == 'leaderboard.php') ? 'active' : ''; ?>">
         <i data-lucide="award"></i>
         <span>Rank</span>

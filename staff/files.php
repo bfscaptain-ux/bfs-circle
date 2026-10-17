@@ -8,17 +8,14 @@ if (!isset($_SESSION['user_id'])) {
 
 $user_id = $_SESSION['user_id'];
 $username = $_SESSION['username'] ?? 'Staff';
+$role = $_SESSION['role'] ?? 'Staff';
 
-$stmt = $db->prepare("SELECT department FROM employees WHERE user_id = ?");
+$stmt = $db->prepare("SELECT full_name, department FROM employees WHERE user_id = ?");
 $stmt->execute([$user_id]);
-$department = $stmt->fetchColumn();
+$emp_data = $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+$fullname = !empty($emp_data['full_name']) ? $emp_data['full_name'] : $username;
+$department = $emp_data['department'] ?? 'Lead Generation Team';
 
-if ($department !== 'Lead Generation Team') {
-    die("Access Denied: This mobile application is restricted to Field Employees (Lead Generation Team) only.");
-}
-
-$username = $_SESSION['username'];
-$role = $_SESSION['role'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -228,7 +225,7 @@ $role = $_SESSION['role'];
         <div class="header-top">
             <div>
                 <div class="user-greeting">Welcome back,</div>
-                <div class="user-name" id="staff_name"><?= htmlspecialchars($username) ?></div>
+                <div class="user-name" id="staff_name"><?= htmlspecialchars($fullname) ?></div>
             </div>
             <a href="../logout.php" class="logout-btn"><i class="fas fa-sign-out-alt"></i></a>
         </div>
@@ -263,7 +260,7 @@ $role = $_SESSION['role'];
             try {
                 // Get username from PHP context or assume it's set
                 const username = "<?= htmlspecialchars($username) ?>";
-                const res = await fetch(`?api=get_staff_recent_leads&username=${encodeURIComponent(username)}`);
+                const res = await fetch(`../api.php?api=get_staff_recent_leads&username=${encodeURIComponent(username)}`);
                 const data = await res.json();
                 
                 if (data.error) {
@@ -278,18 +275,36 @@ $role = $_SESSION['role'];
                 
                 let html = '';
                 data.forEach(lead => {
-                    const status = lead.overall_status || 'Pending';
-                    const isCompleted = status.toLowerCase() === 'completed';
-                    const statusClass = isCompleted ? 'status-completed' : '';
+                    const status = lead.overall_status || 'Submitted';
+                    const custName = lead.customer_name || lead.applicant_name || 'Loan Applicant';
+                    const loanId = lead.loan_id ? `(#${lead.loan_id})` : '';
+                    const bankInfo = lead.sanction_bank ? ` • ${lead.sanction_bank}` : '';
+                    const amt = parseFloat(lead.loan_amount_requested || 0).toLocaleString('en-IN');
                     
+                    let statusBg = '#E0F2FE'; let statusColor = '#0369A1';
+                    const sLower = status.toLowerCase();
+                    if (['disbursed', 'completed'].includes(sLower)) { statusBg = '#DCFCE7'; statusColor = '#15803D'; }
+                    else if (['sanctioned', 'approved'].includes(sLower)) { statusBg = '#FEF3C7'; statusColor = '#B45309'; }
+                    else if (['rejected', 'declined'].includes(sLower)) { statusBg = '#FEE2E2'; statusColor = '#B91C1C'; }
+
+                    const trackLink = lead.tracking_token ? `../track.php?token=${lead.tracking_token}` : '#';
+
                     html += `
-                        <div class="lead-card">
-                            <div class="lead-icon"><i class="fas fa-file-alt"></i></div>
-                            <div class="lead-info">
-                                <div class="lead-name">${lead.applicant_name || 'N/A'}</div>
-                                <div class="lead-sub">₹${parseFloat(lead.loan_amount_requested || 0).toLocaleString('en-IN')} - ${lead.loan_type || 'N/A'}</div>
+                        <div style="background:white; border-radius:18px; padding:16px; margin-bottom:12px; box-shadow:0 4px 12px rgba(0,0,0,0.03); border:1px solid #E2E8F0;">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:10px;">
+                                <div>
+                                    <div style="font-weight:800; font-size:15px; color:#0F172A;">${custName} <span style="font-size:11px; color:#64748B; font-weight:600;">${loanId}</span></div>
+                                    <div style="font-size:12px; color:#64748B; margin-top:2px;">₹${amt} • ${lead.loan_type || 'Loan'}${bankInfo}</div>
+                                </div>
+                                <span style="background:${statusBg}; color:${statusColor}; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px;">
+                                    ${status}
+                                </span>
                             </div>
-                            <div class="lead-status ${statusClass}">${status}</div>
+                            
+                            <div style="background:#F8FAFC; border:1px solid #F1F5F9; border-radius:12px; padding:10px 12px; font-size:11px; color:#475569; display:flex; justify-content:space-between; align-items:center;">
+                                <span><i class="fas fa-calendar-alt" style="color:#FF7A00; margin-right:4px;"></i> Date: ${new Date(lead.created_at).toLocaleDateString('en-IN')}</span>
+                                ${lead.tracking_token ? `<a href="${trackLink}" target="_blank" style="color:#FF7A00; text-decoration:none; font-weight:800; display:flex; align-items:center; gap:4px;">Live Process Tracker <i class="fas fa-arrow-right"></i></a>` : '<span style="color:#94A3B8;">Processing</span>'}
+                            </div>
                         </div>
                     `;
                 });

@@ -1,9 +1,7 @@
 <?php
 require_once 'config.php';
 
-if (!isset($_SESSION['user_id']) || $_SESSION['role'] !== 'Admin') {
-    die("Access Denied. Only Admins can download this data.");
-}
+require_role(['Admin'], false);
 
 // Set headers for CSV download
 header('Content-Type: text/csv; charset=utf-8');

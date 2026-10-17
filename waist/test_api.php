@@ -1,1 +1,6 @@
-<?php session_start(); $_SERVER['REQUEST_URI'] = '/dashboard.php?api=stats'; $_GET['api'] = 'stats'; require 'config.php'; ?>
+<?php
+$db = new PDO("sqlite:crm.db");
+$co_stmt = $db->prepare("SELECT * FROM co_applicants WHERE applicant_id = 16");
+$co_stmt->execute();
+print_r($co_stmt->fetchAll(PDO::FETCH_ASSOC));
+?>

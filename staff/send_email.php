@@ -85,7 +85,7 @@ $preset_email = isset($_GET['email']) ? $_GET['email'] : '';
     async function refreshClientDropdowns() {
         try {
             // API search_clients is role-aware and returns only clients assigned to the logged-in staff member
-            const response = await fetch('?api=search_clients');
+            const response = await fetch('../api.php?api=search_clients');
             const clients = await response.json();
             if (!Array.isArray(clients)) return;
             
@@ -111,7 +111,7 @@ $preset_email = isset($_GET['email']) ? $_GET['email'] : '';
 
     async function loadTemplatesList() {
         try {
-            const res = await fetch('?api=get_templates');
+            const res = await fetch('../api.php?api=get_templates');
             const data = await res.json();
             if (Array.isArray(data)) {
                 window.globalEmailTemplates = data;
@@ -128,7 +128,7 @@ $preset_email = isset($_GET['email']) ? $_GET['email'] : '';
 
     async function loadPptsList() {
         try {
-            const res = await fetch('?api=get_ppts');
+            const res = await fetch('../api.php?api=get_ppts');
             const data = await res.json();
             if (Array.isArray(data)) {
                 const select = document.getElementById('saved-ppt-select');
@@ -179,7 +179,7 @@ $preset_email = isset($_GET['email']) ? $_GET['email'] : '';
         const formData = new FormData(form);
         
         try {
-            const response = await fetch('?api=send_email', {
+            const response = await fetch('../api.php?api=send_email', {
                 method: 'POST',
                 body: formData
             });

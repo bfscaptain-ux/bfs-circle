@@ -1,19 +1,14 @@
 <?php
-require_once '../config.php';
+define('IS_SUBFOLDER', true);
+require_once __DIR__ . '/../config.php';
+require_role(['Staff']);
 
-if (!isset($_SESSION['user_id'])) {
-    header("Location: ../login.php");
-    exit;
-}
 
 $username = $_SESSION['username'];
 $stmt = $db->prepare("SELECT department FROM employees WHERE user_id = ?");
 $stmt->execute([$_SESSION['user_id']]);
-$department = $stmt->fetchColumn();
+$department = $stmt->fetchColumn() ?: 'Lead Generation Team';
 
-if ($department !== 'Lead Generation Team') {
-    die("Access Denied.");
-}
 
 // Set headers for CSV download
 header('Content-Type: text/csv; charset=utf-8');
