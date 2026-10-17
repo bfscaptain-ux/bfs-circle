@@ -899,6 +899,21 @@ try {
     try { $db->exec("ALTER TABLE applicants ADD COLUMN notes TEXT"); } catch (Exception $e) {}
     try { $db->exec("ALTER TABLE applicants ADD COLUMN remarks TEXT"); } catch (Exception $e) {}
 
+    // Applicant Status & Deactivation Tracking
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN is_active INTEGER DEFAULT 1"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN deactivation_otp TEXT"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN deactivation_otp_expiry DATETIME"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN deactivation_reason TEXT"); } catch (Exception $e) {}
+
+    // Final Disbursement Fields on Applicants
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursed_amount REAL DEFAULT 0"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursed_date DATE"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursing_bank TEXT"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursement_ref_no TEXT"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursement_mode TEXT"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursement_status TEXT DEFAULT 'Pending'"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN disbursement_remarks TEXT"); } catch (Exception $e) {}
+
     // RM Targets & Incentive on Users
     try { $db->exec("ALTER TABLE users ADD COLUMN monthly_target REAL DEFAULT 15000000"); } catch (Exception $e) {}
     try { $db->exec("ALTER TABLE users ADD COLUMN commission_rate REAL DEFAULT 0.20"); } catch (Exception $e) {}
