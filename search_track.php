@@ -23,24 +23,23 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 <style>
 .client-card {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    padding: 16px;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 12px 14px;
     cursor: pointer;
-    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
-    margin-bottom: 4px;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+    margin-bottom: 8px;
 }
 .client-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    border-color: #cbd5e1;
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    border-color: #0f172a;
 }
 .client-card.active {
     border: 2px solid #0f172a;
     background: #f8fafc;
-    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
-    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
 }
 .client-card-title {
     font-size: 15px;
@@ -137,6 +136,132 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 .qf-chip:hover, .qf-chip.active { border-color: #0f172a; background: #0f172a; color: #fff; }
 .qf-chip.orange.active { border-color: #f97316; background: #f97316; color: #fff; }
 
+/* --- CRM Mode System --- */
+.mode-pill-btn {
+    background: transparent;
+    border: none;
+    padding: 0 12px;
+    height: 32px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64748b;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+}
+.mode-pill-btn:hover {
+    color: #0f172a;
+    background: rgba(0,0,0,0.04);
+}
+.mode-pill-btn.active {
+    background: #0f172a;
+    color: #ffffff;
+    box-shadow: 0 1px 3px rgba(15,23,42,0.18);
+}
+
+.crm-layout {
+    display: grid;
+    gap: 16px;
+    align-items: start;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+/* 1. Split View Mode */
+.crm-layout.view-mode-split {
+    grid-template-columns: 280px 1fr !important;
+}
+.crm-layout.view-mode-split .client-list-pane-container {
+    display: flex !important;
+    width: 280px;
+    height: calc(100vh - 170px);
+    overflow: hidden;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+}
+.crm-layout.view-mode-split .client-detail-pane {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    position: static !important;
+}
+
+/* 2. Full File (Focus) View Mode */
+.crm-layout.view-mode-focus {
+    grid-template-columns: 1fr !important;
+}
+.crm-layout.view-mode-focus .client-list-pane-container {
+    display: none !important;
+}
+.crm-layout.view-mode-focus .client-detail-pane {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+    position: static !important;
+}
+
+/* 3. List Only View Mode */
+.crm-layout.view-mode-list {
+    grid-template-columns: 1fr !important;
+}
+.crm-layout.view-mode-list .client-list-pane-container {
+    display: flex !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: transparent !important;
+    border: none !important;
+}
+.crm-layout.view-mode-list #crm-client-list {
+    display: grid !important;
+    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)) !important;
+    gap: 12px !important;
+    width: 100% !important;
+}
+.crm-layout.view-mode-list .client-detail-pane {
+    display: none !important;
+}
+
+/* Quick Slide-Over Applicant Drawer */
+.quick-drawer-backdrop {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.55);
+    backdrop-filter: blur(2px);
+    z-index: 99990;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
+.quick-drawer-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+}
+.quick-list-drawer {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 340px;
+    max-width: 88vw;
+    background: #ffffff;
+    box-shadow: 12px 0 35px rgba(0,0,0,0.3);
+    z-index: 99995;
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+}
+.quick-list-drawer.open {
+    transform: translateX(0);
+}
+
 .applicant-workspace-grid {
     display: grid;
     grid-template-columns: 2fr 1fr;
@@ -149,17 +274,8 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     }
 }
 @media (max-width: 1024px) {
-    .crm-layout {
-        grid-template-columns: 1fr !important;
-    }
-    .client-list-pane-container {
-        height: auto !important;
-        max-height: 420px !important;
-    }
-    .client-detail-pane {
-        position: static !important;
-        max-height: none !important;
-        overflow-y: visible !important;
+    .hide-on-mobile {
+        display: none !important;
     }
 }
 
@@ -169,14 +285,45 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 
 </style>
 
+<!-- Quick Slide-Over Applicant List Drawer -->
+<div id="quickListDrawerBackdrop" class="quick-drawer-backdrop" onclick="toggleQuickListDrawer(false)"></div>
+<div id="quickListDrawer" class="quick-list-drawer">
+    <div style="padding:14px 16px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#0f172a; color:#fff;">
+        <div style="font-weight:800; font-size:13px; display:flex; align-items:center; gap:8px;">
+            <i data-lucide="users" style="width:16px;"></i> Applicant Quick Switcher
+        </div>
+        <button type="button" onclick="toggleQuickListDrawer(false)" style="background:transparent; border:none; color:#fff; font-size:22px; cursor:pointer; line-height:1;">&times;</button>
+    </div>
+    <div style="padding:10px 14px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+        <input type="text" id="drawerSearchInput" placeholder="Filter applicants..." style="width:100%; padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; outline:none; box-sizing:border-box;" oninput="filterDrawerApplicants(this.value)">
+    </div>
+    <div id="drawerListContainer" style="flex:1; overflow-y:auto; padding:10px;">
+        <!-- Injected via JS -->
+    </div>
+</div>
+
 <div id="view-search-crm" class="view-container">
     <!-- Search bar -->
-    <div class="crm-search-bar" style="margin-bottom: 12px; display:flex; gap:12px;">
-        <div class="search-input-wrapper" style="flex:1;">
+    <div class="crm-search-bar" style="margin-bottom: 12px; display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+        <div class="search-input-wrapper" style="flex:1; min-width:240px;">
             <i data-lucide="search" class="search-icon"></i>
             <input type="text" id="search-query" placeholder="Search by Applicant Name / Loan ID / Mobile / PAN..." oninput="triggerSearch()">
         </div>
-        <button class="filters-toggle-btn" onclick="toggleAdvFilters()" id="advFilterToggleBtn" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; font-weight:600; padding:0 16px; border-radius:8px; display:flex; align-items:center; gap:8px; cursor:pointer; transition:0.2s;">
+
+        <!-- View Mode Segmented Controls -->
+        <div class="view-mode-pill-group" style="display:inline-flex; background:#f1f5f9; padding:3px; border-radius:8px; border:1px solid #cbd5e1; gap:2px; height:38px; box-sizing:border-box;">
+            <button type="button" id="btn-mode-split" onclick="setCrmViewMode('split')" class="mode-pill-btn active" title="Side-by-side Split View">
+                <i data-lucide="columns" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">Split</span>
+            </button>
+            <button type="button" id="btn-mode-focus" onclick="setCrmViewMode('focus')" class="mode-pill-btn" title="Full Width Focus Workspace">
+                <i data-lucide="maximize-2" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">Full File</span>
+            </button>
+            <button type="button" id="btn-mode-list" onclick="setCrmViewMode('list')" class="mode-pill-btn" title="Applicant List Only">
+                <i data-lucide="list" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">List</span>
+            </button>
+        </div>
+
+        <button class="filters-toggle-btn" onclick="toggleAdvFilters()" id="advFilterToggleBtn" style="background:#fff; border:1px solid #cbd5e1; color:#0f172a; font-weight:600; padding:0 16px; border-radius:8px; height:38px; display:flex; align-items:center; gap:8px; cursor:pointer; transition:0.2s;">
             <i data-lucide="sliders-horizontal" style="width:16px;"></i> <span id="advFilterToggleText">Filters</span>
             <span id="filterCountBadge" style="display:none; background:#f97316; color:#fff; border-radius:12px; padding:2px 6px; font-size:10px; margin-left:4px;">0</span>
         </button>
@@ -306,20 +453,20 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     </div>
 
     <!-- CRM Layout Grid -->
-    <div class="crm-layout">
-        <div class="client-list-pane-container" style="display:flex; flex-direction:column; background: #f8fafc; border-right: 1px solid var(--border); overflow: hidden; height: calc(100vh - 180px);">
-            <div class="client-list-pane" id="crm-client-list" style="flex:1; border-right:none; background:transparent; padding-bottom: 20px;">
+    <div class="crm-layout view-mode-split">
+        <div class="client-list-pane-container">
+            <div class="client-list-pane" id="crm-client-list" style="flex:1; border-right:none; background:transparent; padding:12px; overflow-y:auto;">
                 <!-- Loaded dynamically -->
             </div>
         </div>
 
         <!-- Right panel: Live Tracker Details -->
-        <div class="client-detail-pane" id="crm-detail-pane" style="position: sticky; top: 24px; max-height: calc(100vh - 48px); overflow-y: auto;">
-            <div class="detail-placeholder" style="display:flex; flex-direction:column; justify-content:center; align-items:center; height:100%; color:var(--text-light); text-align:center;">
-                <i data-lucide="file-search" style="width: 64px; height: 64px; stroke-width: 1.5; margin-bottom:16px;"></i>
+        <div class="client-detail-pane" id="crm-detail-pane">
+            <div class="detail-placeholder" style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:420px; color:var(--text-light); text-align:center; background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:12px; padding:40px 20px;">
+                <i data-lucide="file-search" style="width: 64px; height: 64px; stroke-width: 1.5; margin-bottom:16px; color:#94a3b8;"></i>
                 <div>
-                    <h3 style="color:var(--text-primary);">No Applicant Selected</h3>
-                    <p style="font-size: 13.5px; margin-top: 6px; max-width:300px;">Select an applicant from the list to view their pipeline progress, documents, and banking assignments.</p>
+                    <h3 style="color:var(--text-primary); font-size:18px;">No Applicant Selected</h3>
+                    <p style="font-size: 13.5px; margin-top: 6px; max-width:360px; color:#64748b;">Select an applicant to review their pipeline progress, documents, bank sanctions, and payouts in full width.</p>
                 </div>
             </div>
         </div>
@@ -327,6 +474,129 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 </div>
 
 <script>
+    // View Mode & Drawer Engine
+    let crmViewMode = 'split';
+    window.allLoadedApplicants = [];
+    window.currentActiveApplicantId = null;
+
+    function setCrmViewMode(mode) {
+        const layout = document.querySelector('.crm-layout');
+        if (!layout) return;
+        
+        crmViewMode = mode;
+        localStorage.setItem('bfs_crm_view_mode', mode);
+        
+        layout.classList.remove('view-mode-split', 'view-mode-focus', 'view-mode-list');
+        layout.classList.add('view-mode-' + mode);
+        
+        // Update pills in search bar
+        document.querySelectorAll('.mode-pill-btn').forEach(btn => btn.classList.remove('active'));
+        const activeBtn = document.getElementById('btn-mode-' + mode);
+        if (activeBtn) activeBtn.classList.add('active');
+        
+        // Update split/focus toggle button in workspace toolbar
+        const toggleBtnText = document.getElementById('splitFocusToggleText');
+        if (toggleBtnText) {
+            toggleBtnText.innerText = (mode === 'focus') ? 'Split View' : 'Full File View';
+        }
+        
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function toggleSplitVsFocus() {
+        if (crmViewMode === 'focus') {
+            setCrmViewMode('split');
+        } else {
+            setCrmViewMode('focus');
+        }
+    }
+
+    function toggleQuickListDrawer(open) {
+        const drawer = document.getElementById('quickListDrawer');
+        const backdrop = document.getElementById('quickListDrawerBackdrop');
+        if (!drawer) return;
+        
+        if (open === undefined) {
+            drawer.classList.toggle('open');
+            if (backdrop) backdrop.classList.toggle('active');
+        } else if (open) {
+            populateDrawerApplicants();
+            drawer.classList.add('open');
+            if (backdrop) backdrop.classList.add('active');
+            const input = document.getElementById('drawerSearchInput');
+            if (input) { input.value = ''; input.focus(); }
+        } else {
+            drawer.classList.remove('open');
+            if (backdrop) backdrop.classList.remove('active');
+        }
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function populateDrawerApplicants(filterQuery = '') {
+        const container = document.getElementById('drawerListContainer');
+        if (!container) return;
+        
+        let list = window.allLoadedApplicants || [];
+        if (filterQuery) {
+            const q = filterQuery.toLowerCase();
+            list = list.filter(a => 
+                (a.customer_name && a.customer_name.toLowerCase().includes(q)) ||
+                (a.loan_id && a.loan_id.toLowerCase().includes(q)) ||
+                (a.mobile && a.mobile.includes(q))
+            );
+        }
+        
+        if (list.length === 0) {
+            container.innerHTML = '<div style="text-align:center; padding:24px; color:#94a3b8; font-size:12px;">No matching applicants found.</div>';
+            return;
+        }
+        
+        container.innerHTML = list.map(app => {
+            const isActive = (app.id == window.currentActiveApplicantId);
+            return `
+                <div onclick="selectApplicantCard(${app.id}, true); toggleQuickListDrawer(false);" style="padding:10px 12px; border-radius:8px; border:1.5px solid ${isActive ? '#0f172a' : '#e2e8f0'}; background:${isActive ? '#f8fafc' : '#ffffff'}; margin-bottom:8px; cursor:pointer; transition:all 0.15s ease;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                        <strong style="font-size:13px; color:#0f172a;">${app.customer_name}</strong>
+                        <span class="badge" style="font-size:9.5px; padding:2px 7px;">${app.overall_status}</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11.5px; color:#64748b;">
+                        <span>${app.loan_type}</span>
+                        <strong style="color:#0f172a;">₹${new Intl.NumberFormat('en-IN').format(app.amount)}</strong>
+                    </div>
+                    <div style="font-size:11px; color:#94a3b8; margin-top:3px;">Ref: ${app.loan_id} • ${app.mobile}</div>
+                </div>
+            `;
+        }).join('');
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function filterDrawerApplicants(val) {
+        populateDrawerApplicants(val);
+    }
+
+    function navigateApplicant(direction) {
+        if (!window.allLoadedApplicants || window.allLoadedApplicants.length === 0) return;
+        const currentId = window.currentActiveApplicantId;
+        let idx = window.allLoadedApplicants.findIndex(a => a.id == currentId);
+        if (idx === -1) idx = 0;
+        const nextIdx = idx + direction;
+        if (nextIdx >= 0 && nextIdx < window.allLoadedApplicants.length) {
+            selectApplicantCard(window.allLoadedApplicants[nextIdx].id, true);
+        } else if (nextIdx < 0) {
+            showNotification('Reached first applicant in list.', 'info');
+        } else {
+            showNotification('Reached last applicant in list.', 'info');
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        let savedMode = localStorage.getItem('bfs_crm_view_mode');
+        if (!savedMode) {
+            savedMode = (window.innerWidth < 1366) ? 'focus' : 'split';
+        }
+        setCrmViewMode(savedMode);
+    });
+
     // Advanced Filter JS
     function toggleFilterDrawer() {
         toggleAdvFilters();
@@ -499,6 +769,9 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             
             if (reset) {
                 container.innerHTML = '';
+                window.allLoadedApplicants = Array.isArray(applicants) ? applicants : [];
+            } else if (Array.isArray(applicants)) {
+                window.allLoadedApplicants = [...(window.allLoadedApplicants || []), ...applicants];
             }
             
             if (applicants && applicants.error === 'SESSION_EXPIRED') {
@@ -545,32 +818,24 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 const deactiveBadge = isDeactiveCard ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:9.5px; padding:2px 6px; margin-left:4px;"><i data-lucide="power" style="width:10px; vertical-align:-1px;"></i> DEACTIVE</span>` : '';
                 
                 card.innerHTML = `
-                    <div class="client-card-header">
-                        <span class="client-card-title">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px; gap:8px;">
+                        <span class="client-card-title" style="font-size:14px; font-weight:800; color:#0f172a; line-height:1.2;">
                             ${app.customer_name}
                             ${app.calculated_completion < 100 
-                                ? `<span style="display:inline-block; font-size: 10px; color: #ef4444; font-weight: 600; margin-left: 4px;" title="${app.calculated_completion}% Profile Complete"><i data-lucide="alert-circle" style="width:10px;height:10px;"></i> ${app.calculated_completion}%</span>`
-                                : `<span style="display:inline-block; font-size: 10px; color: #10b981; font-weight: 600; margin-left: 4px;" title="100% Complete Profile"><i data-lucide="check-circle" style="width:10px;height:10px;"></i> 100%</span>`
+                                ? `<span style="display:inline-block; font-size:10px; color:#ef4444; font-weight:700; margin-left:4px;" title="${app.calculated_completion}% Profile Complete"><i data-lucide="alert-circle" style="width:10px;height:10px;vertical-align:-1px;"></i> ${app.calculated_completion}%</span>`
+                                : `<span style="display:inline-block; font-size:10px; color:#10b981; font-weight:700; margin-left:4px;" title="100% Complete"><i data-lucide="check-circle" style="width:10px;height:10px;vertical-align:-1px;"></i></span>`
                             }
                             ${deactiveBadge}
                         </span>
-                        <span class="badge ${badgeClass}">${app.overall_status}</span>
+                        <span class="badge ${badgeClass}" style="flex-shrink:0; font-size:10px; padding:2px 7px;">${app.overall_status}</span>
                     </div>
-                    <div class="client-card-meta">
-                        <i data-lucide="tag" style="width: 12px; height: 12px;"></i>
-                        ${app.loan_id}
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:5px;">
+                        <span style="color:#475569; font-weight:600;"><i data-lucide="briefcase" style="width:12px; height:12px; vertical-align:-1px; color:#94a3b8;"></i> ${app.loan_type}</span>
+                        <strong style="color:#0f172a; font-weight:800; font-size:13px;">₹${new Intl.NumberFormat('en-IN').format(app.amount)}</strong>
                     </div>
-                    <div class="client-card-meta">
-                        <i data-lucide="briefcase" style="width: 12px; height: 12px;"></i>
-                        ${app.loan_type} - <span style="font-weight: 600;">₹${new Intl.NumberFormat('en-IN').format(app.amount)}</span>
-                    </div>
-                    <div class="client-card-meta" style="margin-bottom: 0;">
-                        <i data-lucide="phone" style="width: 12px; height: 12px;"></i>
-                        ${app.mobile}
-                    </div>
-                    <div style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; font-size: 11px; color: var(--text-light); display: flex; justify-content: space-between;">
-                        <span><i data-lucide="clock" style="width:10px;height:10px;vertical-align:-1px;"></i> Unknown</span>
-                        <span>Added by: System</span>
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b; border-top:1px dashed #e2e8f0; padding-top:6px; margin-top:6px;">
+                        <span><i data-lucide="tag" style="width:10px; height:10px; vertical-align:-1px; color:#94a3b8;"></i> ${app.loan_id}</span>
+                        <span><i data-lucide="phone" style="width:10px; height:10px; vertical-align:-1px; color:#94a3b8;"></i> ${app.mobile}</span>
                     </div>
                 `;
                 container.appendChild(card);
@@ -608,10 +873,19 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         const selectedCard = document.getElementById('crm-client-card-' + id);
         if (selectedCard) selectedCard.classList.add('active');
         
+        window.currentActiveApplicantId = id;
+        
+        // On laptops/small screens (< 1366px), automatically switch to Full File (Focus) mode!
+        if (userInitiated && window.innerWidth < 1366) {
+            setCrmViewMode('focus');
+        } else if (crmViewMode === 'list') {
+            setCrmViewMode('focus');
+        }
+        
         const pane = document.getElementById('crm-detail-pane');
         
-        if (userInitiated && window.innerWidth <= 1024 && pane) {
-            pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (userInitiated && pane) {
+            window.scrollTo({ top: 120, behavior: 'smooth' });
         }
         
         // Show loading state with logo.png
@@ -1103,16 +1377,45 @@ Please process.`);
 
             const isDeactive = (app.is_active == 0 || app.is_active === '0');
 
-            const mobileBackHtml = (window.innerWidth <= 1024) ? `
-                <div style="margin-bottom:12px;">
-                    <button type="button" onclick="document.getElementById('crm-client-list').scrollIntoView({behavior:'smooth', block:'start'})" class="btn btn-secondary" style="width:100%; justify-content:center; padding:9px 16px; font-weight:700; font-size:12.5px; background:#fff; border:1.5px solid #cbd5e1; display:flex; align-items:center; gap:8px;">
-                        <i data-lucide="arrow-left" style="width:16px;"></i> Back to Applicant List
-                    </button>
+            const currentIndex = (window.allLoadedApplicants || []).findIndex(a => a.id == app.id);
+            const totalCount = (window.allLoadedApplicants || []).length || 1;
+            const indexDisplay = (currentIndex !== -1) ? `File ${currentIndex + 1} of ${totalCount}` : `Active File`;
+
+            const topWorkspaceToolbar = `
+                <div class="file-workspace-nav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:8px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; box-shadow:0 1px 4px rgba(15,23,42,0.04);">
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" onclick="setCrmViewMode('list')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide grid">
+                            <i data-lucide="arrow-left" style="width:14px;"></i> <span>All Applicants</span>
+                        </button>
+                        <button type="button" onclick="toggleQuickListDrawer(true)" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Quick slide-over file switcher">
+                            <i data-lucide="users" style="width:14px;"></i> <span>Quick Switcher</span>
+                        </button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <button type="button" onclick="navigateApplicant(-1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Previous Applicant File">
+                            <i data-lucide="chevron-left" style="width:13px;"></i> Prev
+                        </button>
+                        <span id="fileIndexPill" style="font-size:11.5px; font-weight:800; color:#0f172a; padding:3px 10px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0;">${indexDisplay}</span>
+                        <button type="button" onclick="navigateApplicant(1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Next Applicant File">
+                            Next <i data-lucide="chevron-right" style="width:13px;"></i>
+                        </button>
+                    </div>
+
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" onclick="toggleSidebar()" class="btn btn-secondary hide-on-mobile" style="padding:6px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Collapse/Expand Left Navigation (Ctrl+B)">
+                            <i data-lucide="sidebar" style="width:13px;"></i> Menu
+                        </button>
+                        <button type="button" onclick="toggleSplitVsFocus()" id="splitFocusToggleBtn" class="btn btn-primary" style="padding:6px 14px; font-size:12px; font-weight:800; background:#0f172a; border:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                            <i data-lucide="${crmViewMode === 'focus' ? 'columns' : 'maximize-2'}" style="width:13px;"></i>
+                            <span id="splitFocusToggleText">${crmViewMode === 'focus' ? 'Split View' : 'Full File View'}</span>
+                        </button>
+                    </div>
                 </div>
-            ` : '';
+            `;
 
             pane.innerHTML = `
-                ${mobileBackHtml}
+                ${topWorkspaceToolbar}
                 ${isDeactive ? `
                     <div style="background:#fee2e2; border:1.5px dashed #ef4444; color:#991b1b; padding:14px 18px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(239,68,68,0.12);">
                         <div>
