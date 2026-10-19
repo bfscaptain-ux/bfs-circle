@@ -780,7 +780,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 <div style="display:flex; align-items:center; gap:8px;">
                     <i data-lucide="layout-grid" style="width:16px; height:16px; color:#0f172a;"></i>
                     <span style="font-weight:800; font-size:13.5px; color:#0f172a; font-family:'Outfit',sans-serif;">Applicants Pipeline</span>
-                    <span id="list-count-badge" style="background:#0f172a; color:#fff; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:12px;">12</span>
+                    <span id="list-count-badge" style="background:#0f172a; color:#fff; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:12px;">25</span>
                 </div>
                 <div style="font-size:11.5px; font-weight:600; color:#64748b;">
                     <span class="hide-on-mobile">Click any card to open workspace</span>
@@ -789,21 +789,21 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 
             <!-- Scrollable Cards Body -->
             <div class="client-list-pane" id="crm-client-list">
-                <!-- Dynamically loaded 12 cards -->
+                <!-- Dynamically loaded 25 cards -->
             </div>
 
             <!-- Pinned Bottom Pagination Footer -->
             <div class="list-pane-pagination" id="list-pagination-footer" style="padding:10px 14px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
                 <div id="pagination-info" style="font-size:11.5px; font-weight:700; color:#64748b;">
-                    Showing 12 applicants
+                    Showing 25 applicants
                 </div>
                 <div style="display:flex; gap:6px; align-items:center;">
                     <button type="button" id="btn-page-prev" onclick="changePage(-1)" class="btn" style="padding:5px 10px; font-size:11.5px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
-                        <i data-lucide="chevron-left" style="width:13px;"></i> Prev 12
+                        <i data-lucide="chevron-left" style="width:13px;"></i> Prev 25
                     </button>
                     <span id="pagination-page-pill" style="font-size:11px; font-weight:800; color:#0f172a; background:#e2e8f0; padding:4px 8px; border-radius:6px;">Page 1</span>
                     <button type="button" id="btn-page-next" onclick="changePage(1)" class="btn" style="padding:5px 10px; font-size:11.5px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
-                        Next 12 <i data-lucide="chevron-right" style="width:13px;"></i>
+                        Next 25 <i data-lucide="chevron-right" style="width:13px;"></i>
                     </button>
                 </div>
             </div>
@@ -1099,7 +1099,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     }
 
     let currentOffset = 0;
-    const PAGE_SIZE = 12;
+    const PAGE_SIZE = 25;
     let currentTotalApplicants = 0;
     let currentPageNumber = 1;
     let totalPagesCount = 1;
@@ -1128,13 +1128,16 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             btnPrev.disabled = (currentPageNumber <= 1);
             btnPrev.style.opacity = (currentPageNumber <= 1) ? '0.4' : '1';
             btnPrev.style.cursor = (currentPageNumber <= 1) ? 'not-allowed' : 'pointer';
+            btnPrev.innerHTML = `<i data-lucide="chevron-left" style="width:13px;"></i> Prev ${PAGE_SIZE}`;
         }
         
         if (btnNext) {
             btnNext.disabled = (currentPageNumber >= totalPagesCount);
             btnNext.style.opacity = (currentPageNumber >= totalPagesCount) ? '0.4' : '1';
             btnNext.style.cursor = (currentPageNumber >= totalPagesCount) ? 'not-allowed' : 'pointer';
+            btnNext.innerHTML = `Next ${PAGE_SIZE} <i data-lucide="chevron-right" style="width:13px;"></i>`;
         }
+        if (typeof lucide !== 'undefined') lucide.createIcons();
     }
 
     function changePage(direction) {
@@ -1175,8 +1178,8 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         try {
             const container = document.getElementById('crm-client-list');
             if (reset) {
-                // Show Full-Page Skeleton Loader (12 cards matching full page)
-                container.innerHTML = Array(PAGE_SIZE || 12).fill(`
+                // Show Full-Page Skeleton Loader (25 cards matching full page)
+                container.innerHTML = Array(PAGE_SIZE || 25).fill(`
                     <div class="client-card" style="pointer-events: none; border: 1.5px solid #e2e8f0;">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                             <div style="display:flex; align-items:center; gap:8px;">
