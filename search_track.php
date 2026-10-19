@@ -1175,23 +1175,23 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         try {
             const container = document.getElementById('crm-client-list');
             if (reset) {
-                // Show Skeleton Loader
-                container.innerHTML = Array(6).fill(`
-                    <div class="client-card" style="pointer-events: none; border: 1.5px solid #e2e8f0; min-height: 105px;">
+                // Show Full-Page Skeleton Loader (12 cards matching full page)
+                container.innerHTML = Array(PAGE_SIZE || 12).fill(`
+                    <div class="client-card" style="pointer-events: none; border: 1.5px solid #e2e8f0;">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
                             <div style="display:flex; align-items:center; gap:8px;">
                                 <div class="skeleton" style="width: 30px; height: 30px; border-radius:7px;"></div>
                                 <div>
-                                    <div class="skeleton" style="width: 110px; height: 14px; margin-bottom:4px;"></div>
-                                    <div class="skeleton" style="width: 70px; height: 10px;"></div>
+                                    <div class="skeleton" style="width: 120px; height: 14px; margin-bottom:4px; border-radius:4px;"></div>
+                                    <div class="skeleton" style="width: 80px; height: 10px; border-radius:3px;"></div>
                                 </div>
                             </div>
                             <div class="skeleton" style="width: 65px; height: 18px; border-radius: 6px;"></div>
                         </div>
-                        <div class="skeleton" style="width: 100%; height: 36px; border-radius: 8px;"></div>
+                        <div class="skeleton" style="width: 100%; height: 38px; border-radius: 8px;"></div>
                         <div style="display:flex; justify-content:space-between; padding-top:4px;">
-                            <div class="skeleton" style="width: 80px; height: 12px;"></div>
-                            <div class="skeleton" style="width: 50px; height: 12px;"></div>
+                            <div class="skeleton" style="width: 80px; height: 12px; border-radius:3px;"></div>
+                            <div class="skeleton" style="width: 60px; height: 12px; border-radius:3px;"></div>
                         </div>
                     </div>
                 `).join('');
