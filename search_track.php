@@ -153,14 +153,38 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     white-space: nowrap;
 }
-.mode-pill-btn:hover {
+.btn-list-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 38px;
+    padding: 0 14px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1.5px solid #cbd5e1;
+    background: #ffffff;
     color: #0f172a;
-    background: rgba(0,0,0,0.04);
 }
-.mode-pill-btn.active {
-    background: #0f172a;
-    color: #ffffff;
-    box-shadow: 0 1px 3px rgba(15,23,42,0.18);
+.btn-list-toggle.is-on {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    border-color: #0f172a !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2);
+}
+.btn-list-toggle.is-off {
+    background: #f8fafc !important;
+    color: #64748b !important;
+    border-color: #cbd5e1 !important;
+}
+.toggle-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+    transition: all 0.2s;
 }
 
 .crm-layout {
@@ -171,28 +195,28 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     width: 100%;
 }
 
-/* 1. Split / Docked View Mode: Pinned Sticky Side Panel (No more empty voids!) */
+/* 1. Split / Docked View Mode: Independent Dual-Pane Scrolling! */
 .crm-layout.view-mode-split {
-    grid-template-columns: 320px minmax(0, 1fr) !important;
-    align-items: start;
+    display: grid !important;
+    grid-template-columns: 310px minmax(0, 1fr) !important;
+    gap: 16px !important;
+    height: calc(100vh - 125px) !important;
+    max-height: calc(100vh - 125px) !important;
+    overflow: hidden !important;
 }
 .crm-layout.view-mode-split .client-list-pane-container {
+    height: 100% !important;
+    max-height: 100% !important;
     display: flex !important;
     flex-direction: column !important;
-    width: 320px;
-    position: sticky !important;
-    top: 14px !important;
-    height: calc(100vh - 28px) !important;
-    max-height: calc(100vh - 28px) !important;
+    overflow: hidden !important;
     background: #ffffff !important;
     border: 1.5px solid #cbd5e1 !important;
     border-radius: 12px !important;
-    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05) !important;
-    overflow: hidden !important;
-    z-index: 20;
+    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.04) !important;
 }
 .crm-layout.view-mode-split .client-list-pane {
-    flex: 1;
+    flex: 1 !important;
     overflow-y: auto !important;
     padding: 10px 12px !important;
     display: flex !important;
@@ -202,11 +226,12 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 }
 .crm-layout.view-mode-split .client-detail-pane {
     display: block !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow-y: visible !important;
+    height: 100% !important;
+    max-height: 100% !important;
+    overflow-y: auto !important; /* INDEPENDENT SCROLL: Details scroll without moving list! */
     position: static !important;
     min-width: 0;
+    padding-right: 6px !important;
 }
 
 /* 2. Full File (Focus) View Mode: 100% Full Width File Workspace */
@@ -364,13 +389,14 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             <input type="text" id="search-query" placeholder="Search by Applicant Name / Loan ID / Mobile / PAN..." oninput="triggerSearch()">
         </div>
 
-        <!-- 1-Click Action Buttons -->
-        <div style="display:inline-flex; gap:6px; align-items:center;">
-            <button type="button" id="btn-top-all-applicants" onclick="setCrmViewMode('list')" class="btn" style="height:38px; padding:0 14px; font-size:12px; font-weight:700; background:#0f172a; color:#ffffff; border:none; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide directory grid">
-                <i data-lucide="layout-grid" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">All Applicants</span>
+        <!-- Clean Controls: List ON/OFF & Grid View -->
+        <div style="display:inline-flex; gap:8px; align-items:center;">
+            <button type="button" id="btnGridMode" onclick="setCrmViewMode('list')" class="btn" style="height:38px; padding:0 14px; font-size:12px; font-weight:700; background:#f8fafc; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide directory grid">
+                <i data-lucide="layout-grid" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">Grid View</span>
             </button>
-            <button type="button" id="btn-top-toggle-list" onclick="toggleApplicantList()" class="btn" style="height:38px; padding:0 14px; font-size:12px; font-weight:800; background:#f8fafc; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; transition:all 0.2s;" title="Open or Close Applicant Side List (1 Click)">
-                <i data-lucide="columns" style="width:14px; height:14px;"></i> <span id="btn-top-toggle-text">Toggle List</span>
+            <button type="button" id="btnListToggle" onclick="toggleApplicantList()" class="btn-list-toggle is-on" title="Turn Side List ON or OFF">
+                <span id="btnListToggleDot" class="toggle-indicator" style="background:#10b981;"></span>
+                <span id="btnListToggleText">List: ON</span>
             </button>
         </div>
 
@@ -511,12 +537,9 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             <div class="list-pane-header" id="list-pane-header" style="padding:10px 14px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <i data-lucide="users" style="width:16px; height:16px; color:#0f172a;"></i>
-                    <span style="font-weight:800; font-size:13px; color:#0f172a;">Applicants Directory</span>
+                    <span style="font-weight:800; font-size:13px; color:#0f172a;">Applicants</span>
                     <span id="list-count-badge" class="badge" style="background:#0f172a; color:#fff; font-size:10px; padding:2px 7px;">12</span>
                 </div>
-                <button type="button" onclick="toggleApplicantList(false)" class="btn-close-list" title="Close List (View File 100% Full Screen)" style="background:#f1f5f9; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; cursor:pointer; color:#0f172a; font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; gap:4px; transition:0.2s;">
-                    <i data-lucide="x" style="width:13px; height:13px;"></i> Close List
-                </button>
             </div>
 
             <!-- Scrollable Cards Body -->
@@ -598,60 +621,35 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         layout.classList.remove('view-mode-split', 'view-mode-focus', 'view-mode-list');
         layout.classList.add('view-mode-' + mode);
         
-        // Update top bar buttons
-        const topAllBtn = document.getElementById('btn-top-all-applicants');
-        const topToggleBtn = document.getElementById('btn-top-toggle-list');
-        const topToggleText = document.getElementById('btn-top-toggle-text');
+        // Update List ON/OFF Toggle Button
+        const toggleBtn = document.getElementById('btnListToggle');
+        const toggleText = document.getElementById('btnListToggleText');
+        const toggleDot = document.getElementById('btnListToggleDot');
+        const gridBtn = document.getElementById('btnGridMode');
         
-        if (topAllBtn) {
+        if (toggleBtn && toggleText && toggleDot) {
+            if (mode === 'split') {
+                toggleBtn.className = 'btn-list-toggle is-on';
+                toggleText.innerText = 'List: ON';
+                toggleDot.style.background = '#10b981';
+                toggleBtn.title = 'Click to turn List OFF (View file 100% full width)';
+            } else {
+                toggleBtn.className = 'btn-list-toggle is-off';
+                toggleText.innerText = 'List: OFF';
+                toggleDot.style.background = '#94a3b8';
+                toggleBtn.title = 'Click to turn List ON (Dock list on the left)';
+            }
+        }
+        
+        if (gridBtn) {
             if (mode === 'list') {
-                topAllBtn.style.background = '#0f172a';
-                topAllBtn.style.color = '#ffffff';
-                topAllBtn.style.border = 'none';
+                gridBtn.style.background = '#0f172a';
+                gridBtn.style.color = '#ffffff';
+                gridBtn.style.borderColor = '#0f172a';
             } else {
-                topAllBtn.style.background = '#f8fafc';
-                topAllBtn.style.color = '#0f172a';
-                topAllBtn.style.border = '1.5px solid #cbd5e1';
-            }
-        }
-        
-        if (topToggleBtn && topToggleText) {
-            if (mode === 'split') {
-                topToggleText.innerText = 'Close Side List';
-                topToggleBtn.style.background = '#f1f5f9';
-                topToggleBtn.style.color = '#0f172a';
-                topToggleBtn.style.border = '1.5px solid #cbd5e1';
-                topToggleBtn.title = 'Close side list (View file 100% full width)';
-            } else if (mode === 'focus') {
-                topToggleText.innerText = 'Open Side List (12)';
-                topToggleBtn.style.background = '#0f172a';
-                topToggleBtn.style.color = '#ffffff';
-                topToggleBtn.style.border = 'none';
-                topToggleBtn.title = 'Dock applicant list on the left side';
-            } else {
-                topToggleText.innerText = 'Split / File View';
-                topToggleBtn.style.background = '#f8fafc';
-                topToggleBtn.style.color = '#0f172a';
-                topToggleBtn.style.border = '1.5px solid #cbd5e1';
-            }
-        }
-        
-        // Update detail workspace toolbar button
-        const mainToggleBtn = document.getElementById('btnToggleListMain');
-        const mainToggleText = document.getElementById('btnToggleListMainText');
-        if (mainToggleBtn && mainToggleText) {
-            if (mode === 'split') {
-                mainToggleText.innerText = '✕ Close List';
-                mainToggleBtn.style.background = '#f1f5f9';
-                mainToggleBtn.style.color = '#0f172a';
-                mainToggleBtn.style.border = '1px solid #cbd5e1';
-                mainToggleBtn.title = 'Close side list to view file 100% full width';
-            } else {
-                mainToggleText.innerText = '📋 Open List (12)';
-                mainToggleBtn.style.background = '#0f172a';
-                mainToggleBtn.style.color = '#ffffff';
-                mainToggleBtn.style.border = 'none';
-                mainToggleBtn.title = 'Dock applicant list on the left side';
+                gridBtn.style.background = '#f8fafc';
+                gridBtn.style.color = '#0f172a';
+                gridBtn.style.borderColor = '#cbd5e1';
             }
         }
         
@@ -1570,35 +1568,20 @@ Please process.`);
             const indexDisplay = (currentIndex !== -1) ? `File ${currentIndex + 1} of ${totalCount}` : `Active File`;
 
             const topWorkspaceToolbar = `
-                <div class="file-workspace-nav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:8px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; box-shadow:0 1px 4px rgba(15,23,42,0.04);">
+                <div class="file-workspace-nav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:6px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 1px 4px rgba(15,23,42,0.04);">
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button type="button" onclick="setCrmViewMode('list')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide directory grid">
-                            <i data-lucide="layout-grid" style="width:14px;"></i> <span>All Applicants Grid</span>
-                        </button>
-                        
-                        <!-- 1-Click Single Button to Open or Close Side List! -->
-                        <button type="button" onclick="toggleApplicantList()" id="btnToggleListMain" class="btn" style="padding:6px 14px; font-size:12px; font-weight:800; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; transition:all 0.2s; ${crmViewMode === 'split' ? 'background:#f1f5f9; color:#0f172a; border:1.5px solid #cbd5e1;' : 'background:#0f172a; color:#ffffff; border:none; box-shadow:0 2px 6px rgba(15,23,42,0.2);'}">
-                            <i data-lucide="${crmViewMode === 'split' ? 'x' : 'columns'}" style="width:14px; height:14px;"></i>
-                            <span id="btnToggleListMainText">${crmViewMode === 'split' ? '✕ Close List' : '📋 Open List (12)'}</span>
-                        </button>
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <button type="button" onclick="navigateApplicant(-1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Previous Applicant File">
-                            <i data-lucide="chevron-left" style="width:13px;"></i> Prev
-                        </button>
-                        <span id="fileIndexPill" style="font-size:11.5px; font-weight:800; color:#0f172a; padding:3px 10px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0;">${indexDisplay}</span>
-                        <button type="button" onclick="navigateApplicant(1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Next Applicant File">
-                            Next <i data-lucide="chevron-right" style="width:13px;"></i>
+                        <button type="button" onclick="setCrmViewMode('list')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Back to All Applicants Directory">
+                            <i data-lucide="arrow-left" style="width:14px;"></i> <span>Directory</span>
                         </button>
                     </div>
 
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <button type="button" onclick="toggleQuickListDrawer(true)" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Quick slide-over file switcher">
-                            <i data-lucide="search" style="width:14px;"></i> <span>Quick Switcher</span>
+                        <button type="button" onclick="navigateApplicant(-1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Previous Applicant File">
+                            <i data-lucide="chevron-left" style="width:13px;"></i> Prev
                         </button>
-                        <button type="button" onclick="toggleSidebar()" class="btn btn-secondary hide-on-mobile" style="padding:6px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Collapse/Expand Left Navigation (Ctrl+B)">
-                            <i data-lucide="sidebar" style="width:13px;"></i> Menu
+                        <span id="fileIndexPill" style="font-size:11.5px; font-weight:800; color:#0f172a; padding:4px 12px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0;">${indexDisplay}</span>
+                        <button type="button" onclick="navigateApplicant(1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Next Applicant File">
+                            Next <i data-lucide="chevron-right" style="width:13px;"></i>
                         </button>
                     </div>
                 </div>
