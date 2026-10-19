@@ -815,11 +815,50 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 
         <!-- Right panel: Live Tracker Details -->
         <div class="client-detail-pane" id="crm-detail-pane">
-            <div class="detail-placeholder" style="display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:420px; color:var(--text-light); text-align:center; background:#ffffff; border:1.5px dashed #cbd5e1; border-radius:12px; padding:40px 20px;">
-                <i data-lucide="file-search" style="width: 64px; height: 64px; stroke-width: 1.5; margin-bottom:16px; color:#94a3b8;"></i>
-                <div>
-                    <h3 style="color:var(--text-primary); font-size:18px;">No Applicant Selected</h3>
-                    <p style="font-size: 13.5px; margin-top: 6px; max-width:360px; color:#64748b;">Select an applicant from the directory above to review their full file in wide screen.</p>
+            <div class="detail-placeholder" style="position:relative; display:flex; flex-direction:column; justify-content:center; align-items:center; min-height:500px; height:100%; text-align:center; background:#ffffff; border:1.5px solid #e2e8f0; border-radius:14px; padding:48px 24px; box-sizing:border-box; overflow:hidden; box-shadow:0 1px 3px rgba(15,23,42,0.03);">
+                
+                <!-- Ambient Subtle Watermark Logo in Background -->
+                <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); opacity:0.04; pointer-events:none; z-index:0; width:340px; height:340px; display:flex; align-items:center; justify-content:center;">
+                    <img src="logo.png" alt="" style="width:100%; height:100%; object-fit:contain;">
+                </div>
+
+                <!-- Foreground Content -->
+                <div style="position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; max-width:480px;">
+                    
+                    <!-- Emblem Logo Card with Soft Glow -->
+                    <div style="width:76px; height:76px; border-radius:18px; background:#ffffff; border:1.5px solid #e2e8f0; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px -5px rgba(15,23,42,0.08), 0 4px 6px -2px rgba(15,23,42,0.03); margin-bottom:20px;">
+                        <img src="logo.png" alt="BFS Circle" style="width:46px; height:46px; object-fit:contain;">
+                    </div>
+
+                    <h3 style="font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; color:#0f172a; margin:0 0 8px 0; letter-spacing:-0.3px;">
+                        BFS Circle Applicant Workspace
+                    </h3>
+
+                    <p style="font-size:13.5px; line-height:1.6; color:#64748b; margin:0 0 24px 0;">
+                        Select any applicant card from the left pipeline to open live underwriting status, document vault, and bank processing.
+                    </p>
+
+                    <!-- Feature Badges -->
+                    <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:28px;">
+                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
+                            <i data-lucide="activity" style="width:13px; height:13px; color:#2563eb;"></i> Live LOS Pipeline
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
+                            <i data-lucide="files" style="width:13px; height:13px; color:#059669;"></i> Document Vault
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
+                            <i data-lucide="landmark" style="width:13px; height:13px; color:#d97706;"></i> Bank Kundli
+                        </span>
+                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
+                            <i data-lucide="message-square" style="width:13px; height:13px; color:#16a34a;"></i> WhatsApp Hub
+                        </span>
+                    </div>
+
+                    <!-- Subtle Guide Indicator -->
+                    <div style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:#94a3b8; background:#f8fafc; padding:6px 14px; border-radius:20px; border:1px dashed #cbd5e1;">
+                        <i data-lucide="arrow-left" style="width:13px; height:13px; color:#64748b;"></i>
+                        <span>Click an applicant from the list to view file</span>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2414,6 +2453,9 @@ Please process.`);
             setCrmViewMode(savedMode);
             triggerSearch(true, false);
         }
+
+        // Initialize Lucide icons on page load
+        if (window.lucide) lucide.createIcons();
 
         // Global hotkey: Ctrl+B or Alt+L toggles the applicant list
         document.addEventListener('keydown', (e) => {
