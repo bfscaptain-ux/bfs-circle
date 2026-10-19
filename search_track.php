@@ -776,14 +776,18 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         <!-- Left Panel: Client List / Directory Grid -->
         <div class="client-list-pane-container" id="crm-list-container">
             <!-- Pinned Header -->
-            <div class="list-pane-header" id="list-pane-header" style="padding:10px 14px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <i data-lucide="layout-grid" style="width:16px; height:16px; color:#0f172a;"></i>
-                    <span style="font-weight:800; font-size:13.5px; color:#0f172a; font-family:'Outfit',sans-serif;">Applicants Pipeline</span>
-                    <span id="list-count-badge" style="background:#0f172a; color:#fff; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:12px;">20</span>
+            <div class="list-pane-header" id="list-pane-header" style="padding:10px 14px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#ffffff; gap:8px; min-height:46px; box-sizing:border-box;">
+                <div style="display:flex; align-items:center; gap:8px; min-width:0; flex-shrink:0;">
+                    <div style="width:24px; height:24px; border-radius:6px; background:#0f172a; color:#ffffff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                        <i data-lucide="users" style="width:13px; height:13px;"></i>
+                    </div>
+                    <span style="font-weight:800; font-size:13px; color:#0f172a; font-family:'Outfit',sans-serif; white-space:nowrap; letter-spacing:-0.2px;">Applicants</span>
+                    <span id="list-count-badge" style="background:#f1f5f9; color:#0f172a; border:1.5px solid #cbd5e1; font-size:11px; font-weight:800; padding:1.5px 7px; border-radius:20px; white-space:nowrap;">20</span>
                 </div>
-                <div style="font-size:11.5px; font-weight:600; color:#64748b;">
-                    <span class="hide-on-mobile">Click any card to open workspace</span>
+                <div style="font-size:11px; font-weight:600; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; text-align:right; min-width:0;">
+                    <span style="display:inline-flex; align-items:center; gap:4px; background:#f8fafc; border:1px solid #e2e8f0; padding:2.5px 8px; border-radius:6px;">
+                        <i data-lucide="mouse-pointer-click" style="width:11px; height:11px; color:#94a3b8;"></i> Select to view
+                    </span>
                 </div>
             </div>
 
@@ -2013,15 +2017,36 @@ Please process.`);
                     </div>
                 </div>
                 
-                ${app.phase1_completion < 100 ? `
-                    <div style="background: #fffbeb; border: 1px solid #fcd34d; padding: 12px 16px; border-radius: var(--radius-md); margin-bottom: 16px; display:flex; justify-content:space-between; align-items:center;">
-                        <div>
-                            <div style="color: #b45309; font-weight: 700; margin-bottom:4px;"><i data-lucide="alert-triangle" style="width:16px; vertical-align:-3px;"></i> Incomplete Phase 1 Profile (${app.phase1_completion}%)</div>
-                            <div style="color: #92400e; font-size: 12px;">Missing details: <strong>${app.phase1_missing ? app.phase1_missing.join(', ') : 'Required fields'}</strong></div>
+                ${app.phase1_completion < 100 ? (() => {
+                    const missingItems = Array.isArray(app.phase1_missing) ? app.phase1_missing : (app.phase1_missing ? String(app.phase1_missing).split(',').map(s => s.trim()) : []);
+                    const tagsHtml = missingItems.length > 0
+                        ? missingItems.map(item => `<span style="display:inline-flex; align-items:center; background:#ffffff; border:1px solid #fed7aa; color:#9a3412; padding:1.5px 7px; border-radius:5px; font-size:11px; font-weight:700;">${item}</span>`).join(' ')
+                        : `<span style="color:#9a3412; font-size:11.5px; font-weight:600;">Basic applicant KYC details required</span>`;
+                    
+                    return `
+                    <div style="background:#ffffff; border:1.5px solid #fed7aa; border-left:4px solid #f59e0b; padding:12px 16px; border-radius:10px; margin-bottom:18px; display:flex; justify-content:space-between; align-items:center; gap:14px; flex-wrap:wrap; box-shadow:0 2px 8px rgba(245,158,11,0.06);">
+                        <div style="display:flex; align-items:center; gap:12px; min-width:0; flex:1;">
+                            <div style="width:34px; height:34px; border-radius:9px; background:#fff7ed; border:1.5px solid #fed7aa; color:#ea580c; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+                                <i data-lucide="alert-triangle" style="width:17px; height:17px; stroke-width:2.2;"></i>
+                            </div>
+                            <div style="min-width:0; flex:1;">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:4px;">
+                                    <span style="color:#78350f; font-weight:800; font-size:13.5px; font-family:'Outfit',sans-serif; letter-spacing:-0.2px;">Phase 1 Profile Incomplete</span>
+                                    <span style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-size:11px; font-weight:800; padding:1.5px 8px; border-radius:20px;">${app.phase1_completion}% Filled</span>
+                                </div>
+                                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap; font-size:11.5px;">
+                                    <span style="color:#92400e; font-weight:600;">Missing:</span>
+                                    ${tagsHtml}
+                                </div>
+                            </div>
                         </div>
-                        <a href="add_applicant.php?id=${app.id}" class="btn" style="background:#b45309; color:white; border:none; padding:6px 14px; font-size:12px; font-weight:700; border-radius:6px;">Complete Profile</a>
+                        <a href="add_applicant.php?id=${app.id}" class="btn" style="background:#0f172a; color:#ffffff; border:none; padding:8px 16px; font-size:12px; font-weight:700; border-radius:8px; display:inline-flex; align-items:center; gap:6px; text-decoration:none; box-shadow:0 2px 6px rgba(15,23,42,0.15); transition:all 0.15s ease; cursor:pointer; flex-shrink:0; white-space:nowrap;">
+                            <span>Complete Profile</span>
+                            <i data-lucide="arrow-right" style="width:13px; height:13px;"></i>
+                        </a>
                     </div>
-                ` : ''}
+                    `;
+                })() : ''}
                 
                 ${(() => {
                     if (app.pd_report && (app.pd_report.pd_conducted_by || app.pd_report.final_pd_status)) {
