@@ -21,41 +21,257 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 
 
 <style>
+/* Executive BFS Circle CRM Client Card */
 .client-card {
-    background: #ffffff;
-    border: 1.5px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 12px 14px;
-    cursor: pointer;
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.02);
-    margin-bottom: 8px;
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    padding: 12px 14px !important;
+    cursor: pointer !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 9px !important;
+    position: relative !important;
+    height: auto !important;
+    box-sizing: border-box !important;
+    margin-bottom: 0 !important;
 }
+
 .client-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
-    border-color: #0f172a;
+    transform: translateY(-2px) !important;
+    border-color: #0f172a !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08) !important;
 }
+
 .client-card.active {
-    border: 2px solid #0f172a;
-    background: #f8fafc;
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+    border: 2px solid #0f172a !important;
+    background: #f8fafc !important;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.09) !important;
 }
-.client-card-title {
-    font-size: 15px;
-    font-weight: 700;
+
+/* Neutralize legacy header.php .won override so all cards look uniform and sleek */
+.client-card.won {
+    border: 1.5px solid #e2e8f0 !important;
+    border-left: 3.5px solid #10b981 !important;
+    background: #ffffff !important;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03) !important;
+}
+.client-card.won:hover {
+    border-color: #0f172a !important;
+    border-left-color: #10b981 !important;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08) !important;
+}
+.client-card.won.active {
+    border: 2px solid #0f172a !important;
+    border-left: 4px solid #10b981 !important;
+    background: #f8fafc !important;
+}
+
+/* Card Top Row */
+.card-head {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    width: 100%;
+}
+.card-avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 7px;
+    background: #0f172a;
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.5px;
+}
+.card-title-group {
+    flex: 1;
+    min-width: 0;
+}
+.card-name-line {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.card-name {
+    font-size: 13.5px;
+    font-weight: 800;
     color: #0f172a;
     font-family: 'Outfit', sans-serif;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
-.client-card-meta {
-    font-size: 12.5px;
-    color: #64748b;
-    margin-bottom: 6px;
+.card-id-line {
     display: flex;
     align-items: center;
     gap: 6px;
+    font-size: 11px;
+    color: #64748b;
+    margin-top: 1px;
 }
+.card-loan-id {
+    font-family: monospace;
+    font-weight: 600;
+    color: #475569;
+    font-size: 10.5px;
+}
+.card-dot-sep {
+    color: #cbd5e1;
+}
+
+/* Modern Status Badge with Glowing Dot */
+.card-status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2.5px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+    letter-spacing: 0.2px;
+}
+.status-indicator-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: inline-block;
+}
+.status-completed {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+}
+.status-completed .status-indicator-dot { background: #10b981; }
+
+.status-phase1, .status-phase-1 {
+    background: #f0f9ff;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+}
+.status-phase1 .status-indicator-dot, .status-phase-1 .status-indicator-dot { background: #0284c7; }
+
+.status-phase2, .status-phase-2 {
+    background: #fffbeb;
+    color: #b45309;
+    border: 1px solid #fde68a;
+}
+.status-phase2 .status-indicator-dot, .status-phase-2 .status-indicator-dot { background: #f59e0b; }
+
+.status-phase3, .status-phase-3 {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+}
+.status-phase3 .status-indicator-dot, .status-phase-3 .status-indicator-dot { background: #8b5cf6; }
+
+.status-phase4, .status-phase-4 {
+    background: #f0fdfa;
+    color: #0f766e;
+    border: 1px solid #99f6e4;
+}
+.status-phase4 .status-indicator-dot, .status-phase-4 .status-indicator-dot { background: #14b8a6; }
+
+.status-rejected {
+    background: #fff1f2;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+}
+.status-rejected .status-indicator-dot { background: #f43f5e; }
+
+.status-default {
+    background: #f8fafc;
+    color: #475569;
+    border: 1px solid #e2e8f0;
+}
+.status-default .status-indicator-dot { background: #94a3b8; }
+
+/* Middle Hero Stat Row */
+.card-metric-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 7px 10px;
+}
+.card-amount-wrapper {
+    display: flex;
+    flex-direction: column;
+}
+.card-metric-label {
+    font-size: 9px;
+    font-weight: 800;
+    color: #64748b;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+.card-metric-val {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: #0f172a;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: -0.3px;
+    line-height: 1.2;
+}
+.card-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #334155;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    border-radius: 6px;
+    padding: 3px 7px;
+}
+
+/* Card Footer Row */
+.card-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+    color: #64748b;
+    border-top: 1px solid #f1f5f9;
+    padding-top: 6px;
+    margin-top: -2px;
+}
+.card-phone {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+}
+.card-open-hint {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 700;
+    font-size: 10.5px;
+    color: #64748b;
+    transition: all 0.15s ease;
+}
+.client-card:hover .card-open-hint {
+    color: #0284c7;
+    transform: translateX(2px);
+}
+
 .badge-info { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
 .badge-warning { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
 .badge-primary { background: #f1f5f9; color: #334155; border: 1px solid #e2e8f0; }
@@ -132,9 +348,30 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 .quick-filters { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; margin-bottom: 12px; }
 .quick-filters::-webkit-scrollbar { height: 4px; }
 .quick-filters::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-.qf-chip { padding: 6px 14px; border-radius: 20px; border: 2px solid #e2e8f0; background: #fff; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: 0.2s; white-space: nowrap; flex-shrink: 0; }
-.qf-chip:hover, .qf-chip.active { border-color: #0f172a; background: #0f172a; color: #fff; }
-.qf-chip.orange.active { border-color: #f97316; background: #f97316; color: #fff; }
+.qf-chip { 
+    padding: 6px 14px; 
+    border-radius: 8px; 
+    border: 1.5px solid #cbd5e1; 
+    background: #ffffff; 
+    font-size: 12px; 
+    font-weight: 700; 
+    color: #475569; 
+    cursor: pointer; 
+    transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1); 
+    white-space: nowrap; 
+    flex-shrink: 0; 
+}
+.qf-chip:hover { 
+    border-color: #0f172a; 
+    color: #0f172a; 
+    background: #f8fafc; 
+}
+.qf-chip.active { 
+    border-color: #0f172a !important; 
+    background: #0f172a !important; 
+    color: #ffffff !important; 
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.2); 
+}
 
 /* --- CRM Mode System --- */
 .mode-pill-btn {
@@ -279,10 +516,15 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 }
 .crm-layout.view-mode-list #crm-client-list {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)) !important;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)) !important;
     gap: 14px !important;
     width: 100% !important;
     padding: 0 !important;
+    height: auto !important;
+    min-height: auto !important;
+    max-height: none !important;
+    align-content: start !important;
+    align-items: start !important;
     overflow: visible !important;
 }
 .crm-layout.view-mode-list .client-detail-pane {
@@ -290,11 +532,11 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 }
 .crm-layout.view-mode-list .list-pane-pagination {
     background: #ffffff !important;
-    border: 1.5px solid #cbd5e1 !important;
+    border: 1.5px solid #e2e8f0 !important;
     border-radius: 12px !important;
     margin-top: 18px !important;
-    padding: 14px 20px !important;
-    box-shadow: 0 2px 8px rgba(15,23,42,0.03) !important;
+    padding: 12px 18px !important;
+    box-shadow: 0 1px 4px rgba(15,23,42,0.03) !important;
 }
 
 @media (max-width: 1024px) {
@@ -413,8 +655,8 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         <button class="qf-chip" onclick="setQuickFilter('Phase 2', this)">Phase 2 - Docs</button>
         <button class="qf-chip" onclick="setQuickFilter('Phase 3', this)">Phase 3 - Bank</button>
         <button class="qf-chip" onclick="setQuickFilter('Phase 4', this)">Phase 4 - Disburse</button>
-        <button class="qf-chip" onclick="setQuickFilter('Completed', this)" style="border-color:#bbf7d0; color:#15803d; background:#f0fdf4;">Completed</button>
-        <button class="qf-chip" onclick="setQuickFilter('Rejected', this)" style="border-color:#fecaca; color:#b91c1c; background:#fef2f2;">Rejected</button>
+        <button class="qf-chip" onclick="setQuickFilter('Completed', this)">Completed</button>
+        <button class="qf-chip" onclick="setQuickFilter('Rejected', this)">Rejected</button>
     </div>
 
     <style>
@@ -536,9 +778,12 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             <!-- Pinned Header -->
             <div class="list-pane-header" id="list-pane-header" style="padding:10px 14px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
                 <div style="display:flex; align-items:center; gap:8px;">
-                    <i data-lucide="users" style="width:16px; height:16px; color:#0f172a;"></i>
-                    <span style="font-weight:800; font-size:13px; color:#0f172a;">Applicants</span>
-                    <span id="list-count-badge" class="badge" style="background:#0f172a; color:#fff; font-size:10px; padding:2px 7px;">12</span>
+                    <i data-lucide="layout-grid" style="width:16px; height:16px; color:#0f172a;"></i>
+                    <span style="font-weight:800; font-size:13.5px; color:#0f172a; font-family:'Outfit',sans-serif;">Applicants Pipeline</span>
+                    <span id="list-count-badge" style="background:#0f172a; color:#fff; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:12px;">12</span>
+                </div>
+                <div style="font-size:11.5px; font-weight:600; color:#64748b;">
+                    <span class="hide-on-mobile">Click any card to open workspace</span>
                 </div>
             </div>
 
@@ -932,18 +1177,21 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             if (reset) {
                 // Show Skeleton Loader
                 container.innerHTML = Array(6).fill(`
-                    <div class="client-card" style="pointer-events: none; border: 1.5px solid #e2e8f0; min-height: 85px;">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                            <div class="skeleton" style="width: 140px; height: 18px; border-radius:4px;"></div>
-                            <div class="skeleton" style="width: 60px; height: 18px; border-radius: 10px;"></div>
+                    <div class="client-card" style="pointer-events: none; border: 1.5px solid #e2e8f0; min-height: 105px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <div class="skeleton" style="width: 30px; height: 30px; border-radius:7px;"></div>
+                                <div>
+                                    <div class="skeleton" style="width: 110px; height: 14px; margin-bottom:4px;"></div>
+                                    <div class="skeleton" style="width: 70px; height: 10px;"></div>
+                                </div>
+                            </div>
+                            <div class="skeleton" style="width: 65px; height: 18px; border-radius: 6px;"></div>
                         </div>
-                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
-                            <div class="skeleton" style="width: 100px; height: 14px;"></div>
-                            <div class="skeleton" style="width: 80px; height: 14px;"></div>
-                        </div>
-                        <div style="border-top:1px dashed #e2e8f0; padding-top:6px; display:flex; justify-content:space-between;">
+                        <div class="skeleton" style="width: 100%; height: 36px; border-radius: 8px;"></div>
+                        <div style="display:flex; justify-content:space-between; padding-top:4px;">
                             <div class="skeleton" style="width: 80px; height: 12px;"></div>
-                            <div class="skeleton" style="width: 90px; height: 12px;"></div>
+                            <div class="skeleton" style="width: 50px; height: 12px;"></div>
                         </div>
                     </div>
                 `).join('');
@@ -998,40 +1246,97 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 card.dataset.id = app.id;
                 card.onclick = () => selectApplicantCard(app.id, true);
                 
-                let badgeClass = 'badge-info';
-                if(app.overall_status === 'Phase 2') badgeClass = 'badge-warning';
-                if(app.overall_status === 'Phase 3') badgeClass = 'badge-primary';
-                if(app.overall_status === 'Phase 4') badgeClass = 'badge-warning';
-                if(app.overall_status === 'Completed') {
-                    badgeClass = 'badge-success';
+                // Status slug & styling
+                let statusSlug = 'default';
+                let statusLabel = app.overall_status || 'Draft';
+                if (statusLabel === 'Completed') {
+                    statusSlug = 'completed';
                     card.classList.add('won');
-                }
-                if(app.overall_status === 'Rejected') {
-                    badgeClass = 'badge-danger';
+                } else if (statusLabel.includes('Phase 1') || statusLabel === 'KYC') {
+                    statusSlug = 'phase1';
+                } else if (statusLabel.includes('Phase 2') || statusLabel === 'Docs') {
+                    statusSlug = 'phase2';
+                } else if (statusLabel.includes('Phase 3') || statusLabel === 'Bank') {
+                    statusSlug = 'phase3';
+                } else if (statusLabel.includes('Phase 4') || statusLabel === 'Disburse') {
+                    statusSlug = 'phase4';
+                } else if (statusLabel === 'Rejected') {
+                    statusSlug = 'rejected';
                 }
                 
+                // Customer Initials
+                const names = (app.customer_name || 'Client').trim().split(/\s+/);
+                const initials = names.length > 1 
+                    ? (names[0][0] + names[names.length - 1][0]).toUpperCase()
+                    : names[0].substring(0, 2).toUpperCase();
+
+                // Loan Type Icon
+                let typeIcon = 'briefcase';
+                const lt = (app.loan_type || '').toLowerCase();
+                if (lt.includes('home')) typeIcon = 'home';
+                else if (lt.includes('vehicle') || lt.includes('car')) typeIcon = 'car';
+                else if (lt.includes('personal')) typeIcon = 'user';
+                else if (lt.includes('business')) typeIcon = 'building-2';
+                else if (lt.includes('mortgage') || lt.includes('lap')) typeIcon = 'landmark';
+
+                // Formatted Amount
+                const amountFormatted = new Intl.NumberFormat('en-IN').format(app.amount || 0);
+
+                // Date formatted
+                let dateDisplay = '';
+                if (app.created_at) {
+                    try {
+                        const d = new Date(app.created_at);
+                        dateDisplay = d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+                    } catch(e) {}
+                }
+
                 const isDeactiveCard = (app.is_active == 0 || app.is_active === '0');
-                const deactiveBadge = isDeactiveCard ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:9.5px; padding:2px 6px; margin-left:4px;"><i data-lucide="power" style="width:10px; vertical-align:-1px;"></i> DEACTIVE</span>` : '';
+                const deactiveBadge = isDeactiveCard ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:9px; padding:2px 5px; margin-left:3px;"><i data-lucide="power" style="width:9px; height:9px; vertical-align:-1px;"></i> OFF</span>` : '';
                 
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; gap:8px;">
-                        <span class="client-card-title" style="font-size:14.5px; font-weight:800; color:#0f172a; line-height:1.2;">
-                            ${app.customer_name}
-                            ${app.calculated_completion < 100 
-                                ? `<span style="display:inline-block; font-size:10px; color:#ef4444; font-weight:700; margin-left:4px;" title="${app.calculated_completion}% Profile Complete"><i data-lucide="alert-circle" style="width:10px;height:10px;vertical-align:-1px;"></i> ${app.calculated_completion}%</span>`
-                                : `<span style="display:inline-block; font-size:10px; color:#10b981; font-weight:700; margin-left:4px;" title="100% Complete"><i data-lucide="check-circle" style="width:10px;height:10px;vertical-align:-1px;"></i></span>`
-                            }
-                            ${deactiveBadge}
+                    <div class="card-head">
+                        <div class="card-avatar">${initials}</div>
+                        <div class="card-title-group">
+                            <div class="card-name-line">
+                                <span class="card-name" title="${app.customer_name}">${app.customer_name}</span>
+                                ${app.calculated_completion < 100 
+                                    ? `<span style="display:inline-block; font-size:9.5px; color:#ef4444; font-weight:700;" title="${app.calculated_completion}% Profile Complete"><i data-lucide="alert-circle" style="width:10px;height:10px;vertical-align:-1px;"></i> ${app.calculated_completion}%</span>`
+                                    : `<span style="display:inline-block; font-size:9.5px; color:#10b981; font-weight:700;" title="100% Complete"><i data-lucide="check-circle" style="width:10px;height:10px;vertical-align:-1px;"></i></span>`
+                                }
+                                ${deactiveBadge}
+                            </div>
+                            <div class="card-id-line">
+                                <span class="card-loan-id">${app.loan_id}</span>
+                                ${dateDisplay ? `<span class="card-dot-sep">•</span><span class="card-date">${dateDisplay}</span>` : ''}
+                            </div>
+                        </div>
+                        <div class="card-status-badge status-${statusSlug}">
+                            <span class="status-indicator-dot"></span>
+                            <span>${statusLabel}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="card-metric-row">
+                        <div class="card-amount-wrapper">
+                            <span class="card-metric-label">LOAN AMOUNT</span>
+                            <span class="card-metric-val">₹${amountFormatted}</span>
+                        </div>
+                        <div class="card-type-badge">
+                            <i data-lucide="${typeIcon}" style="width:12px; height:12px; vertical-align:-1px;"></i>
+                            <span>${app.loan_type || 'Loan'}</span>
+                        </div>
+                    </div>
+
+                    <div class="card-foot">
+                        <span class="card-phone">
+                            <i data-lucide="phone" style="width:11px; height:11px; color:#94a3b8;"></i>
+                            <span>${app.mobile || 'No Mobile'}</span>
                         </span>
-                        <span class="badge ${badgeClass}" style="flex-shrink:0; font-size:10px; padding:2px 8px;">${app.overall_status}</span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:6px; background:#f8fafc; padding:6px 8px; border-radius:6px;">
-                        <span style="color:#475569; font-weight:600;"><i data-lucide="briefcase" style="width:12px; height:12px; vertical-align:-1px; color:#94a3b8;"></i> ${app.loan_type}</span>
-                        <strong style="color:#0f172a; font-weight:800; font-size:13.5px;">₹${new Intl.NumberFormat('en-IN').format(app.amount)}</strong>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b; border-top:1px dashed #e2e8f0; padding-top:6px; margin-top:2px;">
-                        <span><i data-lucide="tag" style="width:10px; height:10px; vertical-align:-1px; color:#94a3b8;"></i> ${app.loan_id}</span>
-                        <span><i data-lucide="phone" style="width:10px; height:10px; vertical-align:-1px; color:#94a3b8;"></i> ${app.mobile}</span>
+                        <span class="card-open-hint">
+                            <span>Open File</span>
+                            <i data-lucide="arrow-right" style="width:11px; height:11px;"></i>
+                        </span>
                     </div>
                 `;
                 container.appendChild(card);
