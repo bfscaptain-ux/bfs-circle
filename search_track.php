@@ -823,12 +823,10 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 </div>
 
                 <!-- Foreground Content -->
-                <div style="position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; max-width:480px;">
+                <div style="position:relative; z-index:1; display:flex; flex-direction:column; align-items:center; max-width:440px;">
                     
-                    <!-- Emblem Logo Card with Soft Glow -->
-                    <div style="width:76px; height:76px; border-radius:18px; background:#ffffff; border:1.5px solid #e2e8f0; display:flex; align-items:center; justify-content:center; box-shadow:0 10px 25px -5px rgba(15,23,42,0.08), 0 4px 6px -2px rgba(15,23,42,0.03); margin-bottom:20px;">
-                        <img src="logo.png" alt="BFS Circle" style="width:46px; height:46px; object-fit:contain;">
-                    </div>
+                    <!-- Clean Logo Direct (No square box) -->
+                    <img src="logo.png" alt="BFS Circle" style="width:62px; height:62px; object-fit:contain; margin-bottom:18px; filter:drop-shadow(0 4px 14px rgba(15,23,42,0.1));">
 
                     <h3 style="font-family:'Outfit',sans-serif; font-size:20px; font-weight:800; color:#0f172a; margin:0 0 8px 0; letter-spacing:-0.3px;">
                         BFS Circle Applicant Workspace
@@ -838,25 +836,9 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                         Select any applicant card from the left pipeline to open live underwriting status, document vault, and bank processing.
                     </p>
 
-                    <!-- Feature Badges -->
-                    <div style="display:flex; flex-wrap:wrap; justify-content:center; gap:8px; margin-bottom:28px;">
-                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
-                            <i data-lucide="activity" style="width:13px; height:13px; color:#2563eb;"></i> Live LOS Pipeline
-                        </span>
-                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
-                            <i data-lucide="files" style="width:13px; height:13px; color:#059669;"></i> Document Vault
-                        </span>
-                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
-                            <i data-lucide="landmark" style="width:13px; height:13px; color:#d97706;"></i> Bank Kundli
-                        </span>
-                        <span style="display:inline-flex; align-items:center; gap:5px; background:#f8fafc; border:1px solid #e2e8f0; color:#475569; font-size:11.5px; font-weight:700; padding:5px 11px; border-radius:20px;">
-                            <i data-lucide="message-square" style="width:13px; height:13px; color:#16a34a;"></i> WhatsApp Hub
-                        </span>
-                    </div>
-
                     <!-- Subtle Guide Indicator -->
-                    <div style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:600; color:#94a3b8; background:#f8fafc; padding:6px 14px; border-radius:20px; border:1px dashed #cbd5e1;">
-                        <i data-lucide="arrow-left" style="width:13px; height:13px; color:#64748b;"></i>
+                    <div style="display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600; color:#64748b; background:#f8fafc; padding:7px 16px; border-radius:20px; border:1px solid #e2e8f0;">
+                        <i data-lucide="arrow-left" style="width:13px; height:13px; color:#2563eb;"></i>
                         <span>Click an applicant from the list to view file</span>
                     </div>
                 </div>
