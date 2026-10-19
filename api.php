@@ -6143,8 +6143,8 @@ try {
             }
             
             $offset = (int)($_GET['offset'] ?? 0);
-            $limit = (int)($_GET['limit'] ?? 25);
-            if ($limit <= 0 || $limit > 100) $limit = 25;
+            $limit = (int)($_GET['limit'] ?? 24);
+            if ($limit <= 0 || $limit > 100) $limit = 24;
             
             // Calculate total count if with_meta requested
             $total_count = null;
