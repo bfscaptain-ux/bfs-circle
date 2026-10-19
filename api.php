@@ -6143,13 +6143,47 @@ try {
             }
             
             $offset = (int)($_GET['offset'] ?? 0);
-            $limit = 10;
+            $limit = (int)($_GET['limit'] ?? 12);
+            if ($limit <= 0 || $limit > 100) $limit = 12;
+            
+            // Calculate total count if with_meta requested
+            $total_count = null;
+            if (!empty($_GET['with_meta'])) {
+                $where_pos = stripos($sql, 'WHERE');
+                $order_pos = stripos($sql, 'ORDER BY');
+                if ($where_pos !== false && $order_pos !== false) {
+                    $where_clause = substr($sql, $where_pos, $order_pos - $where_pos);
+                    $cnt_sql = ($bank) 
+                        ? "SELECT COUNT(DISTINCT a.id) FROM applicants a JOIN applicant_bank_assignments b ON a.id = b.applicant_id " . $where_clause 
+                        : "SELECT COUNT(id) FROM applicants " . $where_clause;
+                    try {
+                        $cnt_stmt = $db->prepare($cnt_sql);
+                        $cnt_stmt->execute($params);
+                        $total_count = (int)$cnt_stmt->fetchColumn();
+                    } catch (Exception $e) {
+                        $total_count = null;
+                    }
+                }
+            }
             
             $sql .= " LIMIT $limit OFFSET $offset";
             
             $stmt = $db->prepare($sql);
             $stmt->execute($params);
-            return_json($stmt->fetchAll(PDO::FETCH_ASSOC));
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            if (!empty($_GET['with_meta'])) {
+                return_json([
+                    'applicants' => $rows,
+                    'total' => $total_count ?? count($rows),
+                    'offset' => $offset,
+                    'limit' => $limit,
+                    'page' => floor($offset / $limit) + 1,
+                    'total_pages' => ($total_count !== null) ? max(1, ceil($total_count / $limit)) : 1
+                ]);
+            } else {
+                return_json($rows);
+            }
             break;
 
         case 'applicant_full_details':

@@ -171,17 +171,34 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     width: 100%;
 }
 
-/* 1. Split View Mode */
+/* 1. Split / Docked View Mode: Pinned Sticky Side Panel (No more empty voids!) */
 .crm-layout.view-mode-split {
-    grid-template-columns: 280px 1fr !important;
+    grid-template-columns: 320px minmax(0, 1fr) !important;
+    align-items: start;
 }
 .crm-layout.view-mode-split .client-list-pane-container {
     display: flex !important;
-    width: 280px;
-    height: calc(100vh - 170px);
-    overflow: hidden;
-    border-radius: 10px;
-    border: 1px solid #e2e8f0;
+    flex-direction: column !important;
+    width: 320px;
+    position: sticky !important;
+    top: 14px !important;
+    height: calc(100vh - 28px) !important;
+    max-height: calc(100vh - 28px) !important;
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05) !important;
+    overflow: hidden !important;
+    z-index: 20;
+}
+.crm-layout.view-mode-split .client-list-pane {
+    flex: 1;
+    overflow-y: auto !important;
+    padding: 10px 12px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    min-height: 0;
 }
 .crm-layout.view-mode-split .client-detail-pane {
     display: block !important;
@@ -189,9 +206,10 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     max-height: none !important;
     overflow-y: visible !important;
     position: static !important;
+    min-width: 0;
 }
 
-/* 2. Full File (Focus) View Mode */
+/* 2. Full File (Focus) View Mode: 100% Full Width File Workspace */
 .crm-layout.view-mode-focus {
     grid-template-columns: 1fr !important;
 }
@@ -207,27 +225,63 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     position: static !important;
 }
 
-/* 3. List Only View Mode */
+/* 3. Pure Directory Grid (Pure Main Dikhne Wali List) */
 .crm-layout.view-mode-list {
     grid-template-columns: 1fr !important;
 }
 .crm-layout.view-mode-list .client-list-pane-container {
     display: flex !important;
+    flex-direction: column !important;
     width: 100% !important;
     height: auto !important;
     max-height: none !important;
     overflow: visible !important;
     background: transparent !important;
     border: none !important;
+    box-shadow: none !important;
+    position: static !important;
+}
+.crm-layout.view-mode-list .list-pane-header {
+    background: #ffffff !important;
+    border: 1.5px solid #e2e8f0 !important;
+    border-radius: 12px !important;
+    margin-bottom: 14px !important;
+    padding: 12px 18px !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.03) !important;
+}
+.crm-layout.view-mode-list .list-pane-header .btn-close-list {
+    display: none !important;
 }
 .crm-layout.view-mode-list #crm-client-list {
     display: grid !important;
-    grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)) !important;
-    gap: 12px !important;
+    grid-template-columns: repeat(auto-fill, minmax(310px, 1fr)) !important;
+    gap: 14px !important;
     width: 100% !important;
+    padding: 0 !important;
+    overflow: visible !important;
 }
 .crm-layout.view-mode-list .client-detail-pane {
     display: none !important;
+}
+.crm-layout.view-mode-list .list-pane-pagination {
+    background: #ffffff !important;
+    border: 1.5px solid #cbd5e1 !important;
+    border-radius: 12px !important;
+    margin-top: 18px !important;
+    padding: 14px 20px !important;
+    box-shadow: 0 2px 8px rgba(15,23,42,0.03) !important;
+}
+
+@media (max-width: 1024px) {
+    .crm-layout.view-mode-split {
+        grid-template-columns: 1fr !important;
+    }
+    .crm-layout.view-mode-split .client-list-pane-container {
+        position: static !important;
+        width: 100% !important;
+        height: auto !important;
+        max-height: 480px !important;
+    }
 }
 
 /* Quick Slide-Over Applicant Drawer */
@@ -310,16 +364,13 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             <input type="text" id="search-query" placeholder="Search by Applicant Name / Loan ID / Mobile / PAN..." oninput="triggerSearch()">
         </div>
 
-        <!-- View Mode Segmented Controls -->
-        <div class="view-mode-pill-group" style="display:inline-flex; background:#f1f5f9; padding:3px; border-radius:8px; border:1px solid #cbd5e1; gap:2px; height:38px; box-sizing:border-box;">
-            <button type="button" id="btn-mode-split" onclick="setCrmViewMode('split')" class="mode-pill-btn active" title="Side-by-side Split View">
-                <i data-lucide="columns" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">Split</span>
+        <!-- 1-Click Action Buttons -->
+        <div style="display:inline-flex; gap:6px; align-items:center;">
+            <button type="button" id="btn-top-all-applicants" onclick="setCrmViewMode('list')" class="btn" style="height:38px; padding:0 14px; font-size:12px; font-weight:700; background:#0f172a; color:#ffffff; border:none; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide directory grid">
+                <i data-lucide="layout-grid" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">All Applicants</span>
             </button>
-            <button type="button" id="btn-mode-focus" onclick="setCrmViewMode('focus')" class="mode-pill-btn" title="Full Width Focus Workspace">
-                <i data-lucide="maximize-2" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">Full File</span>
-            </button>
-            <button type="button" id="btn-mode-list" onclick="setCrmViewMode('list')" class="mode-pill-btn" title="Applicant List Only">
-                <i data-lucide="list" style="width:14px; height:14px;"></i> <span class="hide-on-mobile">List</span>
+            <button type="button" id="btn-top-toggle-list" onclick="toggleApplicantList()" class="btn" style="height:38px; padding:0 14px; font-size:12px; font-weight:800; background:#f8fafc; color:#0f172a; border:1.5px solid #cbd5e1; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; transition:all 0.2s;" title="Open or Close Applicant Side List (1 Click)">
+                <i data-lucide="columns" style="width:14px; height:14px;"></i> <span id="btn-top-toggle-text">Toggle List</span>
             </button>
         </div>
 
@@ -453,10 +504,40 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     </div>
 
     <!-- CRM Layout Grid -->
-    <div class="crm-layout view-mode-split">
-        <div class="client-list-pane-container">
-            <div class="client-list-pane" id="crm-client-list" style="flex:1; border-right:none; background:transparent; padding:12px; overflow-y:auto;">
-                <!-- Loaded dynamically -->
+    <div class="crm-layout view-mode-list">
+        <!-- Left Panel: Client List / Directory Grid -->
+        <div class="client-list-pane-container" id="crm-list-container">
+            <!-- Pinned Header -->
+            <div class="list-pane-header" id="list-pane-header" style="padding:10px 14px; border-bottom:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; background:#f8fafc;">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <i data-lucide="users" style="width:16px; height:16px; color:#0f172a;"></i>
+                    <span style="font-weight:800; font-size:13px; color:#0f172a;">Applicants Directory</span>
+                    <span id="list-count-badge" class="badge" style="background:#0f172a; color:#fff; font-size:10px; padding:2px 7px;">12</span>
+                </div>
+                <button type="button" onclick="toggleApplicantList(false)" class="btn-close-list" title="Close List (View File 100% Full Screen)" style="background:#f1f5f9; border:1px solid #cbd5e1; padding:4px 10px; border-radius:6px; cursor:pointer; color:#0f172a; font-size:11.5px; font-weight:700; display:inline-flex; align-items:center; gap:4px; transition:0.2s;">
+                    <i data-lucide="x" style="width:13px; height:13px;"></i> Close List
+                </button>
+            </div>
+
+            <!-- Scrollable Cards Body -->
+            <div class="client-list-pane" id="crm-client-list">
+                <!-- Dynamically loaded 12 cards -->
+            </div>
+
+            <!-- Pinned Bottom Pagination Footer -->
+            <div class="list-pane-pagination" id="list-pagination-footer" style="padding:10px 14px; border-top:1px solid #e2e8f0; background:#f8fafc; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                <div id="pagination-info" style="font-size:11.5px; font-weight:700; color:#64748b;">
+                    Showing 12 applicants
+                </div>
+                <div style="display:flex; gap:6px; align-items:center;">
+                    <button type="button" id="btn-page-prev" onclick="changePage(-1)" class="btn" style="padding:5px 10px; font-size:11.5px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                        <i data-lucide="chevron-left" style="width:13px;"></i> Prev 12
+                    </button>
+                    <span id="pagination-page-pill" style="font-size:11px; font-weight:800; color:#0f172a; background:#e2e8f0; padding:4px 8px; border-radius:6px;">Page 1</span>
+                    <button type="button" id="btn-page-next" onclick="changePage(1)" class="btn" style="padding:5px 10px; font-size:11.5px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                        Next 12 <i data-lucide="chevron-right" style="width:13px;"></i>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -466,7 +547,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 <i data-lucide="file-search" style="width: 64px; height: 64px; stroke-width: 1.5; margin-bottom:16px; color:#94a3b8;"></i>
                 <div>
                     <h3 style="color:var(--text-primary); font-size:18px;">No Applicant Selected</h3>
-                    <p style="font-size: 13.5px; margin-top: 6px; max-width:360px; color:#64748b;">Select an applicant to review their pipeline progress, documents, bank sanctions, and payouts in full width.</p>
+                    <p style="font-size: 13.5px; margin-top: 6px; max-width:360px; color:#64748b;">Select an applicant from the directory above to review their full file in wide screen.</p>
                 </div>
             </div>
         </div>
@@ -479,6 +560,34 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     window.allLoadedApplicants = [];
     window.currentActiveApplicantId = null;
 
+    function toggleApplicantList(explicitState) {
+        if (explicitState !== undefined) {
+            if (explicitState) {
+                setCrmViewMode('split');
+            } else {
+                setCrmViewMode('focus');
+            }
+            return;
+        }
+        
+        // 1-Click toggle based on current mode
+        if (crmViewMode === 'split') {
+            setCrmViewMode('focus');
+        } else if (crmViewMode === 'focus') {
+            setCrmViewMode('split');
+        } else {
+            // in 'list' grid mode:
+            if (window.currentActiveApplicantId) {
+                setCrmViewMode('split');
+            } else if (window.allLoadedApplicants && window.allLoadedApplicants.length > 0) {
+                selectApplicantCard(window.allLoadedApplicants[0].id, false);
+                setCrmViewMode('split');
+            } else {
+                setCrmViewMode('split');
+            }
+        }
+    }
+
     function setCrmViewMode(mode) {
         const layout = document.querySelector('.crm-layout');
         if (!layout) return;
@@ -489,26 +598,64 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         layout.classList.remove('view-mode-split', 'view-mode-focus', 'view-mode-list');
         layout.classList.add('view-mode-' + mode);
         
-        // Update pills in search bar
-        document.querySelectorAll('.mode-pill-btn').forEach(btn => btn.classList.remove('active'));
-        const activeBtn = document.getElementById('btn-mode-' + mode);
-        if (activeBtn) activeBtn.classList.add('active');
+        // Update top bar buttons
+        const topAllBtn = document.getElementById('btn-top-all-applicants');
+        const topToggleBtn = document.getElementById('btn-top-toggle-list');
+        const topToggleText = document.getElementById('btn-top-toggle-text');
         
-        // Update split/focus toggle button in workspace toolbar
-        const toggleBtnText = document.getElementById('splitFocusToggleText');
-        if (toggleBtnText) {
-            toggleBtnText.innerText = (mode === 'focus') ? 'Split View' : 'Full File View';
+        if (topAllBtn) {
+            if (mode === 'list') {
+                topAllBtn.style.background = '#0f172a';
+                topAllBtn.style.color = '#ffffff';
+                topAllBtn.style.border = 'none';
+            } else {
+                topAllBtn.style.background = '#f8fafc';
+                topAllBtn.style.color = '#0f172a';
+                topAllBtn.style.border = '1.5px solid #cbd5e1';
+            }
+        }
+        
+        if (topToggleBtn && topToggleText) {
+            if (mode === 'split') {
+                topToggleText.innerText = 'Close Side List';
+                topToggleBtn.style.background = '#f1f5f9';
+                topToggleBtn.style.color = '#0f172a';
+                topToggleBtn.style.border = '1.5px solid #cbd5e1';
+                topToggleBtn.title = 'Close side list (View file 100% full width)';
+            } else if (mode === 'focus') {
+                topToggleText.innerText = 'Open Side List (12)';
+                topToggleBtn.style.background = '#0f172a';
+                topToggleBtn.style.color = '#ffffff';
+                topToggleBtn.style.border = 'none';
+                topToggleBtn.title = 'Dock applicant list on the left side';
+            } else {
+                topToggleText.innerText = 'Split / File View';
+                topToggleBtn.style.background = '#f8fafc';
+                topToggleBtn.style.color = '#0f172a';
+                topToggleBtn.style.border = '1.5px solid #cbd5e1';
+            }
+        }
+        
+        // Update detail workspace toolbar button
+        const mainToggleBtn = document.getElementById('btnToggleListMain');
+        const mainToggleText = document.getElementById('btnToggleListMainText');
+        if (mainToggleBtn && mainToggleText) {
+            if (mode === 'split') {
+                mainToggleText.innerText = '✕ Close List';
+                mainToggleBtn.style.background = '#f1f5f9';
+                mainToggleBtn.style.color = '#0f172a';
+                mainToggleBtn.style.border = '1px solid #cbd5e1';
+                mainToggleBtn.title = 'Close side list to view file 100% full width';
+            } else {
+                mainToggleText.innerText = '📋 Open List (12)';
+                mainToggleBtn.style.background = '#0f172a';
+                mainToggleBtn.style.color = '#ffffff';
+                mainToggleBtn.style.border = 'none';
+                mainToggleBtn.title = 'Dock applicant list on the left side';
+            }
         }
         
         if (window.lucide) lucide.createIcons();
-    }
-
-    function toggleSplitVsFocus() {
-        if (crmViewMode === 'focus') {
-            setCrmViewMode('split');
-        } else {
-            setCrmViewMode('focus');
-        }
     }
 
     function toggleQuickListDrawer(open) {
@@ -589,13 +736,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         }
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
-        let savedMode = localStorage.getItem('bfs_crm_view_mode');
-        if (!savedMode) {
-            savedMode = (window.innerWidth < 1366) ? 'focus' : 'split';
-        }
-        setCrmViewMode(savedMode);
-    });
+    // Mode initialization handled in consolidated DOMContentLoaded
 
     // Advanced Filter JS
     function toggleFilterDrawer() {
@@ -715,10 +856,57 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     }
 
     let currentOffset = 0;
+    const PAGE_SIZE = 12;
+    let currentTotalApplicants = 0;
+    let currentPageNumber = 1;
+    let totalPagesCount = 1;
 
-    async function triggerSearch(reset = true) {
+    function updatePaginationUI(total, count, offset) {
+        const listCountBadge = document.getElementById('list-count-badge');
+        const paginationInfo = document.getElementById('pagination-info');
+        const pagePill = document.getElementById('pagination-page-pill');
+        const btnPrev = document.getElementById('btn-page-prev');
+        const btnNext = document.getElementById('btn-page-next');
+        
+        if (listCountBadge) listCountBadge.innerText = count;
+        
+        const startNum = count > 0 ? (offset + 1) : 0;
+        const endNum = offset + count;
+        
+        if (paginationInfo) {
+            paginationInfo.innerHTML = `Showing <strong>${startNum}–${endNum}</strong> of <strong>${total}</strong> applicants`;
+        }
+        
+        if (pagePill) {
+            pagePill.innerText = `Page ${currentPageNumber} of ${totalPagesCount}`;
+        }
+        
+        if (btnPrev) {
+            btnPrev.disabled = (currentPageNumber <= 1);
+            btnPrev.style.opacity = (currentPageNumber <= 1) ? '0.4' : '1';
+            btnPrev.style.cursor = (currentPageNumber <= 1) ? 'not-allowed' : 'pointer';
+        }
+        
+        if (btnNext) {
+            btnNext.disabled = (currentPageNumber >= totalPagesCount);
+            btnNext.style.opacity = (currentPageNumber >= totalPagesCount) ? '0.4' : '1';
+            btnNext.style.cursor = (currentPageNumber >= totalPagesCount) ? 'not-allowed' : 'pointer';
+        }
+    }
+
+    function changePage(direction) {
+        const targetPage = currentPageNumber + direction;
+        if (targetPage < 1 || targetPage > totalPagesCount) return;
+        
+        currentOffset = (targetPage - 1) * PAGE_SIZE;
+        currentPageNumber = targetPage;
+        triggerSearch(false, false);
+    }
+
+    async function triggerSearch(reset = true, autoSelectFirst = false) {
         if (reset) {
             currentOffset = 0;
+            currentPageNumber = 1;
         }
         
         updateFilterChips();
@@ -736,68 +924,78 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             date_to: document.getElementById('filter-date-to').value,
             amt_min: document.getElementById('filter-amt-min').value,
             amt_max: document.getElementById('filter-amt-max').value,
-            offset: currentOffset
+            offset: currentOffset,
+            limit: PAGE_SIZE,
+            with_meta: '1'
         });
         
         try {
             const container = document.getElementById('crm-client-list');
             if (reset) {
-                // Show Skeleton Loader for Left Pane
-                container.innerHTML = Array(5).fill(`
-                    <div class="client-card" style="pointer-events: none; border: 1px solid #e2e8f0;">
-                        <div class="client-card-header">
-                            <div class="skeleton" style="width: 140px; height: 20px;"></div>
-                            <div class="skeleton" style="width: 60px; height: 24px; border-radius: 12px;"></div>
+                // Show Skeleton Loader
+                container.innerHTML = Array(6).fill(`
+                    <div class="client-card" style="pointer-events: none; border: 1.5px solid #e2e8f0; min-height: 85px;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <div class="skeleton" style="width: 140px; height: 18px; border-radius:4px;"></div>
+                            <div class="skeleton" style="width: 60px; height: 18px; border-radius: 10px;"></div>
                         </div>
-                        <div class="client-card-meta"><div class="skeleton" style="width: 120px; height: 14px;"></div></div>
-                        <div class="client-card-meta"><div class="skeleton" style="width: 180px; height: 14px;"></div></div>
-                        <div class="client-card-meta" style="margin-bottom:0;"><div class="skeleton" style="width: 100px; height: 14px;"></div></div>
-                        <div style="margin-top: 12px; border-top: 1px dashed var(--border); padding-top: 10px; display: flex; justify-content: space-between;">
-                            <div class="skeleton" style="width: 70px; height: 12px;"></div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px;">
+                            <div class="skeleton" style="width: 100px; height: 14px;"></div>
+                            <div class="skeleton" style="width: 80px; height: 14px;"></div>
+                        </div>
+                        <div style="border-top:1px dashed #e2e8f0; padding-top:6px; display:flex; justify-content:space-between;">
+                            <div class="skeleton" style="width: 80px; height: 12px;"></div>
                             <div class="skeleton" style="width: 90px; height: 12px;"></div>
                         </div>
                     </div>
                 `).join('');
-            } else {
-                // Change Load More button text to loading
-                const realBtn = document.getElementById('real-load-more-btn');
-                if (realBtn) realBtn.innerHTML = '<i data-lucide="loader-2" style="width:16px; height:16px; vertical-align:-3px; margin-right:6px;"></i> Loading...';
             }
             
             const response = await fetch('api.php?' + params.toString());
-            const applicants = await response.json();
+            const resData = await response.json();
             
-            if (reset) {
-                container.innerHTML = '';
-                window.allLoadedApplicants = Array.isArray(applicants) ? applicants : [];
-            } else if (Array.isArray(applicants)) {
-                window.allLoadedApplicants = [...(window.allLoadedApplicants || []), ...applicants];
-            }
-            
-            if (applicants && applicants.error === 'SESSION_EXPIRED') {
+            if (resData && resData.error === 'SESSION_EXPIRED') {
                 window.location.href = 'login.php';
                 return;
             }
 
-            if (!Array.isArray(applicants)) {
-                console.error('API Returned Error or Invalid Format:', applicants);
-                container.innerHTML = `<div style="background: white; border: 1px solid #fee2e2; text-align: center; color: #dc2626; padding: 40px; border-radius: var(--radius-md);">${applicants.error || 'Failed to load applicants.'}</div>`;
+            let applicants = [];
+            if (resData && Array.isArray(resData.applicants)) {
+                applicants = resData.applicants;
+                currentTotalApplicants = resData.total !== undefined ? resData.total : applicants.length;
+                totalPagesCount = resData.total_pages || Math.max(1, Math.ceil(currentTotalApplicants / PAGE_SIZE));
+                currentPageNumber = resData.page || (Math.floor(currentOffset / PAGE_SIZE) + 1);
+            } else if (Array.isArray(resData)) {
+                applicants = resData;
+                currentTotalApplicants = applicants.length;
+                totalPagesCount = (applicants.length === PAGE_SIZE) ? currentPageNumber + 1 : currentPageNumber;
+            } else {
+                console.error('API Returned Error or Invalid Format:', resData);
+                container.innerHTML = `<div style="background: white; border: 1px solid #fee2e2; text-align: center; color: #dc2626; padding: 40px; border-radius: var(--radius-md);">${resData.error || 'Failed to load applicants.'}</div>`;
                 return;
             }
 
-            if (reset && applicants.length === 0) {
-                container.innerHTML = '<div style="background: white; border: 1px solid #e2e8f0; text-align: center; color: var(--text-light); padding: 40px; border-radius: var(--radius-md);">No applicants match criteria.</div>';
+            window.allLoadedApplicants = applicants;
+            updatePaginationUI(currentTotalApplicants, applicants.length, currentOffset);
+
+            container.innerHTML = '';
+
+            if (applicants.length === 0) {
+                container.innerHTML = `
+                    <div style="background:#ffffff; border:1px dashed #cbd5e1; text-align:center; color:#64748b; padding:40px 20px; border-radius:12px; margin:10px 0; grid-column: 1 / -1;">
+                        <i data-lucide="inbox" style="width:36px; height:36px; color:#94a3b8; margin-bottom:8px;"></i>
+                        <h4 style="font-size:15px; font-weight:700; color:#0f172a; margin-bottom:4px;">No Applicants Found</h4>
+                        <p style="font-size:12.5px; color:#64748b;">Try adjusting your search query or phase filter.</p>
+                    </div>
+                `;
+                if (window.lucide) lucide.createIcons();
                 return;
             }
             
-            const existingBtn = document.getElementById('load-more-btn-container');
-            if (existingBtn) existingBtn.remove();
-            
             applicants.forEach((app, index) => {
                 const card = document.createElement('div');
-                // Add the smooth animation class with a staggered delay based on index
-                card.className = 'client-card card-animate-enter';
-                card.style.animationDelay = `${index * 0.05}s`;
+                card.className = 'client-card card-animate-enter' + (app.id == window.currentActiveApplicantId ? ' active' : '');
+                card.style.animationDelay = `${index * 0.03}s`;
                 card.id = 'crm-client-card-' + app.id;
                 card.dataset.id = app.id;
                 card.onclick = () => selectApplicantCard(app.id, true);
@@ -818,8 +1016,8 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 const deactiveBadge = isDeactiveCard ? `<span class="badge" style="background:#ef4444; color:#fff; font-size:9.5px; padding:2px 6px; margin-left:4px;"><i data-lucide="power" style="width:10px; vertical-align:-1px;"></i> DEACTIVE</span>` : '';
                 
                 card.innerHTML = `
-                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:5px; gap:8px;">
-                        <span class="client-card-title" style="font-size:14px; font-weight:800; color:#0f172a; line-height:1.2;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:6px; gap:8px;">
+                        <span class="client-card-title" style="font-size:14.5px; font-weight:800; color:#0f172a; line-height:1.2;">
                             ${app.customer_name}
                             ${app.calculated_completion < 100 
                                 ? `<span style="display:inline-block; font-size:10px; color:#ef4444; font-weight:700; margin-left:4px;" title="${app.calculated_completion}% Profile Complete"><i data-lucide="alert-circle" style="width:10px;height:10px;vertical-align:-1px;"></i> ${app.calculated_completion}%</span>`
@@ -827,13 +1025,13 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                             }
                             ${deactiveBadge}
                         </span>
-                        <span class="badge ${badgeClass}" style="flex-shrink:0; font-size:10px; padding:2px 7px;">${app.overall_status}</span>
+                        <span class="badge ${badgeClass}" style="flex-shrink:0; font-size:10px; padding:2px 8px;">${app.overall_status}</span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:5px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:12px; margin-bottom:6px; background:#f8fafc; padding:6px 8px; border-radius:6px;">
                         <span style="color:#475569; font-weight:600;"><i data-lucide="briefcase" style="width:12px; height:12px; vertical-align:-1px; color:#94a3b8;"></i> ${app.loan_type}</span>
-                        <strong style="color:#0f172a; font-weight:800; font-size:13px;">₹${new Intl.NumberFormat('en-IN').format(app.amount)}</strong>
+                        <strong style="color:#0f172a; font-weight:800; font-size:13.5px;">₹${new Intl.NumberFormat('en-IN').format(app.amount)}</strong>
                     </div>
-                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b; border-top:1px dashed #e2e8f0; padding-top:6px; margin-top:6px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px; color:#64748b; border-top:1px dashed #e2e8f0; padding-top:6px; margin-top:2px;">
                         <span><i data-lucide="tag" style="width:10px; height:10px; vertical-align:-1px; color:#94a3b8;"></i> ${app.loan_id}</span>
                         <span><i data-lucide="phone" style="width:10px; height:10px; vertical-align:-1px; color:#94a3b8;"></i> ${app.mobile}</span>
                     </div>
@@ -841,21 +1039,10 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 container.appendChild(card);
             });
             
-            if (applicants.length === 10) {
-                const btnContainer = document.createElement('div');
-                btnContainer.id = 'load-more-btn-container';
-                btnContainer.style.padding = '16px';
-                btnContainer.innerHTML = `<button id="real-load-more-btn" class="btn btn-primary" style="width: 100%; padding: 12px; font-weight: bold; background: #0f172a; color: white; border: none; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);" onclick="currentOffset += 10; triggerSearch(false);">
-                    ↓ Load More Records ↓
-                </button>`;
-                container.appendChild(btnContainer);
-            }
-            
             if(window.lucide) lucide.createIcons();
             
-            // Automatically select the first applicant if this is a fresh search and results exist
-            if (reset && applicants.length > 0) {
-                // Ensure a small delay so the DOM has time to render the cards before adding 'active' class
+            // Only auto-select first applicant if explicitly requested (not on list mode)
+            if (autoSelectFirst && reset && applicants.length > 0) {
                 setTimeout(() => {
                     selectApplicantCard(applicants[0].id, false);
                 }, 50);
@@ -875,11 +1062,12 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         
         window.currentActiveApplicantId = id;
         
-        // On laptops/small screens (< 1366px), automatically switch to Full File (Focus) mode!
-        if (userInitiated && window.innerWidth < 1366) {
-            setCrmViewMode('focus');
-        } else if (crmViewMode === 'list') {
-            setCrmViewMode('focus');
+        if (crmViewMode === 'list') {
+            if (window.innerWidth < 1280) {
+                setCrmViewMode('focus');
+            } else {
+                setCrmViewMode('split');
+            }
         }
         
         const pane = document.getElementById('crm-detail-pane');
@@ -1384,11 +1572,14 @@ Please process.`);
             const topWorkspaceToolbar = `
                 <div class="file-workspace-nav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:8px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; box-shadow:0 1px 4px rgba(15,23,42,0.04);">
                     <div style="display:flex; align-items:center; gap:8px;">
-                        <button type="button" onclick="setCrmViewMode('list')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide grid">
-                            <i data-lucide="arrow-left" style="width:14px;"></i> <span>All Applicants</span>
+                        <button type="button" onclick="setCrmViewMode('list')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="View all applicants in wide directory grid">
+                            <i data-lucide="layout-grid" style="width:14px;"></i> <span>All Applicants Grid</span>
                         </button>
-                        <button type="button" onclick="toggleQuickListDrawer(true)" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Quick slide-over file switcher">
-                            <i data-lucide="users" style="width:14px;"></i> <span>Quick Switcher</span>
+                        
+                        <!-- 1-Click Single Button to Open or Close Side List! -->
+                        <button type="button" onclick="toggleApplicantList()" id="btnToggleListMain" class="btn" style="padding:6px 14px; font-size:12px; font-weight:800; border-radius:8px; display:inline-flex; align-items:center; gap:6px; cursor:pointer; transition:all 0.2s; ${crmViewMode === 'split' ? 'background:#f1f5f9; color:#0f172a; border:1.5px solid #cbd5e1;' : 'background:#0f172a; color:#ffffff; border:none; box-shadow:0 2px 6px rgba(15,23,42,0.2);'}">
+                            <i data-lucide="${crmViewMode === 'split' ? 'x' : 'columns'}" style="width:14px; height:14px;"></i>
+                            <span id="btnToggleListMainText">${crmViewMode === 'split' ? '✕ Close List' : '📋 Open List (12)'}</span>
                         </button>
                     </div>
 
@@ -1403,12 +1594,11 @@ Please process.`);
                     </div>
 
                     <div style="display:flex; align-items:center; gap:6px;">
+                        <button type="button" onclick="toggleQuickListDrawer(true)" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#ffffff; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Quick slide-over file switcher">
+                            <i data-lucide="search" style="width:14px;"></i> <span>Quick Switcher</span>
+                        </button>
                         <button type="button" onclick="toggleSidebar()" class="btn btn-secondary hide-on-mobile" style="padding:6px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Collapse/Expand Left Navigation (Ctrl+B)">
                             <i data-lucide="sidebar" style="width:13px;"></i> Menu
-                        </button>
-                        <button type="button" onclick="toggleSplitVsFocus()" id="splitFocusToggleBtn" class="btn btn-primary" style="padding:6px 14px; font-size:12px; font-weight:800; background:#0f172a; border:none; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
-                            <i data-lucide="${crmViewMode === 'focus' ? 'columns' : 'maximize-2'}" style="width:13px;"></i>
-                            <span id="splitFocusToggleText">${crmViewMode === 'focus' ? 'Split View' : 'Full File View'}</span>
                         </button>
                     </div>
                 </div>
@@ -1916,15 +2106,33 @@ Please process.`);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        triggerSearch();
-        
         const urlParams = new URLSearchParams(window.location.search);
         const viewId = urlParams.get('id') || urlParams.get('app_id');
+        let savedMode = localStorage.getItem('bfs_crm_view_mode');
+        
         if (viewId) {
+            savedMode = (window.innerWidth < 1280) ? 'focus' : 'split';
+            setCrmViewMode(savedMode);
+            triggerSearch(true, false);
             setTimeout(() => {
-                selectApplicantCard(viewId);
-            }, 600);
+                selectApplicantCard(viewId, false);
+            }, 450);
+        } else {
+            // No direct applicant ID passed: start in full directory list view ("pure main dikhni chaiye")
+            if (!savedMode) savedMode = 'list';
+            setCrmViewMode(savedMode);
+            triggerSearch(true, false);
         }
+
+        // Global hotkey: Ctrl+B or Alt+L toggles the applicant list
+        document.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey && e.key.toLowerCase() === 'b') || (e.altKey && e.key.toLowerCase() === 'l')) {
+                const target = e.target;
+                if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
+                e.preventDefault();
+                toggleApplicantList();
+            }
+        });
     });
 
     // BANK QUERY TRACKER FUNCTIONS
