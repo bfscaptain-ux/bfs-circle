@@ -1563,32 +1563,7 @@ Please process.`);
 
             const isDeactive = (app.is_active == 0 || app.is_active === '0');
 
-            const currentIndex = (window.allLoadedApplicants || []).findIndex(a => a.id == app.id);
-            const totalCount = (window.allLoadedApplicants || []).length || 1;
-            const indexDisplay = (currentIndex !== -1) ? `File ${currentIndex + 1} of ${totalCount}` : `Active File`;
-
-            const topWorkspaceToolbar = `
-                <div class="file-workspace-nav-bar" style="background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:6px 14px; margin-bottom:14px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 1px 4px rgba(15,23,42,0.04);">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <button type="button" onclick="setCrmViewMode('list')" class="btn btn-secondary" style="padding:6px 12px; font-size:12px; font-weight:700; background:#f8fafc; border:1px solid #cbd5e1; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Back to All Applicants Directory">
-                            <i data-lucide="arrow-left" style="width:14px;"></i> <span>Directory</span>
-                        </button>
-                    </div>
-
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <button type="button" onclick="navigateApplicant(-1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Previous Applicant File">
-                            <i data-lucide="chevron-left" style="width:13px;"></i> Prev
-                        </button>
-                        <span id="fileIndexPill" style="font-size:11.5px; font-weight:800; color:#0f172a; padding:4px 12px; background:#f1f5f9; border-radius:6px; border:1px solid #e2e8f0;">${indexDisplay}</span>
-                        <button type="button" onclick="navigateApplicant(1)" class="btn btn-secondary" style="padding:5px 10px; font-size:11.5px; font-weight:700; cursor:pointer;" title="Next Applicant File">
-                            Next <i data-lucide="chevron-right" style="width:13px;"></i>
-                        </button>
-                    </div>
-                </div>
-            `;
-
             pane.innerHTML = `
-                ${topWorkspaceToolbar}
                 ${isDeactive ? `
                     <div style="background:#fee2e2; border:1.5px dashed #ef4444; color:#991b1b; padding:14px 18px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(239,68,68,0.12);">
                         <div>
