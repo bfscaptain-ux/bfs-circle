@@ -130,10 +130,38 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 .btn-reset-filter:hover { border-color: #f97316; color: #f97316; }
 
 /* Quick filter chips row */
-.quick-filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
-.qf-chip { padding: 6px 14px; border-radius: 20px; border: 2px solid #e2e8f0; background: #fff; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: 0.2s; white-space: nowrap; }
+.quick-filters { display: flex; gap: 8px; overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 6px; margin-bottom: 12px; }
+.quick-filters::-webkit-scrollbar { height: 4px; }
+.quick-filters::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+.qf-chip { padding: 6px 14px; border-radius: 20px; border: 2px solid #e2e8f0; background: #fff; font-size: 12px; font-weight: 700; color: #475569; cursor: pointer; transition: 0.2s; white-space: nowrap; flex-shrink: 0; }
 .qf-chip:hover, .qf-chip.active { border-color: #0f172a; background: #0f172a; color: #fff; }
 .qf-chip.orange.active { border-color: #f97316; background: #f97316; color: #fff; }
+
+.applicant-workspace-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 20px;
+}
+@media (max-width: 1250px) {
+    .applicant-workspace-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px;
+    }
+}
+@media (max-width: 1024px) {
+    .crm-layout {
+        grid-template-columns: 1fr !important;
+    }
+    .client-list-pane-container {
+        height: auto !important;
+        max-height: 420px !important;
+    }
+    .client-detail-pane {
+        position: static !important;
+        max-height: none !important;
+        overflow-y: visible !important;
+    }
+}
 
 /* Result count badge */
 .result-meta { font-size: 12px; color: #64748b; font-weight: 600; padding: 8px 0 4px; display: flex; justify-content: space-between; align-items: center; }
@@ -155,7 +183,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     </div>
 
     <!-- ===== QUICK FILTER CHIPS ===== -->
-    <div class="quick-filters" id="quickFilters" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
+    <div class="quick-filters" id="quickFilters">
         <button class="qf-chip active" onclick="setQuickFilter('all', this)">All Files</button>
         <button class="qf-chip" onclick="setQuickFilter('Phase 1', this)">Phase 1 - KYC</button>
         <button class="qf-chip" onclick="setQuickFilter('Phase 2', this)">Phase 2 - Docs</button>
@@ -166,9 +194,6 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
     </div>
 
     <style>
-        .qf-chip { padding:6px 14px; border-radius:20px; border:1px solid #e2e8f0; background:#fff; font-size:12px; font-weight:600; cursor:pointer; color:#475569; transition:all 0.2s; }
-        .qf-chip:hover { border-color:#0f172a; color:#0f172a; }
-        .qf-chip.active { background:#0f172a !important; color:#fff !important; border-color:#0f172a !important; }
         
         .adv-filter-panel { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px 20px; margin-bottom: 20px; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.03); }
         .adv-filter-panel.open { display: block; }
@@ -282,7 +307,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
 
     <!-- CRM Layout Grid -->
     <div class="crm-layout">
-        <div style="display:flex; flex-direction:column; background: #f8fafc; border-right: 1px solid var(--border); overflow: hidden; height: calc(100vh - 180px);">
+        <div class="client-list-pane-container" style="display:flex; flex-direction:column; background: #f8fafc; border-right: 1px solid var(--border); overflow: hidden; height: calc(100vh - 180px);">
             <div class="client-list-pane" id="crm-client-list" style="flex:1; border-right:none; background:transparent; padding-bottom: 20px;">
                 <!-- Loaded dynamically -->
             </div>
@@ -502,7 +527,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                 card.style.animationDelay = `${index * 0.05}s`;
                 card.id = 'crm-client-card-' + app.id;
                 card.dataset.id = app.id;
-                card.onclick = () => selectApplicantCard(app.id);
+                card.onclick = () => selectApplicantCard(app.id, true);
                 
                 let badgeClass = 'badge-info';
                 if(app.overall_status === 'Phase 2') badgeClass = 'badge-warning';
@@ -567,7 +592,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
             if (reset && applicants.length > 0) {
                 // Ensure a small delay so the DOM has time to render the cards before adding 'active' class
                 setTimeout(() => {
-                    selectApplicantCard(applicants[0].id);
+                    selectApplicantCard(applicants[0].id, false);
                 }, 50);
             }
             
@@ -577,13 +602,17 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
         }
     }
 
-    async function selectApplicantCard(id) {
+    async function selectApplicantCard(id, userInitiated = true) {
         document.querySelectorAll('.client-card').forEach(el => el.classList.remove('active'));
         
         const selectedCard = document.getElementById('crm-client-card-' + id);
         if (selectedCard) selectedCard.classList.add('active');
         
         const pane = document.getElementById('crm-detail-pane');
+        
+        if (userInitiated && window.innerWidth <= 1024 && pane) {
+            pane.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         
         // Show loading state with logo.png
         pane.innerHTML = `
@@ -716,7 +745,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                                 <button type="button" onclick="openCustomerEmailHub(${app.id}, 'Login_Fee')" class="btn btn-primary" style="padding:4px 8px; font-size:11px; background:#0d9488; border:none; display:inline-flex; align-items:center; gap:3px;"><i data-lucide="mail" style="width:12px;"></i> Send Receipt</button>
                             </div>
                         </div>
-                        <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; background:#ffffff; padding:10px; border-radius:8px; border:1px solid #e2e8f0; text-align:center;">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; background:#ffffff; padding:10px; border-radius:8px; border:1px solid #e2e8f0; text-align:center;">
                             <div>
                                 <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Fee Amount</div>
                                 <div style="font-size:14px; font-weight:800; color:#0f766e; margin-top:2px;">₹${lfAmt}</div>
@@ -786,7 +815,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                             </div>
                         </div>
                         
-                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:8px; background:#ffffff; padding:10px; border-radius:8px; border:1px solid #e2e8f0; text-align:center;">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; background:#ffffff; padding:10px; border-radius:8px; border:1px solid #e2e8f0; text-align:center;">
                             <div>
                                 <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Sanctioned Amt</div>
                                 <div style="font-size:14px; font-weight:800; color:#15803d; margin-top:2px;">₹${sAmt}</div>
@@ -871,7 +900,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                         </div>
 
                         <!-- 4 Metric Cards -->
-                        <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px; background:#ffffff; padding:12px; border-radius:10px; border:1px solid #e2e8f0; text-align:center; margin-bottom:14px;">
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:10px; background:#ffffff; padding:12px; border-radius:10px; border:1px solid #e2e8f0; text-align:center; margin-bottom:14px;">
                             <div>
                                 <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Disbursed Amount</div>
                                 <div style="font-size:15px; font-weight:800; color:#15803d; margin-top:2px;">₹${totalDisbAmt}</div>
@@ -992,7 +1021,7 @@ $banks = $stmt_banks->fetchAll(PDO::FETCH_COLUMN);
                         </div>
                     </div>
 
-                    <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:8px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0; text-align:center;">
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap:8px; background:#f8fafc; padding:10px; border-radius:8px; border:1px solid #e2e8f0; text-align:center;">
                         <div>
                             <div style="font-size:10px; color:#64748b; font-weight:700; text-transform:uppercase;">Expected Commission</div>
                             <div style="font-size:14px; font-weight:800; color:#0284c7; margin-top:2px;">₹${expAmt} <span style="font-size:11px; font-weight:600; color:#64748b;">(${app.bank_payout_expected_pct || '1.25'}%)</span></div>
@@ -1074,7 +1103,16 @@ Please process.`);
 
             const isDeactive = (app.is_active == 0 || app.is_active === '0');
 
+            const mobileBackHtml = (window.innerWidth <= 1024) ? `
+                <div style="margin-bottom:12px;">
+                    <button type="button" onclick="document.getElementById('crm-client-list').scrollIntoView({behavior:'smooth', block:'start'})" class="btn btn-secondary" style="width:100%; justify-content:center; padding:9px 16px; font-weight:700; font-size:12.5px; background:#fff; border:1.5px solid #cbd5e1; display:flex; align-items:center; gap:8px;">
+                        <i data-lucide="arrow-left" style="width:16px;"></i> Back to Applicant List
+                    </button>
+                </div>
+            ` : '';
+
             pane.innerHTML = `
+                ${mobileBackHtml}
                 ${isDeactive ? `
                     <div style="background:#fee2e2; border:1.5px dashed #ef4444; color:#991b1b; padding:14px 18px; border-radius:12px; margin-bottom:16px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 4px 12px rgba(239,68,68,0.12);">
                         <div>
@@ -1299,7 +1337,7 @@ Please process.`);
                 </div>
 
                 <!-- MAIN DASHBOARD GRID WITH WORKSPACE DESK TABS -->
-                <div class="dashboard-layout-row" style="grid-template-columns: 2fr 1fr; gap:20px;">
+                <div class="dashboard-layout-row applicant-workspace-grid">
                     <div>
                         <!-- SEGMENTED DESK TAB BAR -->
                         <div class="track-segmented-tabs" style="display:flex; gap:6px; margin-bottom:16px; background:#f1f5f9; padding:5px; border-radius:10px; border:1px solid #e2e8f0; overflow-x:auto;">

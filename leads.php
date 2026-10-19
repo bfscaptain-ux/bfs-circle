@@ -38,9 +38,48 @@ window.isAdminUser = <?php echo (($_SESSION['role'] ?? '') === 'Admin') ? 'true'
 /* --- Top KPI Metric Grid --- */
 .kpi-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 16px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
     margin-bottom: 20px;
+}
+@media (max-width: 1024px) {
+    .lm-layout {
+        padding: 12px 10px 30px;
+    }
+    .kpi-grid {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 10px;
+    }
+    .kpi-card {
+        padding: 12px 14px;
+    }
+    .kpi-val {
+        font-size: 20px;
+    }
+}
+@media (max-width: 640px) {
+    .lm-layout {
+        padding: 8px 6px 24px;
+    }
+    .kpi-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+    .kpi-card {
+        padding: 10px 12px;
+    }
+    .kpi-icon {
+        width: 34px;
+        height: 34px;
+        font-size: 16px;
+    }
+    .top-actions-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .top-actions-row > div {
+        flex-wrap: wrap;
+    }
 }
 .kpi-card {
     background: #ffffff;

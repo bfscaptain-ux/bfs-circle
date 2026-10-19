@@ -331,7 +331,16 @@ try {
     border: 1px solid #e2e8f0;
     margin-bottom: 22px;
     overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
     box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+}
+.executive-tab-strip::-webkit-scrollbar {
+    height: 4px;
+}
+.executive-tab-strip::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
 }
 
 .executive-tab-btn {
@@ -348,6 +357,26 @@ try {
     cursor: pointer;
     transition: all 0.15s ease;
     white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.rm-hero-cols {
+    display: grid;
+    grid-template-columns: 1.35fr 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+}
+@media (max-width: 1250px) {
+    .rm-hero-cols {
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 16px;
+    }
+}
+@media (max-width: 640px) {
+    .rm-hero-cols {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
 }
 
 .executive-tab-btn:hover {
@@ -470,7 +499,7 @@ try {
     <div id="tab-pane-overview" class="executive-tab-pane">
         <!-- RM HERO CARD -->
         <div class="rm-hero-card">
-        <div style="display:grid; grid-template-columns: 1.35fr 1fr 1fr; gap:20px; align-items:stretch;">
+        <div class="rm-hero-cols">
             <div style="display:flex; flex-direction:column; justify-content:space-between;">
                 <div style="display:flex; justify-content:space-between; align-items:baseline;">
                     <div>

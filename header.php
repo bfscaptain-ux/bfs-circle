@@ -158,11 +158,11 @@ if (isset($db)) {
 
         /* Luxury Monochrome Sidebar UI (Pure Black & White Theme) */
         aside {
-            width: 272px;
+            width: 248px;
             background: #000000;
             box-shadow: 4px 0 25px rgba(0,0,0,0.4);
             border-right: 1px solid rgba(255, 255, 255, 0.08);
-            transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
         .sidebar-menu {
             padding: 6px 10px;
@@ -614,7 +614,7 @@ if (isset($db)) {
 
         /* Sidebar Navigation Layout */
         aside {
-            width: 272px;
+            width: 248px;
             background-color: #000000;
             color: #ffffff;
             display: flex;
@@ -624,11 +624,11 @@ if (isset($db)) {
             bottom: 0;
             left: 0;
             z-index: 100;
-            transition: var(--transition-normal);
+            transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
         .brand-container {
-            padding: 24px 20px;
+            padding: 20px 16px;
             display: flex;
             align-items: center;
             gap: 12px;
@@ -686,11 +686,13 @@ if (isset($db)) {
 
         /* Main Workspace Container */
         main {
-            margin-left: 272px;
+            margin-left: 248px;
             flex-grow: 1;
-            padding: 32px;
+            padding: 24px 28px;
             min-width: 0; /* prevents flex blowout */
-            transition: var(--transition-normal);
+            box-sizing: border-box;
+            max-width: calc(100vw - 248px);
+            transition: margin-left 0.22s cubic-bezier(0.4, 0, 0.2, 1), padding 0.2s ease;
         }
 
         header.main-header {
@@ -1894,30 +1896,148 @@ if (isset($db)) {
             display: none;
         }
 
-        /* Media Queries for Responsive adjustments */
-        @media (max-width: 1024px) {
+        /* ==============================================================
+           BFS CIRCLE FULL FLUID RESPONSIVE SYSTEM ACROSS ALL SCREENS
+           ============================================================== */
+
+        /* Prevent unwanted horizontal overflow page-wide */
+        html, body {
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        /* Mobile Top Header Bar */
+        .mobile-top-bar {
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            height: 52px;
+            background: #000000;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            padding: 0 14px;
+            position: sticky;
+            top: 0;
+            z-index: 9998;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .mobile-menu-btn {
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .mobile-menu-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        /* Global Table & Card Responsive Helpers */
+        .table-responsive {
+            width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            margin-bottom: 12px;
+        }
+        .table-responsive::-webkit-scrollbar {
+            height: 5px;
+        }
+        .table-responsive::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        /* 1. COMPACT LAPTOPS & DESKTOPS (1025px to 1400px - Standard 1366x768 & 1280px Laptops) */
+        @media (max-width: 1400px) and (min-width: 1025px) {
             aside {
-                width: 70px;
-                overflow: hidden;
-            }
-            aside .brand-name,
-            aside .sidebar-footer,
-            aside .menu-text {
-                display: none;
-            }
-            aside .brand-container {
-                padding: 16px;
-                justify-content: center;
+                width: 216px !important;
             }
             main {
-                margin-left: 70px;
-                padding: 20px;
+                margin-left: 216px !important;
+                padding: 16px 20px !important;
+                max-width: calc(100vw - 216px) !important;
             }
-            .dashboard-layout-row {
-                grid-template-columns: 1fr;
+            .brand-name {
+                font-size: 17px !important;
+            }
+            .menu-item a {
+                padding: 7px 9px !important;
+                font-size: 12px !important;
+                gap: 8px !important;
+            }
+            .menu-item a i,
+            .menu-item a svg {
+                width: 15px !important;
+                height: 15px !important;
+            }
+            .sidebar-section-header {
+                font-size: 9.5px !important;
+                padding: 10px 8px 3px 8px !important;
+            }
+            .nav-badge {
+                font-size: 10px !important;
+                padding: 1px 5px !important;
+            }
+            .sidebar-quick-search {
+                padding: 5px 8px !important;
+                margin: 0 8px 6px 8px !important;
             }
             .crm-layout {
-                grid-template-columns: 1fr;
+                grid-template-columns: minmax(280px, 320px) 1fr !important;
+                gap: 14px !important;
+            }
+        }
+
+        /* 2. TABLETS & SMALL NETBOOKS (769px to 1024px) */
+        @media (max-width: 1024px) and (min-width: 769px) {
+            aside {
+                width: 68px !important;
+                overflow: hidden;
+            }
+            main {
+                margin-left: 68px !important;
+                padding: 14px 18px !important;
+                max-width: calc(100vw - 68px) !important;
+            }
+            aside .brand-name,
+            aside .sidebar-section-header,
+            aside .menu-text,
+            aside .nav-badge,
+            aside .sidebar-quick-search span,
+            aside .sidebar-quick-search kbd,
+            aside .sidebar-quick-search-wrapper,
+            aside .sidebar-footer-text,
+            aside #sidebar-punch-card {
+                display: none !important;
+            }
+            aside .brand-container {
+                justify-content: center !important;
+                padding: 14px 6px !important;
+            }
+            aside .sidebar-toggle-btn {
+                display: none !important;
+            }
+            aside .menu-item a {
+                justify-content: center !important;
+                padding: 10px !important;
+            }
+            aside .menu-item a i,
+            aside .menu-item a svg {
+                width: 18px !important;
+                height: 18px !important;
+            }
+            .crm-layout {
+                grid-template-columns: 1fr !important;
+                gap: 16px !important;
+            }
+            .dashboard-layout-row {
+                grid-template-columns: 1fr !important;
             }
             .client-detail-pane {
                 position: relative;
@@ -1925,13 +2045,95 @@ if (isset($db)) {
             }
         }
 
+        /* 3. MOBILE & SMALL SCREENS (<= 768px) */
         @media (max-width: 768px) {
-            .charts-row-inner {
-                grid-template-columns: 1fr;
+            body {
+                flex-direction: column;
             }
-            .quote-meta-row {
-                grid-template-columns: 1fr;
+            .mobile-top-bar {
+                display: flex !important;
             }
+            aside {
+                position: fixed !important;
+                top: 0 !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                width: 260px !important;
+                max-width: 82vw !important;
+                transform: translateX(-100%);
+                transition: transform 0.26s cubic-bezier(0.16, 1, 0.3, 1) !important;
+                z-index: 99999 !important;
+                box-shadow: 12px 0 35px rgba(0,0,0,0.65) !important;
+            }
+            aside.mobile-open {
+                transform: translateX(0) !important;
+            }
+            .sidebar-backdrop {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.65);
+                backdrop-filter: blur(2px);
+                z-index: 99990;
+                opacity: 0;
+                pointer-events: none;
+                transition: opacity 0.22s ease;
+            }
+            .sidebar-backdrop.active {
+                opacity: 1;
+                pointer-events: auto;
+            }
+            main {
+                margin-left: 0 !important;
+                padding: 12px 10px 40px 10px !important;
+                width: 100% !important;
+                max-width: 100vw !important;
+                overflow-x: hidden !important;
+                box-sizing: border-box !important;
+            }
+            .crm-layout {
+                grid-template-columns: 1fr !important;
+                gap: 14px !important;
+            }
+            .charts-row-inner,
+            .quote-meta-row,
+            .dashboard-layout-row {
+                grid-template-columns: 1fr !important;
+            }
+            .client-detail-pane {
+                position: relative;
+                top: 0;
+            }
+        }
+
+        /* 4. USER COLLAPSED MODE (Ctrl+B) */
+        body.sidebar-collapsed aside {
+            width: 68px !important;
+        }
+        body.sidebar-collapsed main {
+            margin-left: 68px !important;
+            max-width: calc(100vw - 68px) !important;
+        }
+        body.sidebar-collapsed .brand-name,
+        body.sidebar-collapsed .sidebar-section-header,
+        body.sidebar-collapsed .menu-text,
+        body.sidebar-collapsed .nav-badge,
+        body.sidebar-collapsed .sidebar-quick-search span,
+        body.sidebar-collapsed .sidebar-quick-search kbd,
+        body.sidebar-collapsed .sidebar-quick-search-wrapper,
+        body.sidebar-collapsed .sidebar-footer-text,
+        body.sidebar-collapsed #sidebar-punch-card {
+            display: none !important;
+        }
+        body.sidebar-collapsed .brand-container {
+            justify-content: center !important;
+            padding: 14px 6px !important;
+        }
+        body.sidebar-collapsed .menu-item a {
+            justify-content: center !important;
+            padding: 10px !important;
         }
         /* Modal Styles */
         .modal {
@@ -2412,6 +2614,34 @@ if (isset($db)) {
             if (window.lucide) lucide.createIcons();
         }
 
+        // Mobile Off-Canvas Drawer Toggle
+        function toggleMobileSidebar(open) {
+            const sidebar = document.getElementById('appSidebar') || document.querySelector('aside');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            if (!sidebar) return;
+            if (open === undefined) {
+                sidebar.classList.toggle('mobile-open');
+                if (backdrop) backdrop.classList.toggle('active');
+            } else if (open) {
+                sidebar.classList.add('mobile-open');
+                if (backdrop) backdrop.classList.add('active');
+            } else {
+                sidebar.classList.remove('mobile-open');
+                if (backdrop) backdrop.classList.remove('active');
+            }
+        }
+
+        // Auto-close mobile sidebar when clicking any navigation link on small screens
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.sidebar-menu a').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth <= 768) {
+                        toggleMobileSidebar(false);
+                    }
+                });
+            });
+        });
+
         // Spotlight Omni-Search Command Desk (Ctrl+K)
         let activeSpotlightCat = 'all';
         let spotlightDebounceTimer = null;
@@ -2857,8 +3087,32 @@ if (isset($db)) {
 <body>
     <?php $active_page = basename($_SERVER['PHP_SELF']); ?>
 
+    <!-- Mobile Top Header Bar (Displays only on screens <= 768px) -->
+    <header class="mobile-top-bar">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <button type="button" class="mobile-menu-btn" onclick="toggleMobileSidebar()" aria-label="Toggle Navigation Menu">
+                <i data-lucide="menu" style="width:20px; height:20px; color:#ffffff;"></i>
+            </button>
+            <div style="display:flex; align-items:center; gap:8px;">
+                <img src="<?php echo $base_path; ?>logo.png" alt="BFS Circle" style="height:26px; width:auto; filter:brightness(0) invert(1);">
+                <span style="font-family:'Outfit',sans-serif; font-size:17px; font-weight:800; color:#ffffff; letter-spacing:-0.4px;">BFS Circle</span>
+            </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+            <button type="button" onclick="openSpotlightSearch()" style="background:rgba(255,255,255,0.08); border:1px solid rgba(255,255,255,0.15); color:#ffffff; width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer;">
+                <i data-lucide="search" style="width:16px; height:16px;"></i>
+            </button>
+            <div style="width:30px; height:30px; border-radius:50%; background:#ffffff; color:#000000; font-weight:800; font-size:12px; display:flex; align-items:center; justify-content:center;">
+                <?php echo strtoupper(substr($_SESSION['username'] ?? 'U', 0, 1)); ?>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile Drawer Backdrop Overlay -->
+    <div id="sidebarBackdrop" class="sidebar-backdrop" onclick="toggleMobileSidebar(false)"></div>
+
     <!-- Sidebar Navigation -->
-    <aside>
+    <aside id="appSidebar">
         <!-- Brand Header & Collapse Toggle -->
         <div class="brand-container" style="display:flex; align-items:center; justify-content:space-between; padding: 20px 16px;">
             <div style="display:flex; align-items:center; gap:10px;">

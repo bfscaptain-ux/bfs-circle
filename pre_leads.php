@@ -31,10 +31,19 @@ window.isAdminUser = <?php echo $is_admin ? 'true' : 'false'; ?>;
 </script>
 <style>
 /* Executive Corporate Theme - BFS Circle Standard */
-.pl-layout { width: 100%; margin: 0 auto; padding: 24px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; }
+.pl-layout { width: 100%; margin: 0 auto; padding: 16px 20px; font-family: 'Inter', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; }
+@media (max-width: 768px) {
+    .pl-layout { padding: 10px 8px; }
+}
 
 /* KPI Grid */
-.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 20px; }
+@media (max-width: 640px) {
+    .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+}
+@media (max-width: 480px) {
+    .kpi-grid { grid-template-columns: 1fr; }
+}
 .kpi-card { background: #ffffff; border-radius: 10px; padding: 18px 20px; border: 1px solid #e2e8f0; display: flex; align-items: center; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); transition: 0.2s ease; }
 .kpi-card:hover { border-color: #0f172a; transform: translateY(-1px); }
 .kpi-icon { width: 42px; height: 42px; border-radius: 8px; background: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
@@ -260,25 +269,27 @@ window.isAdminUser = <?php echo $is_admin ? 'true' : 'false'; ?>;
 
     <!-- Table View Container -->
     <div id="tableViewContainer">
-        <table class="pl-table">
-            <thead>
-                <tr>
-                    <?php if ($is_admin): ?>
-                    <th style="width:36px; text-align:center;" class="checkbox-col no-print"><input type="checkbox" id="selectAllPreleads" onclick="toggleSelectAllPreleads(this)" style="cursor:pointer;"></th>
-                    <?php endif; ?>
-                    <th>Prospect Name</th>
-                    <th>Contact Info</th>
-                    <th>Segment & Source</th>
-                    <th>Assigned RM</th>
-                    <th>Lead Status</th>
-                    <th>Engagement Log</th>
-                    <th style="text-align:right;" class="action-col no-print">Actions</th>
-                </tr>
-            </thead>
-            <tbody id="plBody">
-                <tr><td colspan="<?php echo $is_admin ? 8 : 7; ?>" style="text-align:center; padding:40px; color:#64748b;">Loading raw data pool...</td></tr>
-            </tbody>
-        </table>
+        <div class="table-responsive">
+            <table class="pl-table">
+                <thead>
+                    <tr>
+                        <?php if ($is_admin): ?>
+                        <th style="width:36px; text-align:center;" class="checkbox-col no-print"><input type="checkbox" id="selectAllPreleads" onclick="toggleSelectAllPreleads(this)" style="cursor:pointer;"></th>
+                        <?php endif; ?>
+                        <th>Prospect Name</th>
+                        <th>Contact Info</th>
+                        <th>Segment & Source</th>
+                        <th>Assigned RM</th>
+                        <th>Lead Status</th>
+                        <th>Engagement Log</th>
+                        <th style="text-align:right;" class="action-col no-print">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="plBody">
+                    <tr><td colspan="<?php echo $is_admin ? 8 : 7; ?>" style="text-align:center; padding:40px; color:#64748b;">Loading raw data pool...</td></tr>
+                </tbody>
+            </table>
+        </div>
 
         <div class="pagination no-print">
             <button id="prevBtn" class="btn-secondary" onclick="changePage(-1)">Previous</button>

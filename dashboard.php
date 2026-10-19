@@ -191,7 +191,7 @@ main {
 .cmd-hero {
     background: linear-gradient(135deg, #090d16 0%, #0f172a 65%, #1e293b 100%);
     border-radius: 18px;
-    padding: 26px 32px;
+    padding: 24px 28px;
     margin-bottom: 22px;
     color: #ffffff;
     border: 1px solid #1e293b;
@@ -199,28 +199,20 @@ main {
     position: relative;
     overflow: hidden;
 }
-.cmd-hero::after {
-    content: '';
-    position: absolute;
-    right: -60px;
-    bottom: -60px;
-    width: 240px;
-    height: 240px;
-    background: radial-gradient(circle, rgba(56, 189, 248, 0.12) 0%, transparent 70%);
-    pointer-events: none;
-}
 .cmd-hero-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 32px;
+    gap: 24px;
     position: relative;
     z-index: 1;
 }
-@media (max-width: 1024px) {
-    .cmd-hero-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+@media (max-width: 1250px) {
+    .cmd-hero-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .cmd-hero { padding: 20px 22px; }
 }
 @media (max-width: 640px) {
-    .cmd-hero-grid { grid-template-columns: 1fr; }
+    .cmd-hero-grid { grid-template-columns: 1fr; gap: 14px; }
+    .cmd-hero { padding: 18px 16px; }
 }
 
 .hero-cell {
@@ -253,6 +245,7 @@ main {
     display: flex;
     align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
 .hero-badge-green {
     background: rgba(16, 185, 129, 0.18);
@@ -278,11 +271,11 @@ main {
     gap: 16px;
     margin-bottom: 22px;
 }
-@media (max-width: 1100px) {
-    .alert-row { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 1250px) {
+    .alert-row { grid-template-columns: repeat(2, 1fr); gap: 14px; }
 }
 @media (max-width: 640px) {
-    .alert-row { grid-template-columns: 1fr; }
+    .alert-row { grid-template-columns: 1fr; gap: 10px; }
 }
 
 .alert-card {
@@ -377,6 +370,8 @@ main {
     margin-bottom: 16px;
     padding-bottom: 12px;
     border-bottom: 1px solid #f1f5f9;
+    flex-wrap: wrap;
+    gap: 10px;
 }
 .funnel-title {
     font-size: 14px;
@@ -403,11 +398,11 @@ main {
     gap: 12px;
     position: relative;
 }
-@media (max-width: 1024px) {
-    .funnel-steps { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 1280px) {
+    .funnel-steps { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
 }
 @media (max-width: 640px) {
-    .funnel-steps { grid-template-columns: 1fr; }
+    .funnel-steps { grid-template-columns: 1fr; gap: 8px; }
 }
 
 .funnel-card {
@@ -426,15 +421,17 @@ main {
     transform: translateY(-2px);
 }
 .funnel-step-tag {
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 800;
     color: var(--db-muted);
     text-transform: uppercase;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.5px;
     margin-bottom: 6px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
 }
 .funnel-step-val {
     font-size: 24px;
@@ -447,9 +444,7 @@ main {
     font-size: 11px;
     color: #475569;
     font-weight: 600;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    line-height: 1.3;
 }
 .funnel-card.active-phase {
     background: #0f172a;
@@ -467,8 +462,8 @@ main {
     gap: 20px;
     margin-bottom: 22px;
 }
-@media (max-width: 1024px) {
-    .charts-row { grid-template-columns: 1fr; }
+@media (max-width: 1150px) {
+    .charts-row { grid-template-columns: 1fr; gap: 16px; }
 }
 
 .chart-card {
