@@ -594,6 +594,105 @@ try {
             color: #10b981;
             font-size: 13px;
         }
+
+        /* 2FA UI Styles & Transitions */
+        .step-transition {
+            animation: stepFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes stepFadeIn {
+            from { opacity: 0; transform: translateY(8px) scale(0.985); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+
+        .otp-shield-icon {
+            width: 54px;
+            height: 54px;
+            margin: 0 auto 12px;
+            border-radius: 16px;
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #10b981;
+            box-shadow: 0 0 25px rgba(16, 185, 129, 0.25);
+            animation: shieldPulse 2.8s ease-in-out infinite;
+        }
+
+        @keyframes shieldPulse {
+            0%, 100% { transform: scale(1); box-shadow: 0 0 20px rgba(16, 185, 129, 0.2); }
+            50% { transform: scale(1.05); box-shadow: 0 0 35px rgba(16, 185, 129, 0.45); }
+        }
+
+        .otp-input-field {
+            width: 100%;
+            height: 54px;
+            text-align: center;
+            font-family: 'Outfit', monospace;
+            font-size: 26px;
+            font-weight: 800;
+            letter-spacing: 12px;
+            color: #ffffff;
+            background-color: #050505;
+            border: 1.5px solid rgba(16, 185, 129, 0.45);
+            border-radius: 14px;
+            padding-left: 12px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 0 15px rgba(16, 185, 129, 0.15);
+            transition: all 0.25s ease;
+        }
+
+        .otp-input-field:focus {
+            outline: none;
+            border-color: #10b981;
+            background-color: #000000;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25), 0 0 25px rgba(16, 185, 129, 0.35);
+        }
+
+        .twofa-actions-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-top: 18px;
+            padding: 0 2px;
+        }
+
+        .twofa-link-btn {
+            background: none;
+            border: none;
+            color: #94a3b8;
+            font-size: 12.5px;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 6px 8px;
+            border-radius: 8px;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .twofa-link-btn:hover {
+            color: #ffffff;
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .twofa-link-btn.highlight {
+            color: #34d399;
+        }
+
+        .twofa-link-btn.highlight:hover {
+            color: #6ee7b7;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
+        }
+
+        .twofa-link-btn:disabled {
+            color: #64748b;
+            cursor: not-allowed;
+            text-shadow: none;
+            background: none;
+        }
     </style>
     <!-- Add FontAwesome for icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -620,57 +719,107 @@ try {
                     </div>
                 </div>
 
-                <div class="welcome-block">
-                    <h2>Welcome Back</h2>
-                    <p class="auth-subtitle">Enter your credentials to access your terminal</p>
-                </div>
-
-                <?php if (!empty($_GET['deactivated'])): ?>
-                <div id="login-error-msg" class="login-alert" style="display: flex;">
-                    <i class="fa-solid fa-triangle-exclamation"></i>
-                    <span>Your partner account has been deactivated by Admin. You cannot access the dashboard.</span>
-                </div>
-                <?php else: ?>
-                <div id="login-error-msg" class="login-alert" style="display: none;"></div>
-                <?php endif; ?>
-
-                <form id="login-form" onsubmit="handleLogin(event)">
-                    <!-- Invisible Honeypot Anti-Bot Field -->
-                    <input type="text" name="hp_field_check" id="hp_field_check" style="display:none !important; position:absolute; left:-9999px;" tabindex="-1" autocomplete="off" aria-hidden="true">
-                    <div class="form-group">
-                        <label for="username">
-                            <i class="fa-regular fa-user label-icon"></i> Username
-                        </label>
-                        <div class="input-wrapper">
-                            <input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" required autofocus>
-                        </div>
+                <!-- STEP 1: Credentials Form -->
+                <div id="step-credentials">
+                    <div class="welcome-block">
+                        <h2>Welcome Back</h2>
+                        <p class="auth-subtitle">Enter your credentials to access your terminal</p>
                     </div>
 
-                    <div class="form-group">
-                        <div class="label-row">
-                            <label for="password_input">
-                                <i class="fa-solid fa-lock label-icon"></i> Password
+                    <?php if (!empty($_GET['deactivated'])): ?>
+                    <div id="login-error-msg" class="login-alert" style="display: flex;">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span>Your partner account has been deactivated by Admin. You cannot access the dashboard.</span>
+                    </div>
+                    <?php else: ?>
+                    <div id="login-error-msg" class="login-alert" style="display: none;"></div>
+                    <?php endif; ?>
+
+                    <form id="login-form" onsubmit="handleLogin(event)">
+                        <!-- Invisible Honeypot Anti-Bot Field -->
+                        <input type="text" name="hp_field_check" id="hp_field_check" style="display:none !important; position:absolute; left:-9999px;" tabindex="-1" autocomplete="off" aria-hidden="true">
+                        <div class="form-group">
+                            <label for="username">
+                                <i class="fa-regular fa-user label-icon"></i> Username
                             </label>
-                            <a href="forgot_password.php" class="forgot-link">Forgot Password?</a>
+                            <div class="input-wrapper">
+                                <input type="text" id="username" name="username" placeholder="Enter your username" autocomplete="username" required autofocus>
+                            </div>
                         </div>
-                        <div class="input-wrapper">
-                            <input type="password" id="password_input" name="password" placeholder="••••••••" autocomplete="current-password" required>
-                            <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility()" tabindex="-1" aria-label="Toggle password visibility">
-                                <i class="fas fa-eye" id="togglePassword"></i>
+
+                        <div class="form-group">
+                            <div class="label-row">
+                                <label for="password_input">
+                                    <i class="fa-solid fa-lock label-icon"></i> Password
+                                </label>
+                                <a href="forgot_password.php" class="forgot-link">Forgot Password?</a>
+                            </div>
+                            <div class="input-wrapper">
+                                <input type="password" id="password_input" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                                <button type="button" class="eye-toggle-btn" onclick="togglePasswordVisibility()" tabindex="-1" aria-label="Toggle password visibility">
+                                    <i class="fas fa-eye" id="togglePassword"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="login-submit-btn" class="btn-login">
+                            <span>Secure Sign In</span>
+                            <i class="fa-solid fa-arrow-right-long btn-icon"></i>
+                        </button>
+
+                        <div class="security-badge">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>256-Bit SSL Encrypted Banking Security</span>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- STEP 2: Super Admin 2FA Verification Form -->
+                <div id="step-2fa" style="display: none;">
+                    <div class="otp-shield-icon">
+                        <i class="fa-solid fa-shield-halved"></i>
+                    </div>
+
+                    <div class="welcome-block" style="margin-bottom: 18px;">
+                        <h2>Admin Verification</h2>
+                        <p class="auth-subtitle" style="font-size: 13px; line-height: 1.5; margin-top: 4px;">
+                            A 6-digit one-time code has been sent to:<br>
+                            <span id="twofa-target-email" style="color: #34d399; font-weight: 700; letter-spacing: 0.3px;">bfscaptain@gmail.com</span>
+                        </p>
+                    </div>
+
+                    <div id="twofa-error-msg" class="login-alert" style="display: none;"></div>
+
+                    <form id="twofa-form" onsubmit="handleVerify2FA(event)">
+                        <div class="form-group" style="margin-bottom: 20px;">
+                            <label for="otp_code_input" style="justify-content: center; margin-bottom: 8px;">
+                                <i class="fa-solid fa-key label-icon"></i> Enter 6-Digit Admin OTP
+                            </label>
+                            <div class="input-wrapper">
+                                <input type="text" id="otp_code_input" name="otp_code" class="otp-input-field" maxlength="6" inputmode="numeric" pattern="[0-9]*" placeholder="••••••" autocomplete="one-time-code" required>
+                            </div>
+                        </div>
+
+                        <button type="submit" id="twofa-submit-btn" class="btn-login">
+                            <span>Authorize & Enter Terminal</span>
+                            <i class="fa-solid fa-arrow-right-long btn-icon"></i>
+                        </button>
+
+                        <div class="twofa-actions-row">
+                            <button type="button" onclick="cancel2FA()" class="twofa-link-btn">
+                                <i class="fa-solid fa-arrow-left"></i> <span>Back</span>
+                            </button>
+                            <button type="button" id="resend-otp-btn" onclick="handleResend2FA()" class="twofa-link-btn highlight">
+                                <i class="fa-solid fa-rotate-right"></i> <span id="resend-otp-label">Resend Code</span>
                             </button>
                         </div>
-                    </div>
 
-                    <button type="submit" id="login-submit-btn" class="btn-login">
-                        <span>Secure Sign In</span>
-                        <i class="fa-solid fa-arrow-right-long btn-icon"></i>
-                    </button>
-
-                    <div class="security-badge">
-                        <i class="fa-solid fa-shield-halved"></i>
-                        <span>256-Bit SSL Encrypted Banking Security</span>
-                    </div>
-                </form>
+                        <div class="security-badge" style="margin-top: 18px;">
+                            <i class="fa-solid fa-lock"></i>
+                            <span>Admin Terminal • Single-Use 10-Min OTP</span>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
@@ -1215,6 +1364,38 @@ try {
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
+                    // Check if Super Admin requires Two-Factor Authentication (Email OTP)
+                    if (data.requires_2fa) {
+                        btn.disabled = false;
+                        btn.classList.remove('is-verifying');
+                        btn.innerHTML = originalBtnHtml;
+
+                        window.CURRENT_2FA_TOKEN = data.otp_token || '';
+                        if (data.email_target) {
+                            const emailEl = document.getElementById('twofa-target-email');
+                            if (emailEl) emailEl.innerText = data.email_target;
+                        }
+
+                        const stepCreds = document.getElementById('step-credentials');
+                        const step2fa = document.getElementById('step-2fa');
+                        const twofaAlert = document.getElementById('twofa-error-msg');
+                        if (twofaAlert) {
+                            twofaAlert.style.display = 'none';
+                            twofaAlert.innerHTML = '';
+                        }
+
+                        stepCreds.style.display = 'none';
+                        step2fa.style.display = 'block';
+                        step2fa.classList.add('step-transition');
+
+                        const otpInput = document.getElementById('otp_code_input');
+                        if (otpInput) {
+                            otpInput.value = '';
+                            setTimeout(() => otpInput.focus(), 150);
+                        }
+                        return;
+                    }
+
                     // 1. Triumphant button animation
                     btn.classList.remove('is-verifying');
                     btn.classList.add('is-success');
@@ -1296,6 +1477,180 @@ try {
                 }
             });
         }
+
+        // Super Admin 2FA Handlers
+        window.CURRENT_2FA_TOKEN = '';
+        let resendCooldownTimer = null;
+
+        function cancel2FA() {
+            const stepCreds = document.getElementById('step-credentials');
+            const step2fa = document.getElementById('step-2fa');
+            const twofaAlert = document.getElementById('twofa-error-msg');
+            if (twofaAlert) twofaAlert.style.display = 'none';
+            step2fa.style.display = 'none';
+            stepCreds.style.display = 'block';
+            stepCreds.classList.add('step-transition');
+            window.CURRENT_2FA_TOKEN = '';
+            const userInp = document.getElementById('username');
+            if (userInp) userInp.focus();
+        }
+
+        async function handleVerify2FA(e) {
+            e.preventDefault();
+            const btn = document.getElementById('twofa-submit-btn');
+            const alertBox = document.getElementById('twofa-error-msg');
+            const otpInput = document.getElementById('otp_code_input');
+            const cardWrapper = document.querySelector('.login-card-wrapper');
+            const originalBtnHtml = btn.innerHTML;
+
+            if (alertBox) {
+                alertBox.style.display = 'none';
+                alertBox.innerHTML = '';
+            }
+
+            const otpVal = otpInput.value.trim();
+            if (otpVal.length !== 6) {
+                if (alertBox) {
+                    alertBox.className = 'login-alert';
+                    alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>Please enter the 6-digit verification code.</span>';
+                    alertBox.style.display = 'flex';
+                }
+                otpInput.focus();
+                return;
+            }
+
+            btn.disabled = true;
+            btn.classList.add('is-verifying');
+            btn.innerHTML = '<span>Verifying Admin Code...</span> <i class="fa-solid fa-circle-notch fa-spin"></i>';
+
+            const fd = new FormData();
+            fd.append('otp_token', window.CURRENT_2FA_TOKEN || '');
+            fd.append('otp_code', otpVal);
+
+            fetch('api.php?api=verify_admin_2fa', {method: 'POST', body: fd})
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    btn.classList.remove('is-verifying');
+                    btn.classList.add('is-success');
+                    btn.innerHTML = '<i class="fa-solid fa-circle-check" style="font-size: 19px;"></i> <span>Admin Access Authorized • Entering...</span>';
+
+                    if (window.triggerParticleExplosion) {
+                        window.triggerParticleExplosion();
+                    }
+
+                    if (cardWrapper) {
+                        cardWrapper.classList.add('login-success');
+                    }
+
+                    setTimeout(() => {
+                        location.href = 'dashboard.php';
+                    }, 850);
+                } else {
+                    btn.disabled = false;
+                    btn.classList.remove('is-verifying');
+                    btn.innerHTML = originalBtnHtml;
+
+                    if (window.triggerAngryParticles) {
+                        window.triggerAngryParticles();
+                    }
+
+                    if (alertBox) {
+                        alertBox.className = 'login-alert';
+                        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>' + (data.error || 'Invalid verification code') + '</span>';
+                        alertBox.style.display = 'flex';
+                    }
+                    otpInput.select();
+                    otpInput.focus();
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                btn.disabled = false;
+                btn.classList.remove('is-verifying');
+                btn.innerHTML = originalBtnHtml;
+
+                if (window.triggerAngryParticles) {
+                    window.triggerAngryParticles();
+                }
+
+                if (alertBox) {
+                    alertBox.className = 'login-alert';
+                    alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>Connection failed. Please retry.</span>';
+                    alertBox.style.display = 'flex';
+                }
+            });
+        }
+
+        function handleResend2FA() {
+            const resendBtn = document.getElementById('resend-otp-btn');
+            const resendLabel = document.getElementById('resend-otp-label');
+            const alertBox = document.getElementById('twofa-error-msg');
+
+            if (resendBtn.disabled) return;
+
+            resendBtn.disabled = true;
+            resendLabel.innerText = 'Sending...';
+
+            const fd = new FormData();
+            fd.append('otp_token', window.CURRENT_2FA_TOKEN || '');
+
+            fetch('api.php?api=resend_admin_2fa', {method: 'POST', body: fd})
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    window.CURRENT_2FA_TOKEN = data.otp_token;
+                    if (alertBox) {
+                        alertBox.className = 'login-alert warning-alert';
+                        alertBox.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> <span>Fresh verification code dispatched to ' + (data.email_target || 'bfscaptain@gmail.com') + '!</span>';
+                        alertBox.style.display = 'flex';
+                    }
+
+                    let cooldown = 60;
+                    resendLabel.innerText = `Resend in ${cooldown}s`;
+                    if (resendCooldownTimer) clearInterval(resendCooldownTimer);
+                    resendCooldownTimer = setInterval(() => {
+                        cooldown--;
+                        if (cooldown <= 0) {
+                            clearInterval(resendCooldownTimer);
+                            resendBtn.disabled = false;
+                            resendLabel.innerText = 'Resend Code';
+                        } else {
+                            resendLabel.innerText = `Resend in ${cooldown}s`;
+                        }
+                    }, 1000);
+                } else {
+                    resendBtn.disabled = false;
+                    resendLabel.innerText = 'Resend Code';
+                    if (alertBox) {
+                        alertBox.className = 'login-alert';
+                        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>' + (data.error || 'Failed to dispatch code') + '</span>';
+                        alertBox.style.display = 'flex';
+                    }
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                resendBtn.disabled = false;
+                resendLabel.innerText = 'Resend Code';
+            });
+        }
+
+        // Auto digit filtering & Auto-submit on 6 digits
+        document.addEventListener('DOMContentLoaded', () => {
+            const otpInput = document.getElementById('otp_code_input');
+            if (otpInput) {
+                otpInput.addEventListener('input', (e) => {
+                    e.target.value = e.target.value.replace(/[^0-9]/g, '');
+                    if (e.target.value.length === 6) {
+                        const form = document.getElementById('twofa-form');
+                        if (form) {
+                            form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+                        }
+                    }
+                });
+            }
+        });
     </script>
 </body>
 </html>

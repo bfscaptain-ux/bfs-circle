@@ -950,6 +950,38 @@ try {
     try { $db->exec("CREATE INDEX IF NOT EXISTS idx_reset_email ON password_reset_otps(email)"); } catch (Exception $e) {}
     try { $db->exec("CREATE INDEX IF NOT EXISTS idx_reset_token ON password_reset_otps(reset_token)"); } catch (Exception $e) {}
 
+    // Admin 2FA Email OTPs & Login Rate Limits
+    $db->exec("CREATE TABLE IF NOT EXISTS login_rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier VARCHAR(100) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        failed_attempts INTEGER DEFAULT 0,
+        first_failed_at DATETIME,
+        last_failed_at DATETIME,
+        locked_until DATETIME,
+        lockout_count INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME
+    )");
+    try { $db->exec("CREATE INDEX IF NOT EXISTS idx_rate_limit_ident ON login_rate_limits(identifier, type)"); } catch (Exception $e) {}
+
+    $db->exec("CREATE TABLE IF NOT EXISTS admin_login_2fa_otps (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id INTEGER,
+        email VARCHAR(150),
+        otp_code VARCHAR(10),
+        otp_token VARCHAR(64),
+        expires_at DATETIME,
+        is_used INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    try { $db->exec("CREATE INDEX IF NOT EXISTS idx_admin_2fa_token ON admin_login_2fa_otps(otp_token)"); } catch (Exception $e) {}
+
+    // Auto-ensure admin user email is configured for 2FA
+    try {
+        $db->exec("UPDATE users SET email = 'bfscaptain@gmail.com' WHERE (LOWER(username) = 'admin' OR role = 'Admin') AND (email IS NULL OR email = '' OR email = 'admin@bfscapital.com')");
+    } catch (Exception $e) {}
+
     // Applicant Interactions (Call Logs, WhatsApp, Visits, Notes)
     $db->exec("CREATE TABLE IF NOT EXISTS applicant_interactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2515,7 +2547,7 @@ $is_in_client_vault = (strpos($_SERVER['SCRIPT_NAME'], '/client_vault/') !== fal
 $is_in_subfolder = $is_in_rm_dir || $is_in_staff_dir || $is_in_agent_dir || $is_in_partner_dir || $is_in_builder_dir || $is_in_ca_dir || $is_in_client_vault || defined('IS_SUBFOLDER');
 
 // Authentication check for page load (excluding login.php, forgot_password.php, apply.php, track.php and CLI)
-$public_apis = ['login', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
+$public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
 if (php_sapi_name() !== 'cli' && !isset($_SESSION['user_id']) && $current_page !== 'login.php' && $current_page !== 'forgot_password.php' && $current_page !== 'apply.php' && $current_page !== 'track.php') {
     // If not logged in and calling an API, return unauthorized
     if (isset($_GET['api'])) {

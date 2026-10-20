@@ -16,7 +16,7 @@ $action = $_GET['api'];
 
 try {
     // Authentication check for protected APIs
-    $public_apis = ['login', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
+    $public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
     if (!in_array($action, $public_apis) && isset($_SESSION['user_id'])) {
         $stmt = $db->prepare("SELECT session_token FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
@@ -547,7 +547,52 @@ try {
                     return_json(['error' => '❌ Your partner account has been deactivated by Admin. You cannot access the dashboard.'], 403);
                 }
 
-                // Successful login -> RESET all failed attempt counters for this IP & Username
+                // Super Admin Two-Factor Authentication (Email OTP to bfscaptain@gmail.com)
+                if ($user['role'] === 'Admin' || strtolower($user['username']) === 'admin') {
+                    $admin_email = !empty($user['email']) ? $user['email'] : 'bfscaptain@gmail.com';
+
+                    // Generate secure 6-digit OTP
+                    $otp = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+                    $otp_token = bin2hex(random_bytes(24));
+
+                    // Invalidate previous unused 2FA OTPs for this user
+                    try {
+                        $db->prepare("UPDATE admin_login_2fa_otps SET is_used = 1 WHERE user_id = ?")->execute([$user['id']]);
+                        $stmt_otp = $db->prepare("INSERT INTO admin_login_2fa_otps (user_id, email, otp_code, otp_token, expires_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime', '+10 minutes'))");
+                        $stmt_otp->execute([$user['id'], $admin_email, $otp, $otp_token]);
+                    } catch (Exception $e) {}
+
+                    // Dispatch Corporate Email to bfscaptain@gmail.com
+                    $subject = "🔐 BFS Circle Admin Verification OTP: " . $otp;
+                    $body = "
+                    <div style='text-align:center; padding:10px 0 20px 0;'>
+                        <div style='font-size:20px; font-weight:800; color:#0f172a; margin-bottom:8px;'>BFS Circle Super Admin Access</div>
+                        <p style='color:#64748b; font-size:13.5px; margin:0 0 20px 0;'>A login attempt was initiated for the Super Admin terminal. Please use the single-use 6-digit verification code below to authorize access:</p>
+                        
+                        <div style='background:#f0fdf4; border:2px dashed #86efac; border-radius:12px; padding:18px 24px; display:inline-block; margin:0 auto 20px auto;'>
+                            <span style='font-size:38px; font-weight:800; letter-spacing:10px; color:#15803d; font-family:Courier, monospace; display:block; padding-left:10px;'>" . $otp . "</span>
+                        </div>
+
+                        <p style='color:#dc2626; font-size:12.5px; font-weight:700; margin:0 0 16px 0;'>⚠️ Confidential code. Valid for 10 minutes only.</p>
+                        <p style='color:#94a3b8; font-size:11.5px; margin:0;'>If you did not initiate this login attempt, please change your admin password immediately.</p>
+                    </div>";
+
+                    sendUniversalEmail($admin_email, 'BFS Super Admin', $subject, $body, 'admin_2fa_login');
+
+                    $_SESSION['pending_2fa_user_id'] = $user['id'];
+                    $_SESSION['pending_2fa_token'] = $otp_token;
+
+                    return_json([
+                        'success' => true,
+                        'requires_2fa' => true,
+                        'role' => 'Admin',
+                        'otp_token' => $otp_token,
+                        'email_target' => $admin_email,
+                        'message' => '6-digit verification code has been dispatched to ' . $admin_email
+                    ]);
+                }
+
+                // Standard non-admin successful login -> RESET failed attempt counters
                 $db->prepare("DELETE FROM login_rate_limits WHERE identifier = ? AND type = 'ip'")->execute([$client_ip]);
                 $db->prepare("DELETE FROM login_rate_limits WHERE LOWER(identifier) = LOWER(?) AND type = 'username'")->execute([$username]);
 
@@ -615,6 +660,114 @@ try {
                     'error' => "Invalid username or password. You have {$left} attempt" . ($left > 1 ? 's' : '') . " remaining before account lockout."
                 ], 401);
             }
+            break;
+
+        case 'verify_admin_2fa':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') return_json(['error' => 'Invalid Request'], 405);
+            $otp_token = trim($_POST['otp_token'] ?? ($_SESSION['pending_2fa_token'] ?? ''));
+            $otp_code = trim($_POST['otp_code'] ?? '');
+
+            if (empty($otp_token) || empty($otp_code)) {
+                return_json(['error' => 'Please enter the 6-digit verification code.'], 400);
+            }
+
+            $stmt = $db->prepare("SELECT * FROM admin_login_2fa_otps WHERE otp_token = ? AND is_used = 0 AND expires_at > datetime('now', 'localtime') ORDER BY id DESC LIMIT 1");
+            $stmt->execute([$otp_token]);
+            $record = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$record) {
+                return_json(['error' => 'Verification code has expired or is invalid. Please click Resend OTP to receive a new code.'], 400);
+            }
+
+            if ($record['otp_code'] !== $otp_code) {
+                return_json(['error' => 'Incorrect verification code. Please check your email inbox (bfscaptain@gmail.com) and try again.'], 400);
+            }
+
+            // OTP verified! Mark as used
+            $db->prepare("UPDATE admin_login_2fa_otps SET is_used = 1 WHERE id = ?")->execute([$record['id']]);
+
+            // Fetch user
+            $stmt_u = $db->prepare("SELECT * FROM users WHERE id = ? LIMIT 1");
+            $stmt_u->execute([$record['user_id']]);
+            $user = $stmt_u->fetch(PDO::FETCH_ASSOC);
+
+            if (!$user) {
+                return_json(['error' => 'Admin user account not found.'], 404);
+            }
+
+            $client_ip = function_exists('get_client_ip_address') ? get_client_ip_address() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+
+            // Reset rate limits on successful login
+            $db->prepare("DELETE FROM login_rate_limits WHERE identifier = ? AND type = 'ip'")->execute([$client_ip]);
+            $db->prepare("DELETE FROM login_rate_limits WHERE LOWER(identifier) = LOWER(?) AND type = 'username'")->execute([$user['username']]);
+
+            // Establish Full Authenticated Session
+            $token = bin2hex(random_bytes(16));
+            $db->prepare("UPDATE users SET session_token = ? WHERE id = ?")->execute([$token, $user['id']]);
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['username'] = $user['username'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['session_token'] = $token;
+            $_SESSION['custom_permissions_arr'] = !empty($user['custom_permissions']) ? json_decode($user['custom_permissions'], true) : [];
+
+            unset($_SESSION['pending_2fa_user_id'], $_SESSION['pending_2fa_token']);
+
+            return_json([
+                'success' => true,
+                'message' => 'Admin 2FA verification successful. Access granted!',
+                'role' => $user['role']
+            ]);
+            break;
+
+        case 'resend_admin_2fa':
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') return_json(['error' => 'Invalid Request'], 405);
+            $otp_token = trim($_POST['otp_token'] ?? ($_SESSION['pending_2fa_token'] ?? ''));
+
+            if (empty($otp_token)) {
+                return_json(['error' => 'Invalid session token. Please go back and sign in again.'], 400);
+            }
+
+            $stmt = $db->prepare("SELECT * FROM admin_login_2fa_otps WHERE otp_token = ? ORDER BY id DESC LIMIT 1");
+            $stmt->execute([$otp_token]);
+            $old = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$old) {
+                return_json(['error' => 'Session expired. Please sign in again.'], 400);
+            }
+
+            // Invalidate old
+            $db->prepare("UPDATE admin_login_2fa_otps SET is_used = 1 WHERE id = ?")->execute([$old['id']]);
+
+            // Generate fresh OTP
+            $otp = str_pad((string)random_int(100000, 999999), 6, '0', STR_PAD_LEFT);
+            $new_token = bin2hex(random_bytes(24));
+            $admin_email = $old['email'];
+
+            $db->prepare("INSERT INTO admin_login_2fa_otps (user_id, email, otp_code, otp_token, expires_at) VALUES (?, ?, ?, ?, datetime('now', 'localtime', '+10 minutes'))")
+               ->execute([$old['user_id'], $admin_email, $otp, $new_token]);
+
+            $_SESSION['pending_2fa_token'] = $new_token;
+
+            $subject = "🔐 (Resent) BFS Circle Admin Verification OTP: " . $otp;
+            $body = "
+            <div style='text-align:center; padding:10px 0 20px 0;'>
+                <div style='font-size:20px; font-weight:800; color:#0f172a; margin-bottom:8px;'>New Verification Code</div>
+                <p style='color:#64748b; font-size:13.5px; margin:0 0 20px 0;'>Here is your new single-use 6-digit OTP code to authorize Super Admin terminal access:</p>
+                
+                <div style='background:#f0fdf4; border:2px dashed #86efac; border-radius:12px; padding:18px 24px; display:inline-block; margin:0 auto 20px auto;'>
+                    <span style='font-size:38px; font-weight:800; letter-spacing:10px; color:#15803d; font-family:Courier, monospace; display:block; padding-left:10px;'>" . $otp . "</span>
+                </div>
+
+                <p style='color:#dc2626; font-size:12.5px; font-weight:700; margin:0 0 16px 0;'>⚠️ Valid for 10 minutes only.</p>
+            </div>";
+
+            sendUniversalEmail($admin_email, 'BFS Super Admin', $subject, $body, 'admin_2fa_resend');
+
+            return_json([
+                'success' => true,
+                'otp_token' => $new_token,
+                'message' => 'Fresh verification code dispatched to ' . $admin_email
+            ]);
             break;
 
         case 'admin_unlock_login_lockout':
