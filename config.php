@@ -993,6 +993,11 @@ try {
         }
     } catch (Exception $e) {}
 
+    // Auto-sync working official Gmail SMTP credentials for bfscaptain@gmail.com
+    try {
+        $db->exec("UPDATE company_profile SET smtp_host = 'smtp.gmail.com', smtp_port = '587', smtp_username = 'bfscaptain@gmail.com', smtp_password = 'nfhb emne rbsq egcp', smtp_encryption = 'tls' WHERE smtp_username = 'kamchalauuu@gmail.com' OR smtp_username IS NULL OR smtp_username = ''");
+    } catch (Exception $e) {}
+
     // Applicant Interactions (Call Logs, WhatsApp, Visits, Notes)
     $db->exec("CREATE TABLE IF NOT EXISTS applicant_interactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2394,6 +2399,13 @@ function sendCustomerLoanEmail($applicant_id, $stage_type, $custom_data = []) {
                 $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
             }
             $mail->Port       = (int)($profile['smtp_port'] ?: 587);
+            $mail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                )
+            );
 
             $from_name = !empty($profile['contact_person']) ? $profile['contact_person'] . " - " . $company_name : $company_name;
             $mail->setFrom($profile['smtp_username'], $from_name);
