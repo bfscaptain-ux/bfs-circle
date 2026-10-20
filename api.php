@@ -4322,7 +4322,7 @@ try {
 
             if (!empty($password)) {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                $up_fields[] = "password = ?";
+                $up_fields[] = "password_hash = ?";
                 $up_params[] = $hash;
                 $up_fields[] = "plain_password = ?";
                 $up_params[] = $password;
