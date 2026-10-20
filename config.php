@@ -18,6 +18,19 @@ if (!function_exists('is_subfolder_context')) {
     }
 }
 
+if (!function_exists('get_client_ip_address')) {
+    function get_client_ip_address() {
+        if (!empty($_SERVER['HTTP_CF_CONNECTING_IP'])) {
+            return trim($_SERVER['HTTP_CF_CONNECTING_IP']);
+        }
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            $ips = explode(',', $_SERVER['HTTP_X_FORWARDED_FOR']);
+            return trim($ips[0]);
+        }
+        return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
+    }
+}
+
 if (!function_exists('get_role_dashboard_url')) {
     function get_role_dashboard_url($role = null, $force_subfolder_prefix = null) {
         if ($role === null) {

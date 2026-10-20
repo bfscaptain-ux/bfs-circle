@@ -443,9 +443,77 @@ try {
 
         case 'login':
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') return_json(['error' => 'Invalid Request'], 405);
+
+            // 1. Invisible Honeypot Trap (Immediate Zero-CPU Bot Reject)
+            $honeypot = trim($_POST['hp_field_check'] ?? '');
+            if (!empty($honeypot)) {
+                sleep(1);
+                return_json(['error' => 'Automated access denied. Suspicious activity detected.'], 400);
+            }
+
+            $client_ip = function_exists('get_client_ip_address') ? get_client_ip_address() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
             $username = trim($_POST['username'] ?? '');
             $password = trim($_POST['password'] ?? '');
-            
+
+            if ($username === '' || $password === '') {
+                return_json(['error' => 'Please provide both username and password.'], 400);
+            }
+
+            // Ensure rate limits table exists
+            try {
+                $db->exec("CREATE TABLE IF NOT EXISTS login_rate_limits (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    identifier VARCHAR(100) NOT NULL,
+                    type VARCHAR(20) NOT NULL,
+                    failed_attempts INTEGER DEFAULT 0,
+                    first_failed_at DATETIME,
+                    last_failed_at DATETIME,
+                    locked_until DATETIME,
+                    lockout_count INTEGER DEFAULT 0,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                );
+                CREATE INDEX IF NOT EXISTS idx_login_rate_limits_lookup ON login_rate_limits(identifier, type);");
+            } catch (Exception $e) {}
+
+            $MAX_ATTEMPTS = 5;
+            $LOCKOUT_MINUTES = 15;
+
+            // 2. Pre-Check: Is IP currently locked out?
+            $stmt_ip = $db->prepare("SELECT id, failed_attempts, locked_until, lockout_count FROM login_rate_limits WHERE identifier = ? AND type = 'ip'");
+            $stmt_ip->execute([$client_ip]);
+            $ip_record = $stmt_ip->fetch(PDO::FETCH_ASSOC);
+
+            if ($ip_record && !empty($ip_record['locked_until']) && strtotime($ip_record['locked_until']) > time()) {
+                $rem = max(1, ceil(strtotime($ip_record['locked_until']) - time()));
+                $mins = ceil($rem / 60);
+                return_json([
+                    'success' => false,
+                    'locked' => true,
+                    'retry_after' => $rem,
+                    'attempts_left' => 0,
+                    'error' => "Security Lockout: 5 failed login attempts reached from your network. Please retry in {$mins} minute" . ($mins > 1 ? 's' : '') . "."
+                ], 429);
+            }
+
+            // 3. Pre-Check: Is Username currently locked out?
+            $stmt_u = $db->prepare("SELECT id, failed_attempts, locked_until, lockout_count FROM login_rate_limits WHERE LOWER(identifier) = LOWER(?) AND type = 'username'");
+            $stmt_u->execute([$username]);
+            $u_record = $stmt_u->fetch(PDO::FETCH_ASSOC);
+
+            if ($u_record && !empty($u_record['locked_until']) && strtotime($u_record['locked_until']) > time()) {
+                $rem = max(1, ceil(strtotime($u_record['locked_until']) - time()));
+                $mins = ceil($rem / 60);
+                return_json([
+                    'success' => false,
+                    'locked' => true,
+                    'retry_after' => $rem,
+                    'attempts_left' => 0,
+                    'error' => "Account Security Lockout: 5 failed attempts reached for this account. Please retry in {$mins} minute" . ($mins > 1 ? 's' : '') . "."
+                ], 429);
+            }
+
+            // 4. Verify User Credentials
             $stmt = $db->prepare("SELECT * FROM users WHERE LOWER(username) = LOWER(?)");
             $stmt->execute([$username]);
             $user = $stmt->fetch();
@@ -460,8 +528,12 @@ try {
                     $new_hash = password_hash($password, PASSWORD_DEFAULT);
                     $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$new_hash, $user['id']]);
                 }
+            } else {
+                // Timing Attack Defense: execute a dummy hash calculation so response timing does not reveal username existence
+                password_verify($password, '$2y$10$eDummyHashBfsCircleToPreventTimingEnumerationAttack12');
             }
-            
+
+            // 5. Authentication Succeeded
             if ($user && $auth_success) {
                 if (isset($user['is_active']) && (int)$user['is_active'] === 0) {
                     return_json(['error' => '❌ Your account has been deactivated by Admin. You cannot access the dashboard.'], 403);
@@ -474,6 +546,11 @@ try {
                 if ($ref_acc && in_array(strtolower($ref_acc['status'] ?? ''), ['inactive', 'deactive', 'deactivated', 'blocked', 'suspended'])) {
                     return_json(['error' => '❌ Your partner account has been deactivated by Admin. You cannot access the dashboard.'], 403);
                 }
+
+                // Successful login -> RESET all failed attempt counters for this IP & Username
+                $db->prepare("DELETE FROM login_rate_limits WHERE identifier = ? AND type = 'ip'")->execute([$client_ip]);
+                $db->prepare("DELETE FROM login_rate_limits WHERE LOWER(identifier) = LOWER(?) AND type = 'username'")->execute([$username]);
+
                 $token = bin2hex(random_bytes(16));
                 $db->prepare("UPDATE users SET session_token = ? WHERE id = ?")->execute([$token, $user['id']]);
                 $_SESSION['user_id'] = $user['id'];
@@ -483,7 +560,71 @@ try {
                 $_SESSION['custom_permissions_arr'] = !empty($user['custom_permissions']) ? json_decode($user['custom_permissions'], true) : [];
                 return_json(['success' => true, 'message' => 'Login successful', 'role' => $user['role']]);
             }
-            return_json(['error' => 'Invalid username or password'], 401);
+
+            // 6. Authentication Failed -> Increment Rate Limit Counters
+            $ip_fails = ($ip_record['failed_attempts'] ?? 0) + 1;
+            $ip_lock_count = (int)($ip_record['lockout_count'] ?? 0);
+            $ip_lock_until = null;
+            if ($ip_fails >= $MAX_ATTEMPTS) {
+                $ip_lock_count++;
+                $mult = min(4, $ip_lock_count);
+                $ip_lock_until = date('Y-m-d H:i:s', time() + ($LOCKOUT_MINUTES * $mult * 60));
+            }
+
+            if ($ip_record) {
+                $db->prepare("UPDATE login_rate_limits SET failed_attempts = ?, last_failed_at = datetime('now', 'localtime'), locked_until = ?, lockout_count = ?, updated_at = datetime('now', 'localtime') WHERE id = ?")
+                   ->execute([$ip_fails, $ip_lock_until, $ip_lock_count, $ip_record['id']]);
+            } else {
+                $db->prepare("INSERT INTO login_rate_limits (identifier, type, failed_attempts, first_failed_at, last_failed_at, locked_until, lockout_count) VALUES (?, 'ip', 1, datetime('now', 'localtime'), datetime('now', 'localtime'), NULL, 0)")
+                   ->execute([$client_ip]);
+            }
+
+            $u_fails = ($u_record['failed_attempts'] ?? 0) + 1;
+            $u_lock_count = (int)($u_record['lockout_count'] ?? 0);
+            $u_lock_until = null;
+            if ($u_fails >= $MAX_ATTEMPTS) {
+                $u_lock_count++;
+                $mult = min(4, $u_lock_count);
+                $u_lock_until = date('Y-m-d H:i:s', time() + ($LOCKOUT_MINUTES * $mult * 60));
+            }
+
+            if ($u_record) {
+                $db->prepare("UPDATE login_rate_limits SET failed_attempts = ?, last_failed_at = datetime('now', 'localtime'), locked_until = ?, lockout_count = ?, updated_at = datetime('now', 'localtime') WHERE id = ?")
+                   ->execute([$u_fails, $u_lock_until, $u_lock_count, $u_record['id']]);
+            } else {
+                $db->prepare("INSERT INTO login_rate_limits (identifier, type, failed_attempts, first_failed_at, last_failed_at, locked_until, lockout_count) VALUES (?, 'username', 1, datetime('now', 'localtime'), datetime('now', 'localtime'), NULL, 0)")
+                   ->execute([$username]);
+            }
+
+            $effective_fails = max($ip_fails, $u_fails);
+            if ($effective_fails >= $MAX_ATTEMPTS) {
+                $lock_seconds = $LOCKOUT_MINUTES * 60;
+                return_json([
+                    'success' => false,
+                    'locked' => true,
+                    'retry_after' => $lock_seconds,
+                    'attempts_left' => 0,
+                    'error' => "Security Lockout: 5 failed login attempts reached. Your account and network access have been temporarily locked for {$LOCKOUT_MINUTES} minutes."
+                ], 429);
+            } else {
+                $left = $MAX_ATTEMPTS - $effective_fails;
+                return_json([
+                    'success' => false,
+                    'locked' => false,
+                    'attempts_left' => $left,
+                    'error' => "Invalid username or password. You have {$left} attempt" . ($left > 1 ? 's' : '') . " remaining before account lockout."
+                ], 401);
+            }
+            break;
+
+        case 'admin_unlock_login_lockout':
+            require_role(['Admin']);
+            $target = trim($_POST['target'] ?? '');
+            if (empty($target)) {
+                return_json(['error' => 'Target username or IP is required.'], 400);
+            }
+            $db->prepare("DELETE FROM login_rate_limits WHERE LOWER(identifier) = LOWER(?) OR identifier = ?")->execute([$target, $target]);
+            return_json(['success' => true, 'message' => "Lockout record cleared successfully for: {$target}"]);
             break;
 
         case 'logout':

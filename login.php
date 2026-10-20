@@ -6,6 +6,32 @@ if (!empty($_SESSION['user_id'])) {
     header("Location: " . get_role_dashboard_url($_SESSION['role'] ?? 'Staff', false));
     exit;
 }
+
+// Check if client IP is currently rate-limited/locked
+$client_ip = function_exists('get_client_ip_address') ? get_client_ip_address() : ($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1');
+$ip_lock_seconds = 0;
+try {
+    $db->exec("CREATE TABLE IF NOT EXISTS login_rate_limits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        identifier VARCHAR(100) NOT NULL,
+        type VARCHAR(20) NOT NULL,
+        failed_attempts INTEGER DEFAULT 0,
+        first_failed_at DATETIME,
+        last_failed_at DATETIME,
+        locked_until DATETIME,
+        lockout_count INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_login_rate_limits_lookup ON login_rate_limits(identifier, type);");
+
+    $chk_ip = $db->prepare("SELECT locked_until FROM login_rate_limits WHERE identifier = ? AND type = 'ip' AND locked_until > datetime('now', 'localtime') LIMIT 1");
+    $chk_ip->execute([$client_ip]);
+    $lock_time = $chk_ip->fetchColumn();
+    if ($lock_time) {
+        $ip_lock_seconds = max(0, strtotime($lock_time) - time());
+    }
+} catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -258,6 +284,47 @@ if (!empty($_SESSION['user_id'])) {
             border: 1px solid rgba(239, 68, 68, 0.4);
             color: #fca5a5;
             animation: fadeIn 0.2s ease;
+        }
+
+        .login-alert.warning-alert {
+            background: rgba(245, 158, 11, 0.15);
+            border: 1px solid rgba(245, 158, 11, 0.45);
+            color: #fcd34d;
+        }
+
+        .login-alert.lockout-alert {
+            background: rgba(220, 38, 38, 0.22);
+            border: 1.5px solid rgba(239, 68, 68, 0.65);
+            color: #ffffff;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 14px 16px;
+            box-shadow: 0 0 30px rgba(239, 68, 68, 0.35);
+        }
+
+        .lockout-countdown-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: rgba(0, 0, 0, 0.55);
+            border: 1px solid rgba(239, 68, 68, 0.7);
+            color: #fca5a5;
+            font-family: 'Outfit', monospace;
+            font-size: 13.5px;
+            font-weight: 800;
+            padding: 4px 12px;
+            border-radius: 8px;
+            letter-spacing: 0.5px;
+        }
+
+        .btn-login.is-locked {
+            background: #27272a !important;
+            border-color: #3f3f46 !important;
+            color: #71717a !important;
+            cursor: not-allowed !important;
+            box-shadow: none !important;
+            transform: none !important;
         }
 
         @keyframes fadeIn {
@@ -568,6 +635,8 @@ if (!empty($_SESSION['user_id'])) {
                 <?php endif; ?>
 
                 <form id="login-form" onsubmit="handleLogin(event)">
+                    <!-- Invisible Honeypot Anti-Bot Field -->
+                    <input type="text" name="hp_field_check" id="hp_field_check" style="display:none !important; position:absolute; left:-9999px;" tabindex="-1" autocomplete="off" aria-hidden="true">
                     <div class="form-group">
                         <label for="username">
                             <i class="fa-regular fa-user label-icon"></i> Username
@@ -1029,6 +1098,84 @@ if (!empty($_SESSION['user_id'])) {
             animate();
         })();
 
+        // Live Lockout Countdown Engine
+        let lockoutTimerInterval = null;
+
+        function startLockoutCountdown(totalSeconds) {
+            const btn = document.getElementById('login-submit-btn');
+            const alertBox = document.getElementById('login-error-msg');
+            const usernameInput = document.getElementById('username');
+            const passwordInput = document.getElementById('password_input');
+            
+            if (lockoutTimerInterval) clearInterval(lockoutTimerInterval);
+            
+            if (usernameInput) usernameInput.disabled = true;
+            if (passwordInput) passwordInput.disabled = true;
+            if (btn) {
+                btn.disabled = true;
+                btn.classList.add('is-locked');
+            }
+
+            let remaining = Math.max(1, parseInt(totalSeconds, 10));
+
+            function render() {
+                const mins = Math.floor(remaining / 60);
+                const secs = remaining % 60;
+                const formatted = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+                
+                if (btn) {
+                    btn.innerHTML = `<i class="fa-solid fa-lock" style="color: #ef4444; margin-right: 6px;"></i> <span>Locked • Retry in ${formatted}</span>`;
+                }
+
+                if (alertBox) {
+                    alertBox.className = 'login-alert lockout-alert';
+                    alertBox.style.display = 'flex';
+                    alertBox.innerHTML = `
+                        <div style="display:flex; align-items:center; gap:8px; width:100%;">
+                            <i class="fa-solid fa-shield-halved" style="font-size: 18px; color: #ef4444;"></i>
+                            <strong style="font-size: 13.5px; font-weight:700;">Security Lockout Activated</strong>
+                        </div>
+                        <div style="font-size: 12.5px; color: #fca5a5; line-height: 1.4;">
+                            5 consecutive failed attempts detected. Access is temporarily restricted to protect server resources against brute-force attacks.
+                        </div>
+                        <div style="display:flex; align-items:center; justify-content:space-between; width:100%; padding-top:4px;">
+                            <span style="font-size:11.5px; color:#cbd5e1;">Cooldown countdown:</span>
+                            <span class="lockout-countdown-badge">
+                                <i class="fa-regular fa-clock"></i> ${formatted}
+                            </span>
+                        </div>
+                    `;
+                }
+
+                if (remaining <= 0) {
+                    clearInterval(lockoutTimerInterval);
+                    lockoutTimerInterval = null;
+                    if (usernameInput) usernameInput.disabled = false;
+                    if (passwordInput) passwordInput.disabled = false;
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.classList.remove('is-locked');
+                        btn.innerHTML = '<span>Secure Sign In</span> <i class="fa-solid fa-arrow-right-long btn-icon"></i>';
+                    }
+                    if (alertBox) {
+                        alertBox.className = 'login-alert warning-alert';
+                        alertBox.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> <span>Lockout cooldown expired. You can now try logging in again.</span>';
+                    }
+                }
+                remaining--;
+            }
+
+            render();
+            lockoutTimerInterval = setInterval(render, 1000);
+        }
+
+        const INITIAL_IP_LOCKOUT = <?php echo (int)$ip_lock_seconds; ?>;
+        if (INITIAL_IP_LOCKOUT > 0) {
+            document.addEventListener('DOMContentLoaded', () => {
+                startLockoutCountdown(INITIAL_IP_LOCKOUT);
+            });
+        }
+
         // Form & Login handling
         function togglePasswordVisibility() {
             const passwordInput = document.getElementById('password_input');
@@ -1111,11 +1258,22 @@ if (!empty($_SESSION['user_id'])) {
                         window.triggerAngryParticles();
                     }
 
-                    if (alertBox) {
-                        alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>' + (data.error || 'Invalid username or password') + '</span>';
-                        alertBox.style.display = 'flex';
+                    if (data.locked) {
+                        startLockoutCountdown(data.retry_after || 900);
+                    } else if (data.attempts_left !== undefined) {
+                        if (alertBox) {
+                            alertBox.className = (data.attempts_left <= 2) ? 'login-alert' : 'login-alert warning-alert';
+                            alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>' + (data.error || 'Invalid credentials') + '</span>';
+                            alertBox.style.display = 'flex';
+                        }
                     } else {
-                        alert(data.error);
+                        if (alertBox) {
+                            alertBox.className = 'login-alert';
+                            alertBox.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> <span>' + (data.error || 'Invalid username or password') + '</span>';
+                            alertBox.style.display = 'flex';
+                        } else {
+                            alert(data.error);
+                        }
                     }
                 }
             })
