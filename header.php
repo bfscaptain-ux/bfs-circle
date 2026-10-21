@@ -2783,6 +2783,7 @@ if (isset($db)) {
             { title: 'Lead Management', type: 'Page', url: '<?php echo $base_path; ?>leads.php', icon: 'target' },
             { title: 'WhatsApp CRM & Live Hub', type: 'Tool', url: '<?php echo $base_path; ?>whatsapp_crm.php', icon: 'message-circle' },
             { title: 'Email Marketing & Campaigns (Listmonk)', type: 'Tool', url: '<?php echo $base_path; ?>marketing.php', icon: 'send' },
+            { title: 'Postiz Social Media Scheduler & Marketing Hub', type: 'Tool', url: '<?php echo $base_path; ?>postiz.php', icon: 'share-2', desc: 'AI-Powered Social Media Scheduling & Multi-Platform Publishing' },
             { title: 'Field Visits', type: 'Page', url: '<?php echo $base_path; ?>field_visits.php', icon: 'map-pin' },
             { title: 'Reminders & Follow-ups', type: 'Page', url: '<?php echo $base_path; ?>reminders.php', icon: 'bell' },
             { title: 'Loan Applications (LOS)', type: 'Page', url: '<?php echo $base_path; ?>applicants_list.php', icon: 'files' },
@@ -3366,6 +3367,13 @@ if (isset($db)) {
                     <i data-lucide="mail" style="color:#10b981;"></i>
                     <span class="menu-text">Listmonk Mailer</span>
                     <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                </a>
+            </li>
+            <li class="menu-item <?php echo ($active_page === 'postiz.php') ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>postiz.php" title="Postiz Social Media Scheduler & Marketing Hub">
+                    <i data-lucide="share-2" style="color:#6366f1;"></i>
+                    <span class="menu-text">Postiz Social Hub</span>
+                    <span class="nav-badge" style="background:#6366f1; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'field_visits.php') ? 'active' : ''; ?>">
