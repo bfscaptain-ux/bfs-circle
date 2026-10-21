@@ -31,7 +31,11 @@ if ($is_local) {
     if (defined('WA_URL') && WA_URL) {
         $wa_url = WA_URL;
     } else {
-        $scheme = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https://' : 'http://';
+        $is_ssl = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ||
+                  ($_SERVER['SERVER_PORT'] ?? 0) == 443 ||
+                  (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https') ||
+                  (!in_array($http_host, ['localhost', '127.0.0.1', 'localhost:8000', '127.0.0.1:8000']));
+        $scheme = $is_ssl ? 'https://' : 'http://';
         $domain = preg_replace('/^crm\./', '', $http_host);
         $wa_url = $scheme . 'wa.' . $domain;
     }
@@ -235,7 +239,8 @@ include 'header.php';
 function reloadWaFrame() {
     const frame = document.getElementById('waIframe');
     if (frame) {
-        frame.src = frame.src;
+        const base = frame.src.split('?')[0];
+        frame.src = base + '?_t=' + Date.now();
     } else {
         location.reload();
     }
