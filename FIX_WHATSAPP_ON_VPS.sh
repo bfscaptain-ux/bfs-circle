@@ -33,13 +33,19 @@ git pull origin main
 
 echo ""
 echo "======================================================================"
-echo "🛑 STEP 3/6: Stopping old processes on Port $TARGET_PORT..."
+echo "🛑 STEP 3/6: Freeing Port 3000 & 3001 and cleaning old PM2 tasks..."
 echo "======================================================================"
+pm2 delete bfsfin 2>/dev/null || true
 pm2 delete bfs-wa 2>/dev/null || true
 pm2 delete wa-crm 2>/dev/null || true
 
-# Kill any lingering node process holding the port
+# Force kill any process holding port 3000 or 3001
+fuser -k 3000/tcp 2>/dev/null || true
+fuser -k 3001/tcp 2>/dev/null || true
 fuser -k ${TARGET_PORT}/tcp 2>/dev/null || true
+kill -9 $(lsof -t -i:3000) 2>/dev/null || true
+kill -9 $(lsof -t -i:3001) 2>/dev/null || true
+kill -9 $(lsof -t -i:${TARGET_PORT}) 2>/dev/null || true
 sleep 2
 
 echo ""
