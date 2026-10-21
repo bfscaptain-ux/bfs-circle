@@ -69,7 +69,7 @@ const nextConfig: NextConfig = {
   // Emit a self-contained server bundle (.next/standalone) so the
   // Docker image can run without node_modules or the Next CLI.
   // Harmless outside Docker: `next start` keeps working as before.
-  output: "standalone",
+  // output: "standalone", // Disabled to allow standard next start -p 3001 with PM2
 
   /**
    * Cross-origin dev access (Next.js 16).
