@@ -788,15 +788,6 @@ try {
                         </p>
                     </div>
 
-                                        <div id="dev-otp-banner" style="display: none; background: rgba(16, 185, 129, 0.12); border: 1px dashed #10b981; border-radius: 10px; padding: 12px 16px; margin-bottom: 16px; text-align: center;">
-                        <div style="font-size: 11px; font-weight: 700; color: #6ee7b7; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">
-                            <i class="fa-solid fa-laptop-code"></i> Local Dev Auto-Bypass
-                        </div>
-                        <div style="font-size: 13px; color: #e2e8f0;">
-                            Verification Code: <strong id="dev-otp-code" style="font-size: 20px; color: #34d399; font-family: monospace; letter-spacing: 3px; cursor: pointer; text-decoration: underline;" title="Click to fill code"></strong>
-                        </div>
-                        <div style="font-size: 11px; color: #94a3b8; margin-top: 4px;">Click code above or it will autofill automatically below.</div>
-                    </div>
                     <div id="twofa-error-msg" class="login-alert" style="display: none;"></div>
 
                     <form id="twofa-form" onsubmit="handleVerify2FA(event)">
@@ -1385,26 +1376,6 @@ try {
                             if (emailEl) emailEl.innerText = data.email_target;
                         }
 
-                        if (data.dev_otp) {
-                            const devBanner = document.getElementById('dev-otp-banner');
-                            const devCode = document.getElementById('dev-otp-code');
-                            if (devBanner && devCode) {
-                                devCode.innerText = data.dev_otp;
-                                devBanner.style.display = 'block';
-                                devCode.onclick = function() {
-                                    const otpInp = document.getElementById('otp_code_input');
-                                    if (otpInp) {
-                                        otpInp.value = data.dev_otp;
-                                        otpInp.focus();
-                                    }
-                                };
-                            }
-                            const otpInp = document.getElementById('otp_code_input');
-                            if (otpInp) {
-                                otpInp.value = data.dev_otp;
-                            }
-                        }
-
                         const stepCreds = document.getElementById('step-credentials');
                         const step2fa = document.getElementById('step-2fa');
                         const twofaAlert = document.getElementById('twofa-error-msg');
@@ -1629,25 +1600,6 @@ try {
             .then(data => {
                 if (data.success) {
                     window.CURRENT_2FA_TOKEN = data.otp_token;
-                    if (data.dev_otp) {
-                        const devBanner = document.getElementById('dev-otp-banner');
-                        const devCode = document.getElementById('dev-otp-code');
-                        if (devBanner && devCode) {
-                            devCode.innerText = data.dev_otp;
-                            devBanner.style.display = 'block';
-                            devCode.onclick = function() {
-                                const otpInp = document.getElementById('otp_code_input');
-                                if (otpInp) {
-                                    otpInp.value = data.dev_otp;
-                                    otpInp.focus();
-                                }
-                            };
-                        }
-                        const otpInp = document.getElementById('otp_code_input');
-                        if (otpInp) {
-                            otpInp.value = data.dev_otp;
-                        }
-                    }
                     if (alertBox) {
                         alertBox.className = 'login-alert warning-alert';
                         alertBox.innerHTML = '<i class="fa-solid fa-circle-check" style="color:#10b981;"></i> <span>Fresh verification code dispatched to ' + (data.email_target || 'bfscaptain@gmail.com') + '!</span>';
