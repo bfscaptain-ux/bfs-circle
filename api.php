@@ -16,7 +16,7 @@ $action = $_GET['api'];
 
 try {
     // Authentication check for protected APIs
-    $public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
+    $public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'listmonk_webhook', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
     if (!in_array($action, $public_apis) && isset($_SESSION['user_id'])) {
         $stmt = $db->prepare("SELECT session_token FROM users WHERE id = ?");
         $stmt->execute([$_SESSION['user_id']]);
@@ -92,6 +92,180 @@ try {
     }
 
     switch ($action) {
+        case 'listmonk_get_overview':
+            require_role(['Admin', 'Staff']);
+            require_once __DIR__ . '/libs/ListmonkClient.php';
+            $client = new ListmonkClient();
+            $stats = $client->getStats();
+            
+            // Get local DB sync statistics
+            $sync_count = $db->query("SELECT count(*) FROM listmonk_sync_logs")->fetchColumn();
+            $lead_synced = $db->query("SELECT count(DISTINCT entity_id) FROM listmonk_sync_logs WHERE entity_type = 'lead'")->fetchColumn();
+            $app_synced = $db->query("SELECT count(DISTINCT entity_id) FROM listmonk_sync_logs WHERE entity_type = 'applicant'")->fetchColumn();
+            $ref_synced = $db->query("SELECT count(DISTINCT entity_id) FROM listmonk_sync_logs WHERE entity_type = 'referral'")->fetchColumn();
+
+            // Total eligible in CRM
+            $total_leads_with_email = $db->query("SELECT count(*) FROM leads WHERE email IS NOT NULL AND email != '' AND is_marketing_optout = 0")->fetchColumn();
+            $total_apps_with_email = $db->query("SELECT count(*) FROM applicants WHERE email IS NOT NULL AND email != '' AND is_marketing_optout = 0")->fetchColumn();
+            $total_refs_with_email = $db->query("SELECT count(*) FROM referrals WHERE email IS NOT NULL AND email != '' AND is_marketing_optout = 0")->fetchColumn();
+
+            return_json([
+                'success' => true,
+                'stats' => $stats,
+                'crm_summary' => [
+                    'total_eligible_leads' => (int)$total_leads_with_email,
+                    'total_eligible_applicants' => (int)$total_apps_with_email,
+                    'total_eligible_referrals' => (int)$total_refs_with_email,
+                    'total_eligible' => (int)($total_leads_with_email + $total_apps_with_email + $total_refs_with_email),
+                    'synced_leads' => (int)$lead_synced,
+                    'synced_applicants' => (int)$app_synced,
+                    'synced_referrals' => (int)$ref_synced,
+                    'total_sync_logs' => (int)$sync_count
+                ]
+            ]);
+            break;
+
+        case 'listmonk_sync_all':
+            require_role(['Admin']);
+            @set_time_limit(300);
+            require_once __DIR__ . '/libs/ListmonkClient.php';
+            
+            $synced_leads = 0;
+            $synced_apps = 0;
+            $synced_refs = 0;
+            $failed = 0;
+
+            // 1. Sync Leads
+            $stmt = $db->query("SELECT id FROM leads WHERE email IS NOT NULL AND email != '' AND is_marketing_optout = 0");
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                if (syncContactToListmonk('lead', $row['id'])) {
+                    $synced_leads++;
+                } else {
+                    $failed++;
+                }
+            }
+
+            // 2. Sync Applicants
+            $stmt = $db->query("SELECT id FROM applicants WHERE email IS NOT NULL AND email != '' AND is_marketing_optout = 0");
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                if (syncContactToListmonk('applicant', $row['id'])) {
+                    $synced_apps++;
+                } else {
+                    $failed++;
+                }
+            }
+
+            // 3. Sync Referrals/Partners
+            $stmt = $db->query("SELECT id FROM referrals WHERE email IS NOT NULL AND email != '' AND is_marketing_optout = 0");
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                if (syncContactToListmonk('referral', $row['id'])) {
+                    $synced_refs++;
+                } else {
+                    $failed++;
+                }
+            }
+
+            $total = $synced_leads + $synced_apps + $synced_refs;
+            log_activity("Executed Full Listmonk Audience Sync. Total synced: {$total} contacts.", "Marketing Hub");
+
+            return_json([
+                'success' => true,
+                'message' => "Successfully synchronized {$total} CRM contacts to Listmonk smart lists!",
+                'synced_leads' => $synced_leads,
+                'synced_applicants' => $synced_apps,
+                'synced_referrals' => $synced_refs,
+                'total_synced' => $total,
+                'failed' => $failed
+            ]);
+            break;
+
+        case 'listmonk_create_campaign':
+            require_role(['Admin']);
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') return_json(['error' => 'Invalid Request Method'], 405);
+            
+            $title = trim($_POST['title'] ?? '');
+            $subject = trim($_POST['subject'] ?? '');
+            $lists_raw = $_POST['lists'] ?? [];
+            $body = trim($_POST['body'] ?? '');
+            $send_now = !empty($_POST['send_now']);
+
+            if (empty($title) || empty($subject) || empty($body)) {
+                return_json(['error' => 'Campaign Title, Subject, and Email Content are required.'], 400);
+            }
+
+            $list_ids = is_array($lists_raw) ? array_map('intval', $lists_raw) : [intval($lists_raw)];
+            $list_ids = array_values(array_filter($list_ids, fn($id) => $id > 0));
+            if (empty($list_ids)) {
+                return_json(['error' => 'Please select at least one target audience list.'], 400);
+            }
+
+            require_once __DIR__ . '/libs/ListmonkClient.php';
+            $client = new ListmonkClient();
+
+            $res = $client->createCampaign($title, $subject, $list_ids, $body);
+            if (empty($res['success'])) {
+                return_json(['error' => 'Failed to create campaign in Listmonk: ' . ($res['error'] ?? 'Unknown error')], 500);
+            }
+
+            $campaign_id = (int)($res['data']['id'] ?? 0);
+            $dispatched = false;
+
+            if ($send_now && $campaign_id > 0) {
+                $statusRes = $client->changeCampaignStatus($campaign_id, 'running');
+                $dispatched = !empty($statusRes['success']);
+            }
+
+            log_activity("Created Email Campaign: {$title} (ID: {$campaign_id}) - " . ($dispatched ? 'Dispatched' : 'Saved as Draft'), "Marketing Hub");
+
+            return_json([
+                'success' => true,
+                'campaign_id' => $campaign_id,
+                'status' => $dispatched ? 'running' : 'draft',
+                'message' => $dispatched ? 'Campaign created and queued for high-speed dispatch!' : 'Campaign saved as draft in Listmonk.'
+            ]);
+            break;
+
+        case 'listmonk_update_campaign_status':
+            require_role(['Admin']);
+            if ($_SERVER['REQUEST_METHOD'] !== 'POST') return_json(['error' => 'Invalid Request Method'], 405);
+            $campaign_id = (int)($_POST['campaign_id'] ?? 0);
+            $status = trim($_POST['status'] ?? 'running');
+
+            if (!$campaign_id || !in_array($status, ['running', 'paused', 'cancelled'])) {
+                return_json(['error' => 'Valid Campaign ID and Status are required.'], 400);
+            }
+
+            require_once __DIR__ . '/libs/ListmonkClient.php';
+            $client = new ListmonkClient();
+            $res = $client->changeCampaignStatus($campaign_id, $status);
+
+            if (!empty($res['success'])) {
+                return_json(['success' => true, 'message' => "Campaign status changed to {$status}"]);
+            }
+            return_json(['error' => $res['error'] ?? 'Failed to update campaign status'], 500);
+            break;
+
+        case 'listmonk_webhook':
+            $raw_input = file_get_contents('php://input');
+            $data = json_decode($raw_input, true) ?: $_POST;
+            
+            $event_type = $data['type'] ?? ($data['event'] ?? 'unknown');
+            $email = trim($data['email'] ?? ($data['data']['email'] ?? ''));
+
+            if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                if (in_array(strtolower($event_type), ['unsubscribe', 'unsubscribed', 'bounce', 'bounced', 'complaint'])) {
+                    $db->prepare("UPDATE leads SET is_marketing_optout = 1, email_marketing_status = ? WHERE LOWER(email) = LOWER(?)")
+                       ->execute([$event_type, $email]);
+                    $db->prepare("UPDATE applicants SET is_marketing_optout = 1, email_marketing_status = ? WHERE LOWER(email) = LOWER(?)")
+                       ->execute([$event_type, $email]);
+                    $db->prepare("UPDATE referrals SET is_marketing_optout = 1, email_marketing_status = ? WHERE LOWER(email) = LOWER(?)")
+                       ->execute([$event_type, $email]);
+
+                    log_activity("Listmonk Webhook: {$email} marked as {$event_type}", "Compliance");
+                }
+            }
+            return_json(['success' => true, 'received' => true]);
+            break;
                 case 'delete_employee':
             if (($_SESSION['role'] ?? '') !== 'Admin') return_json(['error' => 'Unauthorized'], 403);
             if ($_SERVER['REQUEST_METHOD'] !== 'POST') return_json(['error' => 'Invalid Request'], 405);

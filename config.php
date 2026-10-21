@@ -998,6 +998,26 @@ try {
         $db->exec("UPDATE company_profile SET smtp_host = 'smtp.gmail.com', smtp_port = '587', smtp_username = 'bfscaptain@gmail.com', smtp_password = 'nfhb emne rbsq egcp', smtp_encryption = 'tls' WHERE smtp_username = 'kamchalauuu@gmail.com' OR smtp_username IS NULL OR smtp_username = ''");
     } catch (Exception $e) {}
 
+    // Listmonk Marketing & Campaign Engine Table & Columns
+    $db->exec("CREATE TABLE IF NOT EXISTS listmonk_sync_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        entity_type VARCHAR(30) NOT NULL, -- 'lead', 'applicant', 'referral', 'bulk'
+        entity_id INTEGER,
+        email VARCHAR(150),
+        listmonk_sub_id INTEGER,
+        lists_synced TEXT,
+        status VARCHAR(20) DEFAULT 'synced',
+        error_message TEXT,
+        synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+    try { $db->exec("CREATE INDEX IF NOT EXISTS idx_lm_email ON listmonk_sync_logs(email)"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE leads ADD COLUMN is_marketing_optout INTEGER DEFAULT 0"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE leads ADD COLUMN email_marketing_status VARCHAR(20) DEFAULT 'active'"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN is_marketing_optout INTEGER DEFAULT 0"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE applicants ADD COLUMN email_marketing_status VARCHAR(20) DEFAULT 'active'"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE referrals ADD COLUMN is_marketing_optout INTEGER DEFAULT 0"); } catch (Exception $e) {}
+    try { $db->exec("ALTER TABLE referrals ADD COLUMN email_marketing_status VARCHAR(20) DEFAULT 'active'"); } catch (Exception $e) {}
+
     // Applicant Interactions (Call Logs, WhatsApp, Visits, Notes)
     $db->exec("CREATE TABLE IF NOT EXISTS applicant_interactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -2448,6 +2468,126 @@ function sendCustomerLoanEmail($applicant_id, $stage_type, $custom_data = []) {
  * Universal High-Grade HTML System Email Sender
  * Wraps body in corporate BFS Financial Services letterhead card and sends via SMTP / mail()
  */
+// Listmonk Campaign Engine Configuration
+if (!defined('LISTMONK_API_URL')) define('LISTMONK_API_URL', getenv('LISTMONK_API_URL') ?: 'http://127.0.0.1:9000');
+if (!defined('LISTMONK_API_USER')) define('LISTMONK_API_USER', getenv('LISTMONK_API_USER') ?: 'bfs_crm_api');
+if (!defined('LISTMONK_API_TOKEN')) define('LISTMONK_API_TOKEN', getenv('LISTMONK_API_TOKEN') ?: 'bfs_listmonk_secret_key_789456');
+
+// Default Listmonk List IDs for BFS Circle
+if (!defined('LM_LIST_HOMELOAN')) define('LM_LIST_HOMELOAN', 3);
+if (!defined('LM_LIST_LAP')) define('LM_LIST_LAP', 4);
+if (!defined('LM_LIST_PERSONAL_BIZ')) define('LM_LIST_PERSONAL_BIZ', 5);
+if (!defined('LM_LIST_DISBURSED')) define('LM_LIST_DISBURSED', 6);
+if (!defined('LM_LIST_PARTNERS')) define('LM_LIST_PARTNERS', 7);
+
+/**
+ * Universal Sync Helper: CRM Contact -> Listmonk Smart List
+ */
+function syncContactToListmonk($entity_type, $entity_id) {
+    global $db;
+    require_once __DIR__ . '/libs/ListmonkClient.php';
+    $client = new ListmonkClient();
+
+    $email = '';
+    $name = '';
+    $lists = [];
+    $attribs = [];
+
+    if ($entity_type === 'lead') {
+        $stmt = $db->prepare("SELECT * FROM leads WHERE id = ?");
+        $stmt->execute([$entity_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['email']) || !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) return false;
+        if (!empty($row['is_marketing_optout'])) return false;
+
+        $email = $row['email'];
+        $name = $row['lead_name'] ?: 'Valued Customer';
+        $req = strtolower($row['requirement'] ?? '');
+
+        if (strpos($req, 'home') !== false) {
+            $lists[] = LM_LIST_HOMELOAN;
+        } elseif (strpos($req, 'lap') !== false || strpos($req, 'property') !== false) {
+            $lists[] = LM_LIST_LAP;
+        } elseif (strpos($req, 'personal') !== false || strpos($req, 'business') !== false) {
+            $lists[] = LM_LIST_PERSONAL_BIZ;
+        } else {
+            $lists[] = LM_LIST_HOMELOAN;
+        }
+
+        $attribs = [
+            'entity_type' => 'lead',
+            'lead_id' => $row['id'],
+            'phone' => $row['mobile'] ?? '',
+            'city' => $row['location'] ?? '',
+            'loan_amount' => $row['loan_amount'] ?? '',
+            'stage' => $row['stage'] ?? '',
+            'source' => $row['lead_source'] ?? 'CRM Direct'
+        ];
+    } elseif ($entity_type === 'applicant') {
+        $stmt = $db->prepare("SELECT * FROM applicants WHERE id = ?");
+        $stmt->execute([$entity_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['email']) || !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) return false;
+        if (!empty($row['is_marketing_optout'])) return false;
+
+        $email = $row['email'];
+        $name = $row['customer_name'] ?: 'Valued Borrower';
+        $ltype = strtolower($row['loan_type'] ?? '');
+
+        if (strpos($ltype, 'home') !== false) {
+            $lists[] = LM_LIST_HOMELOAN;
+        } elseif (strpos($ltype, 'lap') !== false || strpos($ltype, 'property') !== false) {
+            $lists[] = LM_LIST_LAP;
+        } else {
+            $lists[] = LM_LIST_PERSONAL_BIZ;
+        }
+
+        if ((float)($row['disbursed_amount'] ?? 0) > 0 || strtolower($row['overall_status'] ?? '') === 'disbursed') {
+            $lists[] = LM_LIST_DISBURSED;
+        }
+
+        $attribs = [
+            'entity_type' => 'applicant',
+            'loan_id' => $row['loan_id'] ?? '',
+            'phone' => $row['mobile'] ?? '',
+            'city' => $row['city'] ?? '',
+            'cibil' => $row['cibil_score'] ?? '',
+            'status' => $row['overall_status'] ?? '',
+            'disbursed_amount' => $row['disbursed_amount'] ?? ''
+        ];
+    } elseif ($entity_type === 'referral') {
+        $stmt = $db->prepare("SELECT * FROM referrals WHERE id = ?");
+        $stmt->execute([$entity_id]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['email']) || !filter_var($row['email'], FILTER_VALIDATE_EMAIL)) return false;
+        if (!empty($row['is_marketing_optout'])) return false;
+
+        $email = $row['email'];
+        $name = $row['full_name'] ?: 'BFS Partner';
+        $lists[] = LM_LIST_PARTNERS;
+        $attribs = [
+            'entity_type' => 'partner',
+            'referral_id' => $row['referral_id'] ?? '',
+            'phone' => $row['mobile'] ?? '',
+            'partner_type' => $row['referrer_type'] ?? 'DSA',
+            'city' => $row['city_state'] ?? ''
+        ];
+    }
+
+    if (empty($email) || empty($lists)) return false;
+
+    $res = $client->syncSubscriber($email, $name, $lists, $attribs);
+    if (!empty($res['success'])) {
+        $subId = $res['data']['id'] ?? null;
+        try {
+            $db->prepare("INSERT INTO listmonk_sync_logs (entity_type, entity_id, email, listmonk_sub_id, lists_synced, status) VALUES (?, ?, ?, ?, ?, 'synced')")
+               ->execute([$entity_type, $entity_id, $email, $subId, json_encode($lists)]);
+        } catch (Exception $e) {}
+        return true;
+    }
+    return false;
+}
+
 function sendUniversalEmail($recipient_email, $recipient_name, $subject, $body_html, $activity_context = 'Email Engine') {
     global $db;
     
@@ -2570,7 +2710,7 @@ $is_in_client_vault = (strpos($_SERVER['SCRIPT_NAME'], '/client_vault/') !== fal
 $is_in_subfolder = $is_in_rm_dir || $is_in_staff_dir || $is_in_agent_dir || $is_in_partner_dir || $is_in_builder_dir || $is_in_ca_dir || $is_in_client_vault || defined('IS_SUBFOLDER');
 
 // Authentication check for page load (excluding login.php, forgot_password.php, apply.php, track.php and CLI)
-$public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
+$public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'listmonk_webhook', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
 if (php_sapi_name() !== 'cli' && !isset($_SESSION['user_id']) && $current_page !== 'login.php' && $current_page !== 'forgot_password.php' && $current_page !== 'apply.php' && $current_page !== 'track.php') {
     // If not logged in and calling an API, return unauthorized
     if (isset($_GET['api'])) {

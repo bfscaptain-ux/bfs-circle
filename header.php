@@ -2782,6 +2782,7 @@ if (isset($db)) {
             { title: 'Pre-Leads (Raw Data)', type: 'Page', url: '<?php echo $base_path; ?>pre_leads.php', icon: 'inbox' },
             { title: 'Lead Management', type: 'Page', url: '<?php echo $base_path; ?>leads.php', icon: 'target' },
             { title: 'WhatsApp CRM & Live Hub', type: 'Tool', url: '<?php echo $base_path; ?>whatsapp_crm.php', icon: 'message-circle' },
+            { title: 'Email Marketing & Campaigns (Listmonk)', type: 'Tool', url: '<?php echo $base_path; ?>marketing.php', icon: 'send' },
             { title: 'Field Visits', type: 'Page', url: '<?php echo $base_path; ?>field_visits.php', icon: 'map-pin' },
             { title: 'Reminders & Follow-ups', type: 'Page', url: '<?php echo $base_path; ?>reminders.php', icon: 'bell' },
             { title: 'Loan Applications (LOS)', type: 'Page', url: '<?php echo $base_path; ?>applicants_list.php', icon: 'files' },
@@ -3358,6 +3359,13 @@ if (isset($db)) {
                     <i data-lucide="message-circle" style="color:#25d366;"></i>
                     <span class="menu-text">WhatsApp CRM</span>
                     <span class="nav-badge" style="background:#22c55e; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                </a>
+            </li>
+            <li class="menu-item <?php echo ($active_page === 'marketing.php') ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>marketing.php" title="Email Marketing & Campaigns (Listmonk Engine)">
+                    <i data-lucide="send" style="color:#10b981;"></i>
+                    <span class="menu-text">Campaigns Hub</span>
+                    <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">PRO</span>
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'field_visits.php') ? 'active' : ''; ?>">
