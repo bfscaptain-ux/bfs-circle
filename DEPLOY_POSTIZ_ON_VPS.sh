@@ -18,13 +18,22 @@ fi
 
 cd "$POSTIZ_DIR"
 
-# Generate secure JWT if not present
-if [ ! -f "$POSTIZ_DIR/.env" ]; then
-    cp "$POSTIZ_DIR/default.env" "$POSTIZ_DIR/.env" 2>/dev/null || true
-    echo "JWT_SECRET=$(openssl rand -hex 32)" >> "$POSTIZ_DIR/.env"
-    echo "FRONTEND_URL=https://social.bfsfin.cloud" >> "$POSTIZ_DIR/.env"
-    echo "NEXT_PUBLIC_BACKEND_URL=https://social.bfsfin.cloud" >> "$POSTIZ_DIR/.env"
-fi
+# Configure production URLs and JWT secret in docker-compose.yaml
+SECRET=$(openssl rand -hex 32)
+sed -i "s|MAIN_URL: 'http://localhost:4007'|MAIN_URL: 'https://social.bfsfin.cloud'|g" docker-compose.yaml
+sed -i "s|FRONTEND_URL: 'http://localhost:4007'|FRONTEND_URL: 'https://social.bfsfin.cloud'|g" docker-compose.yaml
+sed -i "s|NEXT_PUBLIC_BACKEND_URL: 'http://localhost:4007/api'|NEXT_PUBLIC_BACKEND_URL: 'https://social.bfsfin.cloud/api'|g" docker-compose.yaml
+sed -i "s|random string that is unique to every install - just type random characters here!|${SECRET}|g" docker-compose.yaml
+
+cat << EOF > "$POSTIZ_DIR/.env"
+MAIN_URL="https://social.bfsfin.cloud"
+FRONTEND_URL="https://social.bfsfin.cloud"
+NEXT_PUBLIC_BACKEND_URL="https://social.bfsfin.cloud/api"
+JWT_SECRET="${SECRET}"
+DISABLE_REGISTRATION=false
+IS_GENERAL=true
+STORAGE_PROVIDER=local
+EOF
 
 echo "Starting Postiz Docker containers..."
 docker compose up -d
