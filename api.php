@@ -756,14 +756,23 @@ try {
                     $_SESSION['pending_2fa_user_id'] = $user['id'];
                     $_SESSION['pending_2fa_token'] = $otp_token;
 
-                    return_json([
+                    $is_local_env = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', 'localhost:8000', '127.0.0.1:8000']) ||
+                                    strpos(($_SERVER['HTTP_HOST'] ?? ''), 'localhost') !== false ||
+                                    strpos(($_SERVER['HTTP_HOST'] ?? ''), '127.0.0.1') !== false ||
+                                    (isset($_SERVER['REMOTE_ADDR']) && in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']));
+
+                    $login_2fa_res = [
                         'success' => true,
                         'requires_2fa' => true,
                         'role' => 'Admin',
                         'otp_token' => $otp_token,
                         'email_target' => $admin_email,
                         'message' => '6-digit verification code has been dispatched to ' . $admin_email
-                    ]);
+                    ];
+                    if ($is_local_env) {
+                        $login_2fa_res['dev_otp'] = $otp;
+                    }
+                    return_json($login_2fa_res);
                 }
 
                 // Standard non-admin successful login -> RESET failed attempt counters
@@ -937,11 +946,20 @@ try {
 
             sendUniversalEmail($admin_email, 'BFS Super Admin', $subject, $body, 'admin_2fa_resend');
 
-            return_json([
+            $is_local_env = in_array($_SERVER['HTTP_HOST'] ?? '', ['localhost', '127.0.0.1', 'localhost:8000', '127.0.0.1:8000']) ||
+                            strpos(($_SERVER['HTTP_HOST'] ?? ''), 'localhost') !== false ||
+                            strpos(($_SERVER['HTTP_HOST'] ?? ''), '127.0.0.1') !== false ||
+                            (isset($_SERVER['REMOTE_ADDR']) && in_array($_SERVER['REMOTE_ADDR'], ['127.0.0.1', '::1']));
+
+            $resend_2fa_res = [
                 'success' => true,
                 'otp_token' => $new_token,
                 'message' => 'Fresh verification code dispatched to ' . $admin_email
-            ]);
+            ];
+            if ($is_local_env) {
+                $resend_2fa_res['dev_otp'] = $otp;
+            }
+            return_json($resend_2fa_res);
             break;
 
         case 'admin_unlock_login_lockout':
