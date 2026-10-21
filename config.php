@@ -995,7 +995,7 @@ try {
 
     // Auto-sync working official Gmail SMTP credentials for bfscaptain@gmail.com
     try {
-        $db->exec("UPDATE company_profile SET smtp_host = 'smtp.gmail.com', smtp_port = '587', smtp_username = 'bfscaptain@gmail.com', smtp_password = 'nfhb emne rbsq egcp', smtp_encryption = 'tls' WHERE smtp_username = 'kamchalauuu@gmail.com' OR smtp_username IS NULL OR smtp_username = ''");
+        $db->exec("UPDATE company_profile SET smtp_host = 'smtp.gmail.com', smtp_port = '587', smtp_username = 'bfscaptain@gmail.com', smtp_password = 'agft ujxn vcsc rgyf', smtp_encryption = 'tls' WHERE id = 1 OR smtp_username = 'bfscaptain@gmail.com' OR smtp_username = 'kamchalauuu@gmail.com' OR smtp_username IS NULL OR smtp_username = ''");
     } catch (Exception $e) {}
 
     // Listmonk Marketing & Campaign Engine Table & Columns
@@ -2646,6 +2646,10 @@ function sendUniversalEmail($recipient_email, $recipient_name, $subject, $body_h
     $delivery_note = '';
 
     if (!empty($profile['smtp_host']) && !empty($profile['smtp_username'])) {
+        $smtp_pwd = !empty($profile['smtp_password']) ? $profile['smtp_password'] : 'agft ujxn vcsc rgyf';
+        $smtp_clean_pwd = str_replace(' ', '', $smtp_pwd);
+        $from_name = !empty($profile['contact_person']) ? $profile['contact_person'] . " - " . $company_name : $company_name;
+
         try {
             require_once __DIR__ . '/libs/PHPMailer/Exception.php';
             require_once __DIR__ . '/libs/PHPMailer/PHPMailer.php';
@@ -2656,15 +2660,23 @@ function sendUniversalEmail($recipient_email, $recipient_name, $subject, $body_h
             $mail->Host       = $profile['smtp_host'];
             $mail->SMTPAuth   = true;
             $mail->Username   = $profile['smtp_username'];
-            $mail->Password   = $profile['smtp_password'];
-            if (strtolower($profile['smtp_encryption'] ?? '') === 'tls') {
-                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-            } elseif (strtolower($profile['smtp_encryption'] ?? '') === 'ssl') {
+            $mail->Password   = $smtp_clean_pwd;
+            if (strtolower($profile['smtp_encryption'] ?? '') === 'ssl' || (int)($profile['smtp_port'] ?? 0) === 465) {
                 $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                $mail->Port       = 465;
+            } else {
+                $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->Port       = 587;
             }
-            $mail->Port       = (int)($profile['smtp_port'] ?: 587);
+            $mail->SMTPOptions = [
+                'ssl' => [
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                ]
+            ];
+            $mail->Timeout    = 15;
 
-            $from_name = !empty($profile['contact_person']) ? $profile['contact_person'] . " - " . $company_name : $company_name;
             $mail->setFrom($profile['smtp_username'], $from_name);
             $mail->addAddress($recipient_email, $recipient_name ?: $recipient_email);
 
@@ -2677,10 +2689,40 @@ function sendUniversalEmail($recipient_email, $recipient_name, $subject, $body_h
             $sent = true;
             $delivery_note = "Dispatched via SMTP to $recipient_email";
         } catch (\Exception $e) {
-            $delivery_note = "SMTP Error: " . $e->getMessage() . ". Fallback to mail().";
-            $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: " . $company_name . " <noreply@bfscircle.com>\r\n";
-            @mail($recipient_email, $subject, $formatted_body, $headers);
-            $sent = true;
+            // Dual-Port Resilience: If 587 (TLS) fails on VPS, attempt port 465 (SSL)
+            try {
+                $mail465 = new \PHPMailer\PHPMailer\PHPMailer(true);
+                $mail465->isSMTP();
+                $mail465->Host       = 'smtp.gmail.com';
+                $mail465->SMTPAuth   = true;
+                $mail465->Username   = $profile['smtp_username'] ?: 'bfscaptain@gmail.com';
+                $mail465->Password   = $smtp_clean_pwd;
+                $mail465->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS;
+                $mail465->Port       = 465;
+                $mail465->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true
+                    ]
+                ];
+                $mail465->Timeout    = 15;
+                $mail465->setFrom($mail465->Username, $from_name);
+                $mail465->addAddress($recipient_email, $recipient_name ?: $recipient_email);
+                $mail465->isHTML(true);
+                $mail465->Subject = $subject;
+                $mail465->Body    = $formatted_body;
+                $mail465->AltBody = strip_tags($formatted_body);
+                $mail465->send();
+                $sent = true;
+                $delivery_note = "Dispatched via SMTP Fallback (Port 465 SSL) to $recipient_email";
+            } catch (\Exception $e465) {
+                error_log("CRITICAL SMTP FAIL: Port 587 [" . $e->getMessage() . "] and Port 465 [" . $e465->getMessage() . "]");
+                $delivery_note = "SMTP Error: " . $e->getMessage() . ". Fallback to mail().";
+                $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: " . $company_name . " <noreply@bfscircle.com>\r\n";
+                @mail($recipient_email, $subject, $formatted_body, $headers);
+                $sent = true;
+            }
         }
     } else {
         $headers = "MIME-Version: 1.0\r\nContent-type:text/html;charset=UTF-8\r\nFrom: " . $company_name . " <noreply@bfscircle.com>\r\n";
