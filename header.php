@@ -3362,10 +3362,10 @@ if (isset($db)) {
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'marketing.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>marketing.php" title="Email Marketing & Campaigns (Listmonk Engine)">
-                    <i data-lucide="send" style="color:#10b981;"></i>
-                    <span class="menu-text">Campaigns Hub</span>
-                    <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">PRO</span>
+                <a href="<?php echo $base_path; ?>marketing.php" title="Listmonk Mailer & Campaign Hub">
+                    <i data-lucide="mail" style="color:#10b981;"></i>
+                    <span class="menu-text">Listmonk Mailer</span>
+                    <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'field_visits.php') ? 'active' : ''; ?>">
