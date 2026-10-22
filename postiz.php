@@ -229,6 +229,18 @@ include 'header.php';
         </div>
     </div>
 
+    <!-- Quick Tip Banner for OAuth / Channels -->
+    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.22); border-radius: 10px; padding: 9px 16px; font-size: 12.5px; color: #cbd5e1; display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;">
+        <div style="display:flex; align-items:center; gap:8px;">
+            <i data-lucide="info" style="width:16px; height:16px; color:#818cf8; flex-shrink:0;"></i>
+            <span><strong>Channel & Login Tip:</strong> Instagram, Facebook aur Google jaise platforms security ke liye iframe ke andar login block karte hain. Channel connect karne ke liye hamesha upar <strong>"Open in Full Tab"</strong> button use karein.</span>
+        </div>
+        <a href="<?php echo htmlspecialchars($postiz_url); ?>" target="_blank" style="color:#a5b4fc; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:4px;">
+            <span>Open in Dedicated Tab</span>
+            <i data-lucide="arrow-up-right" style="width:14px; height:14px;"></i>
+        </a>
+    </div>
+
     <!-- Main Viewport (Direct Native Postiz Application) -->
     <div class="postiz-viewport">
         <?php if ($is_postiz_online): ?>
