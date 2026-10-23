@@ -9,16 +9,16 @@ $hide_main_header = true;
 
 // Check if WhatsApp CRM Node engine is running (check port 3000 locally, or port 3001 on VPS)
 $is_wa_online = false;
-$wa_port = 3000;
-$fp = @fsockopen('127.0.0.1', 3000, $errno, $errstr, 0.3);
+$wa_port = 3001;
+$fp = @fsockopen('127.0.0.1', 3001, $errno, $errstr, 0.3);
 if ($fp) {
     $is_wa_online = true;
     fclose($fp);
 } else {
-    $fp2 = @fsockopen('127.0.0.1', 3001, $errno, $errstr, 0.3);
+    $fp2 = @fsockopen('127.0.0.1', 3000, $errno, $errstr, 0.3);
     if ($fp2) {
         $is_wa_online = true;
-        $wa_port = 3001;
+        $wa_port = 3000;
         fclose($fp2);
     }
 }
