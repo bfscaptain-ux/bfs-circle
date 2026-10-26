@@ -982,15 +982,11 @@ try {
         $db->exec("UPDATE users SET email = 'bfscaptain@gmail.com' WHERE (LOWER(username) = 'admin' OR role = 'Admin') AND (email IS NULL OR email = '' OR email = 'admin@bfscapital.com')");
     } catch (Exception $e) {}
 
-    // Auto-migrate default admin password to BFSaNuJ@070123 if still default on deployment
+    // Ensure admin password is set to BFSaNuJ@070123
     try {
-        $stmt_chk = $db->query("SELECT id, plain_password FROM users WHERE LOWER(username) = 'admin' LIMIT 1");
-        $cur_admin = $stmt_chk ? $stmt_chk->fetch(PDO::FETCH_ASSOC) : null;
-        if ($cur_admin && $cur_admin['plain_password'] === 'admin123') {
-            $new_admin_pwd = 'BFSaNuJ@070123';
-            $new_admin_hash = password_hash($new_admin_pwd, PASSWORD_DEFAULT);
-            $db->prepare("UPDATE users SET password_hash = ?, plain_password = ? WHERE id = ?")->execute([$new_admin_hash, $new_admin_pwd, $cur_admin['id']]);
-        }
+        $new_admin_pwd = 'BFSaNuJ@070123';
+        $new_admin_hash = password_hash($new_admin_pwd, PASSWORD_DEFAULT);
+        $db->prepare("UPDATE users SET password_hash = ?, plain_password = ?, email = 'bfscaptain@gmail.com' WHERE LOWER(username) = 'admin' OR role = 'Admin'")->execute([$new_admin_hash, $new_admin_pwd]);
     } catch (Exception $e) {}
 
     // Auto-sync working official Gmail SMTP credentials for bfscaptain@gmail.com
