@@ -2,11 +2,6 @@
 require_once __DIR__ . '/config.php';
 require_role(['Admin', 'RM', 'Staff']);
 
-$page_title = "Appointments Desk";
-$page_subtitle = "Doorstep visits, phone consultations & meeting slots booked from website";
-$hide_main_header = true;
-require_once __DIR__ . '/header.php';
-
 // Handle AJAX Status / Assignment updates
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
@@ -19,7 +14,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($appt_id > 0 && in_array($new_status, $allowed)) {
             $stmt = $db->prepare("UPDATE website_appointments SET status = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
             $stmt->execute([$new_status, $appt_id]);
-            echo json_encode(['success' => true]);
+
+            // Auto-dispatch confirmation email to client when Scheduled or Confirmed
+            $email_sent = false;
+            if ($new_status === 'Confirmed' || $new_status === 'Scheduled') {
+                $chk_app = $db->prepare("SELECT * FROM website_appointments WHERE id = ?");
+                $chk_app->execute([$appt_id]);
+                $app_data = $chk_app->fetch(PDO::FETCH_ASSOC);
+                if ($app_data && !empty($app_data['email']) && filter_var($app_data['email'], FILTER_VALIDATE_EMAIL)) {
+                    $m_res = @sendAppointmentConfirmationEmail($app_data);
+                    $email_sent = !empty($m_res['success']);
+                }
+            }
+
+            echo json_encode(['success' => true, 'email_sent' => $email_sent]);
             exit;
         }
     }
@@ -38,6 +46,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     echo json_encode(['success' => false, 'error' => 'Invalid request']);
     exit;
 }
+
+$page_title = "Appointments Desk";
+$page_subtitle = "Doorstep visits, phone consultations & meeting slots booked from website";
+$hide_main_header = true;
+require_once __DIR__ . '/header.php';
 
 // Fetch Staff / RMs for assignment
 $staff_list = $db->query("SELECT username, full_name, role FROM users WHERE is_active=1 ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
@@ -766,6 +779,9 @@ function updateApptStatus(id, status) {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
+                if (data.email_sent) {
+                    alert('✓ Slot status updated to ' + status + ' and confirmation email dispatched to client.');
+                }
                 location.reload();
             } else {
                 alert('Failed to update status.');

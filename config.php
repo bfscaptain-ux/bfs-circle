@@ -1695,12 +1695,10 @@ function log_activity($description, $action_link = null, $target_user = null) {
     $user = $_SESSION['username'] ?? 'System';
     $desc = "[$user] " . $description;
     
-    // Ensure columns exist
-    try { $db->exec("ALTER TABLE activities ADD COLUMN action_link TEXT"); } catch (Exception $e) {}
-    try { $db->exec("ALTER TABLE activities ADD COLUMN target_user TEXT"); } catch (Exception $e) {}
-    
-    $stmt = $db->prepare("INSERT INTO activities (username, description, action_link, target_user) VALUES (?, ?, ?, ?)");
-    $stmt->execute([$user, $desc, $action_link, $target_user]);
+    try {
+        $stmt = $db->prepare("INSERT INTO activities (username, description, action_link, target_user) VALUES (?, ?, ?, ?)");
+        $stmt->execute([$user, $desc, $action_link, $target_user]);
+    } catch (Exception $e) {}
 }
 
 // Universal Smart Document Suggestion Matrix Engine
@@ -2735,6 +2733,8 @@ function sendUniversalEmail($recipient_email, $recipient_name, $subject, $body_h
         'delivery_note' => $delivery_note
     ];
 }
+
+require_once __DIR__ . '/auto_notifications.php';
 
 // Page access & API router
 $current_page = basename($_SERVER['PHP_SELF']);

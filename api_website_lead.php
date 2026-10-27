@@ -218,6 +218,23 @@ try {
             log_activity("New Appointment Scheduled: {$lead_name} ({$slot_date} {$slot_time})", "appointments.php");
         } catch (Exception $e) {}
 
+        // Auto-dispatch confirmation email to client
+        if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL) && !str_contains($email, 'no-email')) {
+            @sendAppointmentConfirmationEmail([
+                'name' => $lead_name,
+                'email' => $email,
+                'phone' => $mobile,
+                'slot_date' => $slot_date,
+                'slot_time' => $slot_time,
+                'product_type' => $p_type,
+                'sub_type' => $s_type,
+                'city' => $city,
+                'assigned_to' => 'Senior Relationship Manager',
+                'source' => $raw_source,
+                'message' => $message
+            ]);
+        }
+
         echo json_encode([
             'success' => true,
             'id' => $appt_id,

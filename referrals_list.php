@@ -1,11 +1,6 @@
 <?php
 require_once 'config.php';
 require_role(['Admin'], false);
-$page_title = 'Referrals & DSA Directory';
-$page_subtitle = ' Manage external referral partners, DSAs, and sub-agents';
-$hide_main_header = true;
-require_once 'header.php';
-
 // Active Tab ('network' or 'inquiries')
 $active_tab = $_GET['tab'] ?? 'network';
 
@@ -63,7 +58,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             log_activity("Approved Website Partner {$req['name']} as DSA ({$dsa_code})", "referrals_list.php");
 
-            echo json_encode(['success' => true, 'dsa_code' => $dsa_code]);
+            // Dispatch automated welcome & onboarding email
+            $email_sent = false;
+            if (function_exists('sendPartnerOnboardingEmail')) {
+                $m_res = @sendPartnerOnboardingEmail($req, $dsa_code);
+                $email_sent = !empty($m_res['success']);
+            }
+
+            echo json_encode(['success' => true, 'dsa_code' => $dsa_code, 'email_sent' => $email_sent]);
             exit;
         }
     }
@@ -71,6 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     echo json_encode(['success' => false, 'error' => 'Invalid action']);
     exit;
 }
+
+$page_title = 'Referrals & DSA Directory';
+$page_subtitle = ' Manage external referral partners, DSAs, and sub-agents';
+$hide_main_header = true;
+require_once 'header.php';
 
 $pending_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Pending Review'")->fetchColumn();
 $total_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests")->fetchColumn();
@@ -1264,7 +1271,11 @@ if ($per_page_param === 'all') {
             .then(r => r.json())
             .then(d => {
                 if (d.success) {
-                    alert('Partner onboarded successfully with Code: ' + d.dsa_code);
+                    let msg = '🎉 Partner onboarded successfully with DSA Code: ' + d.dsa_code;
+                    if (d.email_sent) {
+                        msg += '\n📧 Official DSA Welcome & Commission Agreement email dispatched successfully!';
+                    }
+                    alert(msg);
                     location.href = 'referrals_list.php?tab=network&search=' + encodeURIComponent(d.dsa_code);
                 } else {
                     alert('Approval failed: ' + (d.error || 'Error'));
