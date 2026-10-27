@@ -77,50 +77,59 @@ $staff_list = $db->query("
     ORDER BY (CASE WHEN u.role = 'RM' THEN 1 WHEN u.role = 'Staff' THEN 2 ELSE 3 END), display_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-// Filters
+// Pagination & Filter Parameters
+$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
+if ($page < 1) $page = 1;
+
+$per_page_param = isset($_GET['per_page']) ? trim($_GET['per_page']) : '10';
+$allowed_per_page = ['10', '15', '25', '50', '100', 'all'];
+if (!in_array($per_page_param, $allowed_per_page)) {
+    $per_page_param = '10';
+}
+
 $filter_status = $_GET['status'] ?? 'all';
 $filter_date = $_GET['date_range'] ?? 'all';
 $filter_prod = $_GET['product'] ?? 'all';
 $filter_rm = $_GET['rm'] ?? 'all';
 $search = trim($_GET['search'] ?? '');
 
-$sql = "SELECT * FROM website_appointments WHERE 1=1";
+$where_sql = "";
 $params = [];
 
 if ($filter_status !== 'all' && !empty($filter_status)) {
-    $sql .= " AND status = ?";
+    $where_sql .= " AND status = ?";
     $params[] = $filter_status;
 }
 
 if ($filter_date === 'today') {
-    $sql .= " AND (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')";
+    $where_sql .= " AND (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')";
 } elseif ($filter_date === 'tomorrow') {
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
-    $sql .= " AND (slot_date = ? OR slot_date LIKE '%Tomorrow%' OR slot_date LIKE '%" . date('d M', strtotime('+1 day')) . "%')";
+    $where_sql .= " AND (slot_date = ? OR slot_date LIKE '%Tomorrow%' OR slot_date LIKE '%" . date('d M', strtotime('+1 day')) . "%')";
     $params[] = $tomorrow;
 } elseif ($filter_date === 'upcoming') {
-    $sql .= " AND status IN ('Scheduled', 'Confirmed')";
+    $where_sql .= " AND status IN ('Scheduled', 'Confirmed')";
 } elseif ($filter_date === 'completed') {
-    $sql .= " AND status = 'Completed'";
+    $where_sql .= " AND status = 'Completed'";
 }
 
 if ($filter_prod !== 'all' && !empty($filter_prod)) {
-    $sql .= " AND (product_type LIKE ? OR sub_type LIKE ?)";
+    $where_sql .= " AND (product_type LIKE ? OR sub_type LIKE ?)";
     $params[] = "%$filter_prod%";
     $params[] = "%$filter_prod%";
 }
 
 if ($filter_rm !== 'all' && !empty($filter_rm)) {
     if ($filter_rm === 'unassigned') {
-        $sql .= " AND (assigned_to IS NULL OR assigned_to = '')";
+        $where_sql .= " AND (assigned_to IS NULL OR assigned_to = '')";
     } else {
-        $sql .= " AND assigned_to = ?";
+        $where_sql .= " AND assigned_to = ?";
         $params[] = $filter_rm;
     }
 }
 
 if (!empty($search)) {
-    $sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR sub_type LIKE ?)";
+    $where_sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR sub_type LIKE ?)";
     $s_term = "%$search%";
     $params[] = $s_term;
     $params[] = $s_term;
@@ -129,7 +138,34 @@ if (!empty($search)) {
     $params[] = $s_term;
 }
 
-$sql .= " ORDER BY id DESC";
+// Count total matching items
+$count_stmt = $db->prepare("SELECT COUNT(*) FROM website_appointments WHERE 1=1" . $where_sql);
+$count_stmt->execute($params);
+$total_items = (int)$count_stmt->fetchColumn();
+
+// Pagination Calculation
+if ($per_page_param === 'all') {
+    $per_page = max(1, $total_items);
+    $total_pages = 1;
+    $offset = 0;
+    $start_item = ($total_items > 0) ? 1 : 0;
+    $end_item = $total_items;
+} else {
+    $per_page = (int)$per_page_param;
+    if ($per_page < 1) $per_page = 10;
+    $total_pages = (int)ceil($total_items / $per_page);
+    if ($total_pages < 1) $total_pages = 1;
+    if ($page > $total_pages) $page = $total_pages;
+
+    $offset = ($page - 1) * $per_page;
+    $start_item = ($total_items > 0) ? ($offset + 1) : 0;
+    $end_item = min($offset + $per_page, $total_items);
+}
+
+$sql = "SELECT * FROM website_appointments WHERE 1=1" . $where_sql . " ORDER BY id DESC";
+if ($per_page_param !== 'all') {
+    $sql .= " LIMIT " . (int)$per_page . " OFFSET " . (int)$offset;
+}
 $stmt = $db->prepare($sql);
 $stmt->execute($params);
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -160,6 +196,14 @@ function get_google_calendar_url($app) {
     $details = urlencode("Applicant: " . $app['name'] . "\nPhone: " . $app['phone'] . "\nEmail: " . $app['email'] . "\nProduct: " . $app['product_type'] . " - " . $app['sub_type'] . "\nCity: " . $app['city'] . "\nNotes: " . $app['message']);
     
     return "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$title}&dates={$dates}&details={$details}&location={$location}";
+}
+
+if (!function_exists('getApptPageUrl')) {
+    function getApptPageUrl($p) {
+        $params = $_GET;
+        $params['page'] = $p;
+        return '?' . http_build_query($params);
+    }
 }
 ?>
 
@@ -573,6 +617,170 @@ function get_google_calendar_url($app) {
     transform: translateY(-1px);
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
+
+/* EXECUTIVE PAGINATION & PAGE MANAGEMENT DECK (BLACK & WHITE) */
+.pagination-deck {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: nowrap;
+    gap: 12px;
+    padding: 12px 18px;
+    background: #ffffff;
+    border-top: 1px solid var(--appt-border);
+    box-sizing: border-box;
+    overflow-x: auto;
+}
+.pagination-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--appt-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.pagination-info b {
+    color: var(--appt-black);
+    font-weight: 800;
+}
+.page-size-selector {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11.5px;
+    color: var(--appt-muted);
+    border-left: 1px solid var(--appt-border);
+    padding-left: 14px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.page-size-selector select {
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--appt-border);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--appt-black);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s;
+}
+.page-size-selector select:focus, .page-size-selector select:hover {
+    border-color: var(--appt-black);
+}
+.pagination-nav {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.pag-btn {
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--appt-border);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--appt-black);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    padding: 0;
+    flex-shrink: 0;
+    text-decoration: none;
+}
+.pag-btn svg {
+    width: 13px;
+    height: 13px;
+}
+.pag-btn:hover:not(.disabled) {
+    background: var(--appt-black);
+    color: #ffffff;
+    border-color: var(--appt-black);
+    transform: translateY(-1px);
+}
+.pag-btn.disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: var(--appt-light);
+    border-color: var(--appt-border);
+    pointer-events: none;
+}
+.pag-numbers {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+.pag-num-btn {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 7px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--appt-border);
+    border-radius: 6px;
+    background: #ffffff;
+    color: var(--appt-black);
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+.pag-num-btn:hover {
+    background: var(--appt-light);
+    border-color: var(--appt-black);
+}
+.pag-num-btn.active {
+    background: var(--appt-black);
+    color: #ffffff;
+    border-color: var(--appt-black);
+}
+.pag-ellipsis {
+    padding: 0 4px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--appt-muted);
+}
+.pag-jump {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11.5px;
+    color: var(--appt-muted);
+    margin-left: 8px;
+    padding-left: 12px;
+    border-left: 1px solid var(--appt-border);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.pag-jump input {
+    width: 44px;
+    height: 26px;
+    padding: 0 4px;
+    text-align: center;
+    border: 1px solid var(--appt-border);
+    border-radius: 5px;
+    background: #ffffff;
+    color: var(--appt-black);
+    font-size: 11.5px;
+    font-weight: 700;
+    outline: none;
+    transition: all 0.15s;
+}
+.pag-jump input:focus {
+    border-color: var(--appt-black);
+}
 </style>
 
 <div class="appt-container">
@@ -868,6 +1076,90 @@ function get_google_calendar_url($app) {
                 </tbody>
             </table>
         </div>
+
+        <!-- Executive Pagination & Page Management Deck (Appointments) -->
+        <div class="pagination-deck">
+            <!-- Left Info & Per Page Selector -->
+            <div class="pagination-info">
+                <span>Showing <b><?php echo $start_item; ?></b> to <b><?php echo $end_item; ?></b> of <b><?php echo $total_items; ?></b> appointments</span>
+                <div class="page-size-selector">
+                    <span>Per page:</span>
+                    <select id="apptPerPageSelect" onchange="changeApptPerPage(this.value)">
+                        <option value="10" <?php echo $per_page_param==='10'?'selected':''; ?>>10</option>
+                        <option value="15" <?php echo $per_page_param==='15'?'selected':''; ?>>15</option>
+                        <option value="25" <?php echo $per_page_param==='25'?'selected':''; ?>>25</option>
+                        <option value="50" <?php echo $per_page_param==='50'?'selected':''; ?>>50</option>
+                        <option value="100" <?php echo $per_page_param==='100'?'selected':''; ?>>100</option>
+                        <option value="all" <?php echo $per_page_param==='all'?'selected':''; ?>>All</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="pagination-nav">
+                <?php
+                $is_first = ($page <= 1);
+                $is_last = ($page >= $total_pages);
+                ?>
+                <a href="<?php echo $is_first ? 'javascript:void(0)' : getApptPageUrl(1); ?>" 
+                   class="pag-btn <?php echo $is_first ? 'disabled' : ''; ?>" 
+                   title="First Page">
+                    <i data-lucide="chevrons-left"></i>
+                </a>
+                <a href="<?php echo $is_first ? 'javascript:void(0)' : getApptPageUrl($page - 1); ?>" 
+                   class="pag-btn <?php echo $is_first ? 'disabled' : ''; ?>" 
+                   title="Previous Page">
+                    <i data-lucide="chevron-left"></i>
+                </a>
+
+                <!-- Numbered Page Buttons -->
+                <div class="pag-numbers">
+                    <?php
+                    $range = 2;
+                    $start_p = max(1, $page - $range);
+                    $end_p = min($total_pages, $page + $range);
+
+                    if ($start_p > 1): ?>
+                        <a href="<?php echo getApptPageUrl(1); ?>" class="pag-num-btn">1</a>
+                        <?php if ($start_p > 2): ?><span class="pag-ellipsis">…</span><?php endif; ?>
+                    <?php endif;
+
+                    for ($i = $start_p; $i <= $end_p; $i++): ?>
+                        <a href="<?php echo getApptPageUrl($i); ?>" class="pag-num-btn <?php echo ($i === $page) ? 'active' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor;
+
+                    if ($end_p < $total_pages): ?>
+                        <?php if ($end_p < $total_pages - 1): ?><span class="pag-ellipsis">…</span><?php endif; ?>
+                        <a href="<?php echo getApptPageUrl($total_pages); ?>" class="pag-num-btn"><?php echo $total_pages; ?></a>
+                    <?php endif; ?>
+                </div>
+
+                <a href="<?php echo $is_last ? 'javascript:void(0)' : getApptPageUrl($page + 1); ?>" 
+                   class="pag-btn <?php echo $is_last ? 'disabled' : ''; ?>" 
+                   title="Next Page">
+                    <i data-lucide="chevron-right"></i>
+                </a>
+                <a href="<?php echo $is_last ? 'javascript:void(0)' : getApptPageUrl($total_pages); ?>" 
+                   class="pag-btn <?php echo $is_last ? 'disabled' : ''; ?>" 
+                   title="Last Page">
+                    <i data-lucide="chevrons-right"></i>
+                </a>
+
+                <!-- Jump to Page Input -->
+                <div class="pag-jump">
+                    <span>Page</span>
+                    <input type="number" 
+                           min="1" 
+                           max="<?php echo $total_pages; ?>" 
+                           value="<?php echo $page; ?>" 
+                           title="Press Enter to jump" 
+                           onkeydown="if(event.key==='Enter') jumpToApptPage(this.value)">
+                    <span>of <b><?php echo $total_pages; ?></b></span>
+                </div>
+            </div>
+        </div>
         <?php endif; ?>
     </div>
 </div>
@@ -908,6 +1200,21 @@ function assignApptRM(id, rm) {
                 alert('Failed to assign RM: ' + (data.error || 'Unknown error'));
             }
         }).catch(() => alert('Network error.'));
+}
+
+function changeApptPerPage(val) {
+    const url = new URL(window.location.href);
+    url.searchParams.set('per_page', val);
+    url.searchParams.set('page', '1');
+    window.location.href = url.toString();
+}
+
+function jumpToApptPage(val) {
+    let p = parseInt(val, 10);
+    if (isNaN(p) || p < 1) p = 1;
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', p);
+    window.location.href = url.toString();
 }
 </script>
 

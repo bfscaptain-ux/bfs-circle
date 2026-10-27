@@ -1020,31 +1020,76 @@ if ($per_page_param === 'all') {
 
 
 <?php if ($active_tab === 'inquiries'): 
-    // Inquiries logic
+    // Inquiries logic & Pagination setup
+    $inq_page = isset($_GET['inq_page']) ? (int)$_GET['inq_page'] : 1;
+    if ($inq_page < 1) $inq_page = 1;
+    $inq_per_page_param = isset($_GET['inq_per_page']) ? trim($_GET['inq_per_page']) : '10';
+    $allowed_inq_per_page = ['10', '15', '25', '50', '100', 'all'];
+    if (!in_array($inq_per_page_param, $allowed_inq_per_page)) {
+        $inq_per_page_param = '10';
+    }
+
     $filter_inq_prof = $_GET['prof'] ?? 'all';
     $filter_inq_status = $_GET['inq_status'] ?? 'all';
     $inq_search = trim($_GET['inq_search'] ?? '');
 
-    $inq_sql = "SELECT * FROM partner_requests WHERE 1=1";
+    $where_inq = "";
     $inq_params = [];
 
     if ($filter_inq_status !== 'all' && !empty($filter_inq_status)) {
-        $inq_sql .= " AND status = ?";
+        $where_inq .= " AND status = ?";
         $inq_params[] = $filter_inq_status;
     }
     if ($filter_inq_prof !== 'all' && !empty($filter_inq_prof)) {
-        $inq_sql .= " AND profession LIKE ?";
+        $where_inq .= " AND profession LIKE ?";
         $inq_params[] = "%$filter_inq_prof%";
     }
     if (!empty($inq_search)) {
-        $inq_sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR state LIKE ?)";
+        $where_inq .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR state LIKE ?)";
         $s = "%$inq_search%";
         $inq_params[] = $s; $inq_params[] = $s; $inq_params[] = $s; $inq_params[] = $s; $inq_params[] = $s;
     }
-    $inq_sql .= " ORDER BY id DESC";
+
+    // Total Count for Inquiries
+    $stmt_cnt = $db->prepare("SELECT COUNT(*) FROM partner_requests WHERE 1=1" . $where_inq);
+    $stmt_cnt->execute($inq_params);
+    $total_inq_items = (int)$stmt_cnt->fetchColumn();
+
+    // Pagination Calculation
+    if ($inq_per_page_param === 'all') {
+        $inq_per_page = max(1, $total_inq_items);
+        $total_inq_pages = 1;
+        $inq_offset = 0;
+        $inq_start_item = ($total_inq_items > 0) ? 1 : 0;
+        $inq_end_item = $total_inq_items;
+    } else {
+        $inq_per_page = (int)$inq_per_page_param;
+        if ($inq_per_page < 1) $inq_per_page = 10;
+        $total_inq_pages = (int)ceil($total_inq_items / $inq_per_page);
+        if ($total_inq_pages < 1) $total_inq_pages = 1;
+        if ($inq_page > $total_inq_pages) $inq_page = $total_inq_pages;
+
+        $inq_offset = ($inq_page - 1) * $inq_per_page;
+        $inq_start_item = ($total_inq_items > 0) ? ($inq_offset + 1) : 0;
+        $inq_end_item = min($inq_offset + $inq_per_page, $total_inq_items);
+    }
+
+    $inq_sql = "SELECT * FROM partner_requests WHERE 1=1" . $where_inq . " ORDER BY id DESC";
+    if ($inq_per_page_param !== 'all') {
+        $inq_sql .= " LIMIT " . (int)$inq_per_page . " OFFSET " . (int)$inq_offset;
+    }
     $stmt_inq = $db->prepare($inq_sql);
     $stmt_inq->execute($inq_params);
     $inquiry_records = $stmt_inq->fetchAll(PDO::FETCH_ASSOC);
+
+    if (!function_exists('getInqPageUrl')) {
+        function getInqPageUrl($p) {
+            $params = $_GET;
+            $params['tab'] = 'inquiries';
+            $params['inq_page'] = $p;
+            return '?' . http_build_query($params);
+        }
+    }
 
     $appr_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Approved'")->fetchColumn();
     $cont_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Contacted'")->fetchColumn();
@@ -1247,6 +1292,90 @@ if ($per_page_param === 'all') {
                 </tbody>
             </table>
         </div>
+
+        <!-- Executive Pagination & Page Management Deck for Partner Inquiries -->
+        <div class="pagination-deck">
+            <!-- Left Info & Per Page Selector -->
+            <div class="pagination-info">
+                <span>Showing <b><?php echo $inq_start_item; ?></b> to <b><?php echo $inq_end_item; ?></b> of <b><?php echo $total_inq_items; ?></b> inquiries</span>
+                <div class="page-size-selector">
+                    <span>Per page:</span>
+                    <select id="inqPerPageSelect" onchange="changeInqPerPage(this.value)">
+                        <option value="10" <?php echo $inq_per_page_param==='10'?'selected':''; ?>>10</option>
+                        <option value="15" <?php echo $inq_per_page_param==='15'?'selected':''; ?>>15</option>
+                        <option value="25" <?php echo $inq_per_page_param==='25'?'selected':''; ?>>25</option>
+                        <option value="50" <?php echo $inq_per_page_param==='50'?'selected':''; ?>>50</option>
+                        <option value="100" <?php echo $inq_per_page_param==='100'?'selected':''; ?>>100</option>
+                        <option value="all" <?php echo $inq_per_page_param==='all'?'selected':''; ?>>All</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Right Controls -->
+            <div class="pagination-nav">
+                <?php
+                $is_first_inq = ($inq_page <= 1);
+                $is_last_inq = ($inq_page >= $total_inq_pages);
+                ?>
+                <a href="<?php echo $is_first_inq ? 'javascript:void(0)' : getInqPageUrl(1); ?>" 
+                   class="pag-btn <?php echo $is_first_inq ? 'disabled' : ''; ?>" 
+                   title="First Page">
+                    <i data-lucide="chevrons-left"></i>
+                </a>
+                <a href="<?php echo $is_first_inq ? 'javascript:void(0)' : getInqPageUrl($inq_page - 1); ?>" 
+                   class="pag-btn <?php echo $is_first_inq ? 'disabled' : ''; ?>" 
+                   title="Previous Page">
+                    <i data-lucide="chevron-left"></i>
+                </a>
+
+                <!-- Numbered Page Buttons -->
+                <div class="pag-numbers">
+                    <?php
+                    $range = 2;
+                    $start_p = max(1, $inq_page - $range);
+                    $end_p = min($total_inq_pages, $inq_page + $range);
+
+                    if ($start_p > 1): ?>
+                        <a href="<?php echo getInqPageUrl(1); ?>" class="pag-num-btn">1</a>
+                        <?php if ($start_p > 2): ?><span class="pag-ellipsis">…</span><?php endif; ?>
+                    <?php endif;
+
+                    for ($i = $start_p; $i <= $end_p; $i++): ?>
+                        <a href="<?php echo getInqPageUrl($i); ?>" class="pag-num-btn <?php echo ($i === $inq_page) ? 'active' : ''; ?>">
+                            <?php echo $i; ?>
+                        </a>
+                    <?php endfor;
+
+                    if ($end_p < $total_inq_pages): ?>
+                        <?php if ($end_p < $total_inq_pages - 1): ?><span class="pag-ellipsis">…</span><?php endif; ?>
+                        <a href="<?php echo getInqPageUrl($total_inq_pages); ?>" class="pag-num-btn"><?php echo $total_inq_pages; ?></a>
+                    <?php endif; ?>
+                </div>
+
+                <a href="<?php echo $is_last_inq ? 'javascript:void(0)' : getInqPageUrl($inq_page + 1); ?>" 
+                   class="pag-btn <?php echo $is_last_inq ? 'disabled' : ''; ?>" 
+                   title="Next Page">
+                    <i data-lucide="chevron-right"></i>
+                </a>
+                <a href="<?php echo $is_last_inq ? 'javascript:void(0)' : getInqPageUrl($total_inq_pages); ?>" 
+                   class="pag-btn <?php echo $is_last_inq ? 'disabled' : ''; ?>" 
+                   title="Last Page">
+                    <i data-lucide="chevrons-right"></i>
+                </a>
+
+                <!-- Jump to Page Input -->
+                <div class="pag-jump">
+                    <span>Page</span>
+                    <input type="number" 
+                           min="1" 
+                           max="<?php echo $total_inq_pages; ?>" 
+                           value="<?php echo $inq_page; ?>" 
+                           title="Press Enter to jump" 
+                           onkeydown="if(event.key==='Enter') jumpToInqPage(this.value)">
+                    <span>of <b><?php echo $total_inq_pages; ?></b></span>
+                </div>
+            </div>
+        </div>
         <?php endif; ?>
     </div>
 
@@ -1260,6 +1389,21 @@ if ($per_page_param === 'all') {
             .then(r => r.json())
             .then(d => { if (d.success) location.reload(); else alert('Failed to update status.'); })
             .catch(() => alert('Network error.'));
+    }
+
+    function changeInqPerPage(val) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('inq_per_page', val);
+        url.searchParams.set('inq_page', '1');
+        window.location.href = url.toString();
+    }
+
+    function jumpToInqPage(val) {
+        let p = parseInt(val, 10);
+        if (isNaN(p) || p < 1) p = 1;
+        const url = new URL(window.location.href);
+        url.searchParams.set('inq_page', p);
+        window.location.href = url.toString();
     }
 
     function approveDSAInq(id, name) {
