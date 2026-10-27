@@ -1,10 +1,10 @@
 @echo off
-title BFS Circle - CRM ^& WhatsApp Master Launcher
+title BFS Circle - CRM & WhatsApp Master Launcher
 color 0A
 cd /d "%~dp0"
 
 echo ======================================================================
-echo           BFS CIRCLE - CRM ^& WHATSAPP MASTER LAUNCHER
+echo           BFS CIRCLE - CRM & WHATSAPP MASTER LAUNCHER
 echo ======================================================================
 echo.
 
@@ -19,13 +19,13 @@ if %errorlevel% equ 0 (
     ping 127.0.0.1 -n 2 >nul
 )
 
-:: 2. Check & Launch WhatsApp CRM Node Engine (Port 3000)
-netstat -ano | findstr :3000 | findstr LISTENING >nul 2>&1
+:: 2. Check & Launch WhatsApp CRM Node Engine (Dedicated Port 3001 - Port 3000 is preserved for main website)
+netstat -ano | findstr :3001 | findstr LISTENING >nul 2>&1
 if %errorlevel% equ 0 (
-    echo [OK] WhatsApp CRM Engine is already running on port 3000.
+    echo [OK] WhatsApp CRM Engine is already running on port 3001.
 ) else (
-    echo [STARTING] Launching WhatsApp CRM Engine on port 3000...
-    start "BFS_WA_ENGINE" /min cmd /c "cd /d "%~dp0wa" && npm run dev"
+    echo [STARTING] Launching WhatsApp CRM Engine on port 3001...
+    start "BFS_WA_ENGINE" /min cmd /c "cd /d "%~dp0wa" && npm run dev -- --webpack -p 3001"
     ping 127.0.0.1 -n 3 >nul
 )
 
