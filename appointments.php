@@ -2,7 +2,7 @@
 require_once __DIR__ . '/config.php';
 require_role(['Admin', 'RM', 'Staff']);
 
-// Handle AJAX Status / Assignment updates
+// Handle AJAX Status / Assignment updates FIRST before any HTML output
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'];
@@ -36,6 +36,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $appt_id = (int)($_POST['id'] ?? 0);
         $rm = trim($_POST['assigned_to'] ?? '');
         if ($appt_id > 0) {
+            // Strictly enforce: only legitimate in-office RM / Staff / Admin can be assigned
+            if (!empty($rm)) {
+                $chk_rm = $db->prepare("SELECT id FROM users WHERE username = ? AND is_active = 1 AND role IN ('RM', 'Staff', 'Admin') AND role NOT IN ('Partner', 'Agent', 'Builder', 'CA', 'DSA')");
+                $chk_rm->execute([$rm]);
+                if (!$chk_rm->fetch()) {
+                    echo json_encode(['success' => false, 'error' => 'Only authorized In-Office Relationship Managers can be assigned.']);
+                    exit;
+                }
+            }
             $stmt = $db->prepare("UPDATE website_appointments SET assigned_to = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
             $stmt->execute([$rm, $appt_id]);
             echo json_encode(['success' => true]);
@@ -52,8 +61,21 @@ $page_subtitle = "Doorstep visits, phone consultations & meeting slots booked fr
 $hide_main_header = true;
 require_once __DIR__ . '/header.php';
 
-// Fetch Staff / RMs for assignment
-$staff_list = $db->query("SELECT username, full_name, role FROM users WHERE is_active=1 ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
+// Fetch ONLY legitimate In-Office Relationship Managers & Staff for assignment
+$staff_list = $db->query("
+    SELECT u.id, u.username, 
+           COALESCE(NULLIF(e.full_name, ''), NULLIF(u.full_name, ''), u.name, u.username) AS display_name, 
+           u.role, 
+           COALESCE(e.designation, u.role) AS designation
+    FROM users u
+    LEFT JOIN employees e ON (e.user_id = u.id OR e.official_email = u.username)
+    WHERE u.is_active = 1
+      AND u.role IN ('RM', 'Staff', 'Admin')
+      AND u.role NOT IN ('Partner', 'Agent', 'Builder', 'CA', 'DSA')
+      AND u.username NOT LIKE 'apex_dsa_%'
+      AND u.username NOT LIKE 'BFS-FAM-%'
+    ORDER BY (CASE WHEN u.role = 'RM' THEN 1 WHEN u.role = 'Staff' THEN 2 ELSE 3 END), display_name ASC
+")->fetchAll(PDO::FETCH_ASSOC);
 
 // Filters
 $filter_status = $_GET['status'] ?? 'all';
@@ -142,16 +164,16 @@ function get_google_calendar_url($app) {
 ?>
 
 <style>
-/* ====== BFS CIRCLE LUXURY APPOINTMENTS DESK THEME ====== */
+/* ====== BFS CIRCLE EDITORIAL BLACK & WHITE APPOINTMENTS THEME ====== */
 :root {
-    --appt-navy: #0f172a;
+    --appt-black: #09090b;
+    --appt-dark: #18181b;
+    --appt-zinc: #27272a;
+    --appt-muted: #71717a;
+    --appt-light: #f4f4f5;
+    --appt-border: #e4e4e7;
     --appt-card-bg: #ffffff;
-    --appt-border: #e2e8f0;
-    --appt-orange: #f97316;
-    --appt-emerald: #10b981;
-    --appt-blue: #2563eb;
-    --appt-text: #0f172a;
-    --appt-muted: #64748b;
+    --appt-text: #09090b;
 }
 
 .appt-container {
@@ -159,6 +181,7 @@ function get_google_calendar_url($app) {
     flex-direction: column;
     gap: 18px;
     font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+    color: var(--appt-text);
 }
 
 /* TOP HEADER */
@@ -173,20 +196,48 @@ function get_google_calendar_url($app) {
     font-size: 22px;
     font-weight: 800;
     font-family: 'Outfit', sans-serif;
-    color: var(--appt-text);
+    color: var(--appt-black);
     margin: 0;
     display: flex;
     align-items: center;
     gap: 10px;
-    letter-spacing: -0.3px;
+    letter-spacing: -0.4px;
 }
 .appt-title-group p {
     font-size: 13px;
     color: var(--appt-muted);
     margin: 3px 0 0;
 }
+.appt-title-group code {
+    background: var(--appt-light);
+    color: var(--appt-black);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    border: 1px solid var(--appt-border);
+}
 
-/* KPI CARDS */
+.appt-top-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: #ffffff;
+    border: 1px solid var(--appt-border);
+    color: var(--appt-black);
+    text-decoration: none;
+    font-weight: 600;
+    transition: all 0.15s ease;
+}
+.appt-top-btn:hover {
+    background: var(--appt-black);
+    color: #ffffff;
+    border-color: var(--appt-black);
+}
+
+/* KPI CARDS - MONOCHROME EDITORIAL */
 .appt-kpis {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
@@ -197,18 +248,19 @@ function get_google_calendar_url($app) {
 
 .appt-kpi {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     border-radius: 12px;
-    padding: 14px 18px;
+    padding: 16px 20px;
     display: flex;
     align-items: center;
     gap: 14px;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
-    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 .appt-kpi:hover {
     transform: translateY(-2px);
-    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+    border-color: var(--appt-black);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
 }
 .appt-kpi-icon {
     width: 44px;
@@ -218,11 +270,32 @@ function get_google_calendar_url($app) {
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    background: var(--appt-light);
+    color: var(--appt-black);
+    border: 1px solid var(--appt-border);
 }
-.appt-kpi-val { font-size: 24px; font-weight: 800; font-family: 'Outfit', sans-serif; line-height: 1; }
-.appt-kpi-lbl { font-size: 11.5px; color: var(--appt-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
+.appt-kpi-icon.icon-solid-black {
+    background: var(--appt-black);
+    color: #ffffff;
+    border-color: var(--appt-black);
+}
+.appt-kpi-val {
+    font-size: 26px;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    color: var(--appt-black);
+    line-height: 1;
+}
+.appt-kpi-lbl {
+    font-size: 11px;
+    color: var(--appt-muted);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-top: 4px;
+}
 
-/* QUICK STATUS TABS */
+/* QUICK STATUS TABS - BLACK & WHITE */
 .appt-quick-tabs {
     display: flex;
     gap: 8px;
@@ -230,54 +303,55 @@ function get_google_calendar_url($app) {
     padding-bottom: 2px;
 }
 .appt-tab-btn {
-    padding: 6px 14px;
+    padding: 7px 14px;
     border-radius: 20px;
     font-size: 12.5px;
     font-weight: 600;
     color: var(--appt-muted);
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    transition: all 0.2s;
+    gap: 7px;
+    transition: all 0.15s ease;
     white-space: nowrap;
 }
 .appt-tab-btn:hover {
-    color: var(--appt-text);
-    border-color: #cbd5e1;
-    background: #f8fafc;
+    color: var(--appt-black);
+    border-color: var(--appt-black);
+    background: var(--appt-light);
 }
 .appt-tab-btn.active {
-    background: #0f172a;
+    background: var(--appt-black);
     color: #ffffff;
-    border-color: #0f172a;
+    border-color: var(--appt-black);
     font-weight: 700;
 }
 .appt-tab-badge {
-    padding: 1px 6px;
+    padding: 1px 7px;
     border-radius: 10px;
     font-size: 11px;
     font-weight: 700;
-    background: rgba(0,0,0,0.08);
+    background: var(--appt-light);
+    color: var(--appt-black);
 }
 .appt-tab-btn.active .appt-tab-badge {
-    background: rgba(255,255,255,0.22);
+    background: rgba(255, 255, 255, 0.22);
     color: #ffffff;
 }
 
-/* UNIFIED IN-LINE FILTER BAR */
+/* UNIFIED IN-LINE FILTER BAR - BLACK & WHITE */
 .appt-filter-row {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     border-radius: 12px;
     padding: 10px 14px;
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: nowrap;
-    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
     overflow-x: auto;
 }
 @media (max-width: 900px) {
@@ -295,56 +369,55 @@ function get_google_calendar_url($app) {
 .appt-search-field input {
     width: 100%;
     padding: 8px 12px 8px 36px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     border-radius: 8px;
-    background: #f8fafc;
-    color: var(--appt-text);
+    background: #ffffff;
+    color: var(--appt-black);
     font-size: 13px;
     outline: none;
     transition: all 0.2s;
 }
 .appt-search-field input:focus {
-    background: #ffffff;
-    border-color: #0f172a;
-    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+    border-color: var(--appt-black);
+    box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.08);
 }
 .appt-search-field i {
     position: absolute;
     left: 11px;
-    color: #94a3b8;
+    color: var(--appt-muted);
     width: 15px;
     height: 15px;
 }
 
 .appt-select-field {
     flex: 1;
-    min-width: 130px;
+    min-width: 140px;
 }
 .appt-select-field select {
     width: 100%;
     padding: 8px 24px 8px 10px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     border-radius: 8px;
-    background: #f8fafc;
-    color: var(--appt-text);
+    background: #ffffff;
+    color: var(--appt-black);
     font-size: 12.5px;
-    font-weight: 500;
+    font-weight: 600;
     outline: none;
     cursor: pointer;
     transition: all 0.2s;
 }
-.appt-select-field select:hover { border-color: #cbd5e1; }
+.appt-select-field select:hover { border-color: var(--appt-black); }
 .appt-select-field select:focus {
-    background: #ffffff;
-    border-color: #0f172a;
+    border-color: var(--appt-black);
+    box-shadow: 0 0 0 2px rgba(9, 9, 11, 0.08);
 }
 
 .btn-filter-clear {
-    padding: 7px 12px;
+    padding: 8px 14px;
     border-radius: 8px;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     background: #ffffff;
-    color: #64748b;
+    color: var(--appt-muted);
     font-size: 12px;
     font-weight: 600;
     text-decoration: none;
@@ -355,17 +428,18 @@ function get_google_calendar_url($app) {
     transition: all 0.15s;
 }
 .btn-filter-clear:hover {
-    background: #f1f5f9;
-    color: #0f172a;
+    background: var(--appt-black);
+    color: #ffffff;
+    border-color: var(--appt-black);
 }
 
-/* DATA TABLE CARD */
+/* DATA TABLE CARD - MONOCHROME EDITORIAL */
 .appt-card-wrapper {
     background: #ffffff;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
 }
 .appt-table {
     width: 100%;
@@ -373,64 +447,105 @@ function get_google_calendar_url($app) {
     text-align: left;
 }
 .appt-table th {
-    background: #f8fafc;
+    background: #fafafa;
     padding: 12px 16px;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 700;
-    color: #64748b;
+    color: var(--appt-muted);
     text-transform: uppercase;
-    letter-spacing: 0.6px;
-    border-bottom: 1px solid #e2e8f0;
+    letter-spacing: 0.7px;
+    border-bottom: 1px solid var(--appt-border);
 }
 .appt-table td {
     padding: 14px 16px;
     font-size: 13px;
-    border-bottom: 1px solid #f1f5f9;
+    border-bottom: 1px solid var(--appt-light);
     vertical-align: middle;
 }
 .appt-table tr:hover td { background: #fafafa; }
 .appt-table tr:last-child td { border-bottom: none; }
 
-/* SLOT TIME CAPSULE */
+/* SLOT TIME CAPSULE - HIGH CONTRAST MONOCHROME */
 .slot-capsule {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 5px 10px;
-    background: #f0fdf4;
-    border: 1px solid #bbf7d0;
-    border-radius: 8px;
-    color: #15803d;
+    background: var(--appt-light);
+    border: 1px solid var(--appt-border);
+    border-radius: 6px;
+    color: var(--appt-black);
     font-weight: 700;
     font-size: 12px;
 }
-.slot-home-visit {
-    background: #eff6ff;
-    border-color: #bfdbfe;
-    color: #1d4ed8;
+.slot-capsule.slot-doorstep {
+    background: var(--appt-black);
+    border-color: var(--appt-black);
+    color: #ffffff;
 }
 .slot-date-text { font-weight: 800; }
 .slot-time-text { font-weight: 600; opacity: 0.85; }
 
-/* STATUS DROPDOWN PILL */
+/* STATUS SELECT PILL - BLACK & WHITE */
 .appt-status-select {
-    padding: 4px 10px;
+    padding: 5px 12px;
     border-radius: 20px;
     font-size: 11px;
     font-weight: 800;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.5px;
     text-transform: uppercase;
     cursor: pointer;
     outline: none;
-    border: 1px solid transparent;
+    border: 1px solid var(--appt-border);
+    transition: all 0.15s;
 }
-.appt-status-Scheduled   { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
-.appt-status-Confirmed   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
-.appt-status-Completed   { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
-.appt-status-Rescheduled { background: #fffbeb; color: #b45309; border-color: #fde68a; }
-.appt-status-Cancelled   { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
+.appt-status-Scheduled {
+    background: #ffffff;
+    color: var(--appt-black);
+    border-color: var(--appt-black);
+}
+.appt-status-Confirmed {
+    background: var(--appt-black);
+    color: #ffffff;
+    border-color: var(--appt-black);
+}
+.appt-status-Completed {
+    background: var(--appt-light);
+    color: var(--appt-muted);
+    border-color: var(--appt-border);
+}
+.appt-status-Rescheduled {
+    background: #ffffff;
+    color: var(--appt-black);
+    border-style: dashed;
+    border-color: var(--appt-black);
+}
+.appt-status-Cancelled {
+    background: #fafafa;
+    color: #a1a1aa;
+    border-color: var(--appt-border);
+    text-decoration: line-through;
+}
 
-/* ACTION BUTTONS */
+/* ASSIGNED RM DROPDOWN */
+.appt-rm-select {
+    padding: 5px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid var(--appt-border);
+    background: #ffffff;
+    color: var(--appt-black);
+    cursor: pointer;
+    outline: none;
+    transition: all 0.15s;
+    max-width: 210px;
+}
+.appt-rm-select:hover, .appt-rm-select:focus {
+    border-color: var(--appt-black);
+}
+
+/* ACTION BUTTONS - MONOCHROME INVERT ON HOVER */
 .appt-actions-bar {
     display: flex;
     gap: 6px;
@@ -444,35 +559,19 @@ function get_google_calendar_url($app) {
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #e2e8f0;
+    border: 1px solid var(--appt-border);
     background: #ffffff;
-    color: #0f172a;
+    color: var(--appt-black) !important;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: all 0.15s ease;
     text-decoration: none;
 }
 .btn-appt-tool:hover {
+    background: var(--appt-black) !important;
+    border-color: var(--appt-black) !important;
+    color: #ffffff !important;
     transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
-}
-.btn-appt-gcal {
-    background: #ffffff;
-    color: #2563eb !important;
-    border-color: #bfdbfe;
-}
-.btn-appt-gcal:hover {
-    background: #eff6ff;
-    border-color: #2563eb;
-}
-.btn-appt-wa {
-    background: #25d366;
-    color: #ffffff !important;
-    border-color: #25d366;
-}
-.btn-appt-call {
-    background: #0f172a;
-    color: #ffffff !important;
-    border-color: #0f172a;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 </style>
 
@@ -481,7 +580,7 @@ function get_google_calendar_url($app) {
     <div class="appt-topbar">
         <div class="appt-title-group">
             <h1>
-                <i data-lucide="calendar" style="color:#0f172a; width:24px; height:24px;"></i>
+                <i data-lucide="calendar" style="width:24px; height:24px; color:var(--appt-black);"></i>
                 Website Appointments Desk
             </h1>
             <p>
@@ -489,19 +588,19 @@ function get_google_calendar_url($app) {
             </p>
         </div>
         <div style="display:flex; gap:10px; align-items:center;">
-            <a href="leads.php" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:7px 12px;">
+            <a href="leads.php" class="appt-top-btn">
                 <i data-lucide="target" style="width:14px; height:14px;"></i> Leads Desk
             </a>
-            <a href="reminders.php" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:7px 12px;">
+            <a href="reminders.php" class="appt-top-btn">
                 <i data-lucide="bell" style="width:14px; height:14px;"></i> Reminders
             </a>
         </div>
     </div>
 
-    <!-- 2. HIGH-SIGNAL KPIS -->
+    <!-- 2. HIGH-SIGNAL KPIS (BLACK & WHITE EDITORIAL) -->
     <div class="appt-kpis">
         <div class="appt-kpi">
-            <div class="appt-kpi-icon" style="background:#eff6ff; color:#2563eb;">
+            <div class="appt-kpi-icon icon-solid-black">
                 <i data-lucide="calendar-days" style="width:22px; height:22px;"></i>
             </div>
             <div>
@@ -510,25 +609,25 @@ function get_google_calendar_url($app) {
             </div>
         </div>
         <div class="appt-kpi">
-            <div class="appt-kpi-icon" style="background:#fffbeb; color:#d97706;">
+            <div class="appt-kpi-icon">
                 <i data-lucide="clock" style="width:22px; height:22px;"></i>
             </div>
             <div>
-                <div class="appt-kpi-val" style="color:#d97706;"><?php echo $today_count; ?></div>
+                <div class="appt-kpi-val"><?php echo $today_count; ?></div>
                 <div class="appt-kpi-lbl">Today's Schedule</div>
             </div>
         </div>
         <div class="appt-kpi">
-            <div class="appt-kpi-icon" style="background:#f0fdf4; color:#16a34a;">
+            <div class="appt-kpi-icon icon-solid-black">
                 <i data-lucide="calendar-check" style="width:22px; height:22px;"></i>
             </div>
             <div>
-                <div class="appt-kpi-val" style="color:#16a34a;"><?php echo $scheduled_count; ?></div>
+                <div class="appt-kpi-val"><?php echo $scheduled_count; ?></div>
                 <div class="appt-kpi-lbl">Active & Pending</div>
             </div>
         </div>
         <div class="appt-kpi">
-            <div class="appt-kpi-icon" style="background:#f8fafc; color:#64748b;">
+            <div class="appt-kpi-icon">
                 <i data-lucide="check-check" style="width:22px; height:22px;"></i>
             </div>
             <div>
@@ -538,7 +637,7 @@ function get_google_calendar_url($app) {
         </div>
     </div>
 
-    <!-- 3. QUICK STATUS TABS -->
+    <!-- 3. QUICK STATUS TABS (BLACK & WHITE) -->
     <div class="appt-quick-tabs">
         <a href="appointments.php" class="appt-tab-btn <?php echo ($filter_status === 'all' && $filter_date === 'all') ? 'active' : ''; ?>">
             <span>All Bookings</span>
@@ -561,7 +660,7 @@ function get_google_calendar_url($app) {
         </a>
     </div>
 
-    <!-- 4. PERFECT IN-LINE FILTER BAR -->
+    <!-- 4. PERFECT IN-LINE FILTER BAR (BLACK & WHITE) -->
     <form method="GET" class="appt-filter-row">
         <!-- Search Input -->
         <div class="appt-search-field">
@@ -604,14 +703,14 @@ function get_google_calendar_url($app) {
             </select>
         </div>
 
-        <!-- RM Filter -->
+        <!-- In-Office RM Filter -->
         <div class="appt-select-field">
             <select name="rm" onchange="this.form.submit()">
-                <option value="all" <?php echo $filter_rm === 'all' ? 'selected' : ''; ?>>All Assigned RMs</option>
+                <option value="all" <?php echo $filter_rm === 'all' ? 'selected' : ''; ?>>All In-Office RMs</option>
                 <option value="unassigned" <?php echo $filter_rm === 'unassigned' ? 'selected' : ''; ?>>Unassigned Only</option>
                 <?php foreach ($staff_list as $st): ?>
                 <option value="<?php echo htmlspecialchars($st['username']); ?>" <?php echo $filter_rm === $st['username'] ? 'selected' : ''; ?>>
-                    <?php echo htmlspecialchars($st['full_name'] ?: $st['username']); ?>
+                    <?php echo htmlspecialchars($st['display_name'] . ($st['role'] === 'RM' ? ' (In-Office RM)' : ' (' . $st['role'] . ')')); ?>
                 </option>
                 <?php endforeach; ?>
             </select>
@@ -625,12 +724,12 @@ function get_google_calendar_url($app) {
         <?php endif; ?>
     </form>
 
-    <!-- 5. APPOINTMENTS TABLE -->
+    <!-- 5. APPOINTMENTS TABLE (BLACK & WHITE EDITORIAL) -->
     <div class="appt-card-wrapper">
         <?php if (empty($appointments)): ?>
         <div style="padding:48px 20px; text-align:center; color:var(--appt-muted);">
-            <i data-lucide="calendar-x" style="width:44px; height:44px; stroke-width:1.5; margin:0 auto 10px; display:block; opacity:0.5;"></i>
-            <h3 style="font-size:16px; font-weight:700; color:var(--appt-text); margin:0 0 5px;">No Appointments Found</h3>
+            <i data-lucide="calendar-x" style="width:44px; height:44px; stroke-width:1.5; margin:0 auto 10px; display:block; opacity:0.35;"></i>
+            <h3 style="font-size:16px; font-weight:700; color:var(--appt-black); margin:0 0 5px;">No Appointments Found</h3>
             <p style="font-size:13px; margin:0;">No bookings matched your filter selection. Try adjusting the inline filters above.</p>
         </div>
         <?php else: ?>
@@ -643,7 +742,7 @@ function get_google_calendar_url($app) {
                         <th style="min-width:180px;">Product / Requirement</th>
                         <th>Location</th>
                         <th>Status</th>
-                        <th>Assigned RM</th>
+                        <th>Assigned RM (In-Office)</th>
                         <th style="text-align:right; min-width:140px;">Quick Actions</th>
                     </tr>
                 </thead>
@@ -657,7 +756,7 @@ function get_google_calendar_url($app) {
                     <tr>
                         <!-- Slot & Date -->
                         <td>
-                            <div class="slot-capsule <?php echo $is_home_visit ? 'slot-home-visit' : ''; ?>">
+                            <div class="slot-capsule <?php echo $is_home_visit ? 'slot-doorstep' : ''; ?>">
                                 <i data-lucide="<?php echo $is_home_visit ? 'home' : 'clock'; ?>" style="width:12px; height:12px;"></i>
                                 <span class="slot-date-text"><?php echo htmlspecialchars($app['slot_date'] ?: 'TBD'); ?></span>
                                 <?php if (!empty($app['slot_time'])): ?>
@@ -665,18 +764,18 @@ function get_google_calendar_url($app) {
                                 <?php endif; ?>
                             </div>
                             <?php if ($is_home_visit): ?>
-                            <div style="font-size:11px; font-weight:700; color:#2563eb; margin-top:3px;">
-                                🏠 Doorstep Visit
+                            <div style="font-size:11px; font-weight:800; color:var(--appt-black); margin-top:3px;">
+                                • Doorstep Visit
                             </div>
                             <?php endif; ?>
-                            <div style="font-size:10.5px; color:#94a3b8; margin-top:3px;">
+                            <div style="font-size:10.5px; color:var(--appt-muted); margin-top:3px;">
                                 Booked: <?php echo date('d M, h:i A', strtotime($app['created_at'])); ?>
                             </div>
                         </td>
 
                         <!-- Applicant Profile -->
                         <td>
-                            <div style="font-weight:700; color:var(--appt-text); font-size:14px;">
+                            <div style="font-weight:700; color:var(--appt-black); font-size:14px;">
                                 <?php echo htmlspecialchars($app['name']); ?>
                             </div>
                             <div style="font-size:12px; color:var(--appt-muted); display:flex; gap:6px; align-items:center; margin-top:2px;">
@@ -689,27 +788,27 @@ function get_google_calendar_url($app) {
 
                         <!-- Product & Purpose -->
                         <td>
-                            <div style="font-weight:700; color:var(--appt-text);">
+                            <div style="font-weight:700; color:var(--appt-black);">
                                 <?php echo htmlspecialchars($app['product_type'] ?: 'Finance'); ?>
                             </div>
                             <div style="font-size:11.5px; color:var(--appt-muted); margin-top:2px;">
                                 <?php echo htmlspecialchars($app['sub_type'] ?: 'Consultation'); ?>
                             </div>
                             <?php if (!empty($app['message']) && stripos($app['message'], 'DPDP') === false): ?>
-                            <div style="font-size:11px; color:#64748b; margin-top:3px; max-width:260px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($app['message']); ?>">
-                                💬 "<?php echo htmlspecialchars($app['message']); ?>"
+                            <div style="font-size:11px; color:var(--appt-muted); margin-top:3px; max-width:260px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($app['message']); ?>">
+                                "<?php echo htmlspecialchars($app['message']); ?>"
                             </div>
                             <?php endif; ?>
                         </td>
 
                         <!-- Location -->
                         <td>
-                            <span style="font-weight:600; color:var(--appt-text);">
+                            <span style="font-weight:600; color:var(--appt-black);">
                                 <?php echo htmlspecialchars($app['city'] ?: 'Agra'); ?>
                             </span>
                         </td>
 
-                        <!-- Status -->
+                        <!-- Status (Black & White Select) -->
                         <td>
                             <select onchange="updateApptStatus(<?php echo $app['id']; ?>, this.value)" class="appt-status-select appt-status-<?php echo htmlspecialchars($app['status']); ?>">
                                 <option value="Scheduled" <?php echo $app['status'] === 'Scheduled' ? 'selected' : ''; ?>>Scheduled</option>
@@ -720,33 +819,38 @@ function get_google_calendar_url($app) {
                             </select>
                         </td>
 
-                        <!-- Assigned RM -->
+                        <!-- Assigned RM (Strictly In-Office Staff Only) -->
                         <td>
-                            <select onchange="assignApptRM(<?php echo $app['id']; ?>, this.value)" style="padding:4px 8px; border-radius:6px; font-size:12px; border:1px solid #e2e8f0; background:#f8fafc; color:var(--appt-text); cursor:pointer;">
+                            <select onchange="assignApptRM(<?php echo $app['id']; ?>, this.value)" class="appt-rm-select">
                                 <option value="">Unassigned</option>
                                 <?php foreach ($staff_list as $st): ?>
                                 <option value="<?php echo htmlspecialchars($st['username']); ?>" <?php echo $app['assigned_to'] === $st['username'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($st['full_name'] ?: $st['username']); ?>
+                                    <?php echo htmlspecialchars($st['display_name'] . ($st['role'] === 'RM' ? ' (In-Office RM)' : ' (' . $st['role'] . ')')); ?>
                                 </option>
                                 <?php endforeach; ?>
+                                <?php if (!empty($app['assigned_to']) && !in_array($app['assigned_to'], array_column($staff_list, 'username'))): ?>
+                                <option value="<?php echo htmlspecialchars($app['assigned_to']); ?>" selected>
+                                    <?php echo htmlspecialchars($app['assigned_to']); ?>
+                                </option>
+                                <?php endif; ?>
                             </select>
                         </td>
 
-                        <!-- Quick Actions -->
+                        <!-- Quick Actions (Monochrome Invert on Hover) -->
                         <td style="text-align:right;">
                             <div class="appt-actions-bar">
                                 <!-- 1. Add to Google Calendar -->
-                                <a href="<?php echo $gcal_url; ?>" target="_blank" class="btn-appt-tool btn-appt-gcal" title="Sync / Add to Google Calendar">
+                                <a href="<?php echo $gcal_url; ?>" target="_blank" class="btn-appt-tool" title="Sync / Add to Google Calendar">
                                     <i data-lucide="calendar-plus" style="width:14px; height:14px;"></i>
                                 </a>
 
                                 <?php if (!empty($raw_phone)): ?>
                                 <!-- 2. Direct Call -->
-                                <a href="tel:<?php echo $raw_phone; ?>" class="btn-appt-tool btn-appt-call" title="Call Applicant">
+                                <a href="tel:<?php echo $raw_phone; ?>" class="btn-appt-tool" title="Call Applicant">
                                     <i data-lucide="phone" style="width:13px; height:13px;"></i>
                                 </a>
                                 <!-- 3. Direct WhatsApp -->
-                                <a href="https://wa.me/91<?php echo substr($raw_phone, -10); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="btn-appt-tool btn-appt-wa" title="WhatsApp Appointment Confirmation">
+                                <a href="https://wa.me/91<?php echo substr($raw_phone, -10); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="btn-appt-tool" title="WhatsApp Appointment Confirmation">
                                     <i data-lucide="message-circle" style="width:14px; height:14px;"></i>
                                 </a>
                                 <?php endif; ?>
@@ -799,9 +903,9 @@ function assignApptRM(id, rm) {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                // silently assigned
+                location.reload();
             } else {
-                alert('Failed to assign RM.');
+                alert('Failed to assign RM: ' + (data.error || 'Unknown error'));
             }
         }).catch(() => alert('Network error.'));
 }

@@ -15,7 +15,28 @@ if (!function_exists('sendAppointmentConfirmationEmail')) {
         $slot_time = htmlspecialchars($app['slot_time'] ?: 'Confirmed Slot');
         $product = htmlspecialchars(($app['product_type'] ?: 'Finance') . ' - ' . ($app['sub_type'] ?: 'Consultation Advisory'));
         $city = htmlspecialchars($app['city'] ?: 'Agra');
-        $advisor = htmlspecialchars($app['assigned_to'] ?: 'Senior Relationship Desk');
+        
+        $advisor = 'Senior Relationship Desk';
+        if (!empty($app['assigned_to'])) {
+            global $db;
+            if ($db) {
+                try {
+                    $u_stmt = $db->prepare("SELECT COALESCE(NULLIF(e.full_name, ''), NULLIF(u.full_name, ''), u.name, u.username) FROM users u LEFT JOIN employees e ON (e.user_id = u.id OR e.official_email = u.username) WHERE u.username = ? LIMIT 1");
+                    $u_stmt->execute([$app['assigned_to']]);
+                    $found_name = $u_stmt->fetchColumn();
+                    if ($found_name) {
+                        $advisor = htmlspecialchars($found_name) . ' (In-Office RM)';
+                    } else {
+                        $advisor = htmlspecialchars($app['assigned_to']);
+                    }
+                } catch (Exception $e) {
+                    $advisor = htmlspecialchars($app['assigned_to']);
+                }
+            } else {
+                $advisor = htmlspecialchars($app['assigned_to']);
+            }
+        }
+
         $is_home_visit = (stripos($app['source'] ?? '', 'Home Visit') !== false || stripos($app['message'] ?? '', 'Doorstep') !== false);
         $meeting_mode = $is_home_visit ? '🏠 Doorstep Consultation (At Your Premises)' : '📞 Video / Direct Telephonic Advisory';
 
