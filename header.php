@@ -47,6 +47,10 @@ if (isset($db)) {
             $stmt_l->execute([$_SESSION['username'] ?? '', $_SESSION['username'] ?? '']);
             $nav_badges['loans'] = (int)$stmt_l->fetchColumn();
         }
+        try {
+            $nav_badges['appointments'] = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status IN ('Scheduled', 'Confirmed')")->fetchColumn();
+            $nav_badges['partner_requests'] = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Pending Review'")->fetchColumn();
+        } catch (Exception $e_tbl) {}
         $nav_badges['online_staff'] = max(1, (int)$db->query("SELECT COUNT(*) FROM users WHERE last_active >= datetime('now', 'localtime', '-5 minutes') AND is_active = 1")->fetchColumn());
     } catch (Exception $e) {}
 }
@@ -2784,6 +2788,8 @@ if (isset($db)) {
             { title: 'WhatsApp CRM & Live Hub', type: 'Tool', url: '<?php echo $base_path; ?>whatsapp_crm.php', icon: 'message-circle' },
             { title: 'Email Marketing & Campaigns (Listmonk)', type: 'Tool', url: '<?php echo $base_path; ?>marketing.php', icon: 'send' },
             { title: 'Postiz Social Media Scheduler & Marketing Hub', type: 'Tool', url: '<?php echo $base_path; ?>postiz.php', icon: 'share-2', desc: 'AI-Powered Social Media Scheduling & Multi-Platform Publishing' },
+            { title: 'Website Appointments Desk', type: 'Page', url: '<?php echo $base_path; ?>appointments.php', icon: 'calendar' },
+            { title: 'Partner Portal Requests', type: 'Page', url: '<?php echo $base_path; ?>partner_requests.php', icon: 'handshake' },
             { title: 'Field Visits', type: 'Page', url: '<?php echo $base_path; ?>field_visits.php', icon: 'map-pin' },
             { title: 'Reminders & Follow-ups', type: 'Page', url: '<?php echo $base_path; ?>reminders.php', icon: 'bell' },
             { title: 'Loan Applications (LOS)', type: 'Page', url: '<?php echo $base_path; ?>applicants_list.php', icon: 'files' },
@@ -3374,6 +3380,24 @@ if (isset($db)) {
                     <i data-lucide="share-2" style="color:#6366f1;"></i>
                     <span class="menu-text">Postiz Social Hub</span>
                     <span class="nav-badge" style="background:#6366f1; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                </a>
+            </li>
+            <li class="menu-item <?php echo ($active_page === 'appointments.php') ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>appointments.php" title="Website Appointments Desk">
+                    <i data-lucide="calendar"></i>
+                    <span class="menu-text">Appointments</span>
+                    <?php if (!empty($nav_badges['appointments']) && $nav_badges['appointments'] > 0): ?>
+                    <span class="nav-badge" style="background:#2563eb; color:#ffffff; font-size:10px; padding:1px 6px; font-weight:800; border-radius:10px;"><?php echo $nav_badges['appointments']; ?></span>
+                    <?php endif; ?>
+                </a>
+            </li>
+            <li class="menu-item <?php echo ($active_page === 'partner_requests.php') ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>partner_requests.php" title="Partner Portal Requests Desk">
+                    <i data-lucide="handshake"></i>
+                    <span class="menu-text">Partner Inquiries</span>
+                    <?php if (!empty($nav_badges['partner_requests']) && $nav_badges['partner_requests'] > 0): ?>
+                    <span class="nav-badge" style="background:#f59e0b; color:#ffffff; font-size:10px; padding:1px 6px; font-weight:800; border-radius:10px;"><?php echo $nav_badges['partner_requests']; ?></span>
+                    <?php endif; ?>
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'field_visits.php') ? 'active' : ''; ?>">

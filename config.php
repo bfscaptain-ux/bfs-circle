@@ -2749,7 +2749,7 @@ $is_in_subfolder = $is_in_rm_dir || $is_in_staff_dir || $is_in_agent_dir || $is_
 
 // Authentication check for page load (excluding login.php, forgot_password.php, apply.php, track.php and CLI)
 $public_apis = ['login', 'verify_admin_2fa', 'resend_admin_2fa', 'listmonk_webhook', 'client_upload_document', 'client_submit_query', 'client_request_callback', 'client_confirm_verification', 'client_accept_sanction', 'client_refer_friend', 'forgot_password_request_otp', 'forgot_password_verify_otp', 'forgot_password_complete', 'inbound_email_webhook'];
-if (php_sapi_name() !== 'cli' && !isset($_SESSION['user_id']) && $current_page !== 'login.php' && $current_page !== 'forgot_password.php' && $current_page !== 'apply.php' && $current_page !== 'track.php') {
+if (php_sapi_name() !== 'cli' && !isset($_SESSION['user_id']) && $current_page !== 'login.php' && $current_page !== 'forgot_password.php' && $current_page !== 'apply.php' && $current_page !== 'track.php' && $current_page !== 'api_website_lead.php') {
     // If not logged in and calling an API, return unauthorized
     if (isset($_GET['api'])) {
         if (!in_array($_GET['api'], $public_apis)) {
@@ -2775,7 +2775,7 @@ if (php_sapi_name() !== 'cli' && isset($_SESSION['user_id']) && !isset($_GET['ap
         'applicant_documents.php', 'applicant_disbursements.php', 'applicant_bank_assign.php', 'view_banker.php', 'add_banker.php', 
         'edit_banker.php', 'view_referral.php', 'add_referral.php', 'edit_referral.php', 
         'referrals_list.php', 'profile.php', 'send_email.php', 'quotation_builder.php', 
-        'quotation_list.php', 'applicants_list.php', 'view_applicant.php', 'track.php'
+        'quotation_list.php', 'applicants_list.php', 'view_applicant.php', 'track.php', 'appointments.php', 'partner_requests.php'
     ];
 
     if (!$is_in_subfolder && $current_page !== 'logout.php' && $current_page !== 'login.php' && $current_page !== 'apply.php' && $current_page !== 'track.php') {
