@@ -15,7 +15,7 @@ if %errorlevel% equ 0 (
 ) else (
     echo [STARTING] Launching PHP CRM Server on port 8000...
     set PHP_CLI_SERVER_WORKERS=4
-    start "BFS_PHP_SERVER" /min "%~dp0php-portable\php.exe" -S 0.0.0.0:8000
+    start "BFS_PHP_SERVER" /min "%~dp0php-portable\php.exe" -S 0.0.0.0:8000 -t "%~dp0"
     ping 127.0.0.1 -n 2 >nul
 )
 
