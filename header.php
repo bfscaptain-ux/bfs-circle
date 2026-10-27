@@ -3391,15 +3391,6 @@ if (isset($db)) {
                     <?php endif; ?>
                 </a>
             </li>
-            <li class="menu-item <?php echo ($active_page === 'partner_requests.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>partner_requests.php" title="Partner Portal Requests Desk">
-                    <i data-lucide="handshake"></i>
-                    <span class="menu-text">Partner Inquiries</span>
-                    <?php if (!empty($nav_badges['partner_requests']) && $nav_badges['partner_requests'] > 0): ?>
-                    <span class="nav-badge" style="background:#f59e0b; color:#ffffff; font-size:10px; padding:1px 6px; font-weight:800; border-radius:10px;"><?php echo $nav_badges['partner_requests']; ?></span>
-                    <?php endif; ?>
-                </a>
-            </li>
             <li class="menu-item <?php echo ($active_page === 'field_visits.php') ? 'active' : ''; ?>">
                 <a href="<?php echo $base_path; ?>field_visits.php" title="Field Visits">
                     <i data-lucide="map-pin"></i>
@@ -3407,9 +3398,12 @@ if (isset($db)) {
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'referrals_list.php' || $active_page === 'add_referral.php' || $active_page === 'view_referral.php' || $active_page === 'edit_referral.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>referrals_list.php" title="Referrals / DSA">
+                <a href="<?php echo $base_path; ?>referrals_list.php" title="Referrals & DSA Network">
                     <i data-lucide="briefcase"></i>
                     <span class="menu-text">Referrals / DSA</span>
+                    <?php if (!empty($nav_badges['partner_requests']) && $nav_badges['partner_requests'] > 0): ?>
+                    <span class="nav-badge" style="background:#f59e0b; color:#ffffff; font-size:10px; padding:1px 6px; font-weight:800; border-radius:10px;" title="<?php echo $nav_badges['partner_requests']; ?> new website partner requests"><?php echo $nav_badges['partner_requests']; ?></span>
+                    <?php endif; ?>
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'rm_leaderboard.php') ? 'active' : ''; ?>">

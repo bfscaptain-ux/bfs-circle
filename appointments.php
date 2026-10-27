@@ -2,8 +2,8 @@
 require_once __DIR__ . '/config.php';
 require_role(['Admin', 'RM', 'Staff']);
 
-$page_title = "Website Appointments";
-$page_subtitle = "Scheduled consultations & doorstep meetings from website visitors";
+$page_title = "Appointments Desk";
+$page_subtitle = "Doorstep visits, phone consultations & meeting slots booked from website";
 $hide_main_header = true;
 require_once __DIR__ . '/header.php';
 
@@ -42,9 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 // Fetch Staff / RMs for assignment
 $staff_list = $db->query("SELECT username, full_name, role FROM users WHERE is_active=1 ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
 
-// Base query for Appointments
+// Filters
 $filter_status = $_GET['status'] ?? 'all';
 $filter_date = $_GET['date_range'] ?? 'all';
+$filter_prod = $_GET['product'] ?? 'all';
+$filter_rm = $_GET['rm'] ?? 'all';
 $search = trim($_GET['search'] ?? '');
 
 $sql = "SELECT * FROM website_appointments WHERE 1=1";
@@ -56,16 +58,36 @@ if ($filter_status !== 'all' && !empty($filter_status)) {
 }
 
 if ($filter_date === 'today') {
-    $sql .= " AND (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('d M') . "%')";
+    $sql .= " AND (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')";
+} elseif ($filter_date === 'tomorrow') {
+    $tomorrow = date('Y-m-d', strtotime('+1 day'));
+    $sql .= " AND (slot_date = ? OR slot_date LIKE '%Tomorrow%' OR slot_date LIKE '%" . date('d M', strtotime('+1 day')) . "%')";
+    $params[] = $tomorrow;
 } elseif ($filter_date === 'upcoming') {
     $sql .= " AND status IN ('Scheduled', 'Confirmed')";
 } elseif ($filter_date === 'completed') {
     $sql .= " AND status = 'Completed'";
 }
 
+if ($filter_prod !== 'all' && !empty($filter_prod)) {
+    $sql .= " AND (product_type LIKE ? OR sub_type LIKE ?)";
+    $params[] = "%$filter_prod%";
+    $params[] = "%$filter_prod%";
+}
+
+if ($filter_rm !== 'all' && !empty($filter_rm)) {
+    if ($filter_rm === 'unassigned') {
+        $sql .= " AND (assigned_to IS NULL OR assigned_to = '')";
+    } else {
+        $sql .= " AND assigned_to = ?";
+        $params[] = $filter_rm;
+    }
+}
+
 if (!empty($search)) {
-    $sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ?)";
+    $sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR sub_type LIKE ?)";
     $s_term = "%$search%";
+    $params[] = $s_term;
     $params[] = $s_term;
     $params[] = $s_term;
     $params[] = $s_term;
@@ -80,202 +102,403 @@ $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Metrics
 $total_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments")->fetchColumn();
 $scheduled_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status IN ('Scheduled', 'Confirmed')")->fetchColumn();
-$today_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('d M') . "%')")->fetchColumn();
+$today_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')")->fetchColumn();
 $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status = 'Completed'")->fetchColumn();
+
+// Helper to generate Google Calendar Link
+function get_google_calendar_url($app) {
+    $title = urlencode("BFS Consultation: " . $app['name'] . " (" . ($app['sub_type'] ?: 'Loan Advisory') . ")");
+    
+    // Parse Date and Time
+    $date_str = $app['slot_date'] ?: date('Y-m-d');
+    $time_str = $app['slot_time'] ?: '11:00 AM';
+    
+    // Attempt parse
+    $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+    if ($start_ts === false || $start_ts < 0) {
+        $start_ts = strtotime('+1 day 11:00 AM');
+    }
+    $end_ts = $start_ts + (60 * 60); // 1 hour duration
+    
+    $dates = gmdate('Ymd\THis\Z', $start_ts) . '/' . gmdate('Ymd\THis\Z', $end_ts);
+    $location = urlencode(($app['city'] ?: 'Agra') . ', India');
+    $details = urlencode("Applicant: " . $app['name'] . "\nPhone: " . $app['phone'] . "\nEmail: " . $app['email'] . "\nProduct: " . $app['product_type'] . " - " . $app['sub_type'] . "\nCity: " . $app['city'] . "\nNotes: " . $app['message']);
+    
+    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$title}&dates={$dates}&details={$details}&location={$location}";
+}
 ?>
 
 <style>
-.appt-hub { display: flex; flex-direction: column; gap: 20px; }
+/* ====== BFS CIRCLE LUXURY APPOINTMENTS DESK THEME ====== */
+:root {
+    --appt-navy: #0f172a;
+    --appt-card-bg: #ffffff;
+    --appt-border: #e2e8f0;
+    --appt-orange: #f97316;
+    --appt-emerald: #10b981;
+    --appt-blue: #2563eb;
+    --appt-text: #0f172a;
+    --appt-muted: #64748b;
+}
+
+.appt-container {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+}
+
+/* TOP HEADER */
+.appt-topbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+.appt-title-group h1 {
+    font-size: 22px;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    color: var(--appt-text);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: -0.3px;
+}
+.appt-title-group p {
+    font-size: 13px;
+    color: var(--appt-muted);
+    margin: 3px 0 0;
+}
 
 /* KPI CARDS */
-.appt-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.appt-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+}
 @media (max-width: 992px) { .appt-kpis { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 576px) { .appt-kpis { grid-template-columns: 1fr; } }
 
 .appt-kpi {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 16px 20px;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 14px 18px;
     display: flex;
     align-items: center;
-    gap: 16px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    gap: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.appt-kpi:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
 }
 .appt-kpi-icon {
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
-.appt-kpi-val { font-size: 26px; font-weight: 800; font-family: 'Outfit', sans-serif; line-height: 1; }
-.appt-kpi-lbl { font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 4px; }
+.appt-kpi-val { font-size: 24px; font-weight: 800; font-family: 'Outfit', sans-serif; line-height: 1; }
+.appt-kpi-lbl { font-size: 11.5px; color: var(--appt-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px; }
 
-/* FILTER BAR */
-.appt-filter-bar {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 14px;
-    padding: 14px 18px;
+/* QUICK STATUS TABS */
+.appt-quick-tabs {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-    justify-content: space-between;
+    gap: 8px;
+    overflow-x: auto;
+    padding-bottom: 2px;
 }
-.appt-search {
-    flex: 1;
-    min-width: 250px;
+.appt-tab-btn {
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--appt-muted);
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.appt-tab-btn:hover {
+    color: var(--appt-text);
+    border-color: #cbd5e1;
+    background: #f8fafc;
+}
+.appt-tab-btn.active {
+    background: #0f172a;
+    color: #ffffff;
+    border-color: #0f172a;
+    font-weight: 700;
+}
+.appt-tab-badge {
+    padding: 1px 6px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(0,0,0,0.08);
+}
+.appt-tab-btn.active .appt-tab-badge {
+    background: rgba(255,255,255,0.22);
+    color: #ffffff;
+}
+
+/* UNIFIED IN-LINE FILTER BAR */
+.appt-filter-row {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+    overflow-x: auto;
+}
+@media (max-width: 900px) {
+    .appt-filter-row {
+        flex-wrap: wrap;
+    }
+}
+.appt-search-field {
+    flex: 2;
+    min-width: 220px;
     position: relative;
     display: flex;
     align-items: center;
 }
-.appt-search input {
+.appt-search-field input {
     width: 100%;
-    padding: 9px 14px 9px 38px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg-main);
-    color: var(--text-primary);
-    font-size: 13.5px;
-    outline: none;
-    transition: border-color 0.2s;
-}
-.appt-search input:focus { border-color: var(--primary); }
-.appt-search i { position: absolute; left: 12px; color: var(--text-muted); width: 16px; height: 16px; }
-
-.appt-selects { display: flex; gap: 10px; flex-wrap: wrap; }
-.appt-selects select {
-    padding: 9px 30px 9px 12px;
-    border: 1px solid var(--border);
-    border-radius: 10px;
-    background: var(--bg-main);
-    color: var(--text-primary);
+    padding: 8px 12px 8px 36px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: var(--appt-text);
     font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+}
+.appt-search-field input:focus {
+    background: #ffffff;
+    border-color: #0f172a;
+    box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.05);
+}
+.appt-search-field i {
+    position: absolute;
+    left: 11px;
+    color: #94a3b8;
+    width: 15px;
+    height: 15px;
+}
+
+.appt-select-field {
+    flex: 1;
+    min-width: 130px;
+}
+.appt-select-field select {
+    width: 100%;
+    padding: 8px 24px 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: var(--appt-text);
+    font-size: 12.5px;
     font-weight: 500;
     outline: none;
     cursor: pointer;
+    transition: all 0.2s;
+}
+.appt-select-field select:hover { border-color: #cbd5e1; }
+.appt-select-field select:focus {
+    background: #ffffff;
+    border-color: #0f172a;
 }
 
-/* APPOINTMENT CARDS / TABLE */
-.appt-table-card {
-    background: var(--bg-card);
-    border: 1px solid var(--border);
+.btn-filter-clear {
+    padding: 7px 12px;
+    border-radius: 8px;
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+}
+.btn-filter-clear:hover {
+    background: #f1f5f9;
+    color: #0f172a;
+}
+
+/* DATA TABLE CARD */
+.appt-card-wrapper {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
     border-radius: 14px;
     overflow: hidden;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.02);
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
 }
-.appt-table { width: 100%; border-collapse: collapse; text-align: left; }
+.appt-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
 .appt-table th {
-    background: rgba(0,0,0,0.02);
-    padding: 14px 18px;
-    font-size: 12px;
+    background: #f8fafc;
+    padding: 12px 16px;
+    font-size: 11.5px;
     font-weight: 700;
-    color: var(--text-muted);
+    color: #64748b;
     text-transform: uppercase;
     letter-spacing: 0.6px;
-    border-bottom: 1px solid var(--border);
+    border-bottom: 1px solid #e2e8f0;
 }
 .appt-table td {
-    padding: 16px 18px;
-    font-size: 13.5px;
-    border-bottom: 1px solid var(--border);
+    padding: 14px 16px;
+    font-size: 13px;
+    border-bottom: 1px solid #f1f5f9;
     vertical-align: middle;
 }
-.appt-table tr:hover td { background: rgba(0,0,0,0.015); }
+.appt-table tr:hover td { background: #fafafa; }
 .appt-table tr:last-child td { border-bottom: none; }
 
-.client-name { font-weight: 700; color: var(--text-primary); font-size: 14.5px; }
-.client-meta { font-size: 12px; color: var(--text-muted); display: flex; gap: 8px; align-items: center; margin-top: 3px; }
-
-.slot-badge {
+/* SLOT TIME CAPSULE */
+.slot-capsule {
     display: inline-flex;
     align-items: center;
     gap: 6px;
     padding: 5px 10px;
     background: #f0fdf4;
-    color: #166534;
     border: 1px solid #bbf7d0;
     border-radius: 8px;
+    color: #15803d;
     font-weight: 700;
-    font-size: 12.5px;
+    font-size: 12px;
 }
-.dark .slot-badge { background: #064e3b; color: #a7f3d0; border-color: #047857; }
+.slot-home-visit {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #1d4ed8;
+}
+.slot-date-text { font-weight: 800; }
+.slot-time-text { font-weight: 600; opacity: 0.85; }
 
-.status-pill {
+/* STATUS DROPDOWN PILL */
+.appt-status-select {
     padding: 4px 10px;
     border-radius: 20px;
-    font-size: 11.5px;
-    font-weight: 700;
-    text-transform: uppercase;
+    font-size: 11px;
+    font-weight: 800;
     letter-spacing: 0.4px;
-    display: inline-block;
+    text-transform: uppercase;
+    cursor: pointer;
+    outline: none;
+    border: 1px solid transparent;
 }
-.status-Scheduled   { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
-.status-Confirmed   { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
-.status-Completed   { background: #f8fafc; color: #475569; border: 1px solid #cbd5e1; }
-.status-Rescheduled { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-.status-Cancelled   { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+.appt-status-Scheduled   { background: #eff6ff; color: #1d4ed8; border-color: #bfdbfe; }
+.appt-status-Confirmed   { background: #f0fdf4; color: #15803d; border-color: #bbf7d0; }
+.appt-status-Completed   { background: #f8fafc; color: #475569; border-color: #cbd5e1; }
+.appt-status-Rescheduled { background: #fffbeb; color: #b45309; border-color: #fde68a; }
+.appt-status-Cancelled   { background: #fef2f2; color: #b91c1c; border-color: #fecaca; }
 
-.appt-actions { display: flex; gap: 8px; align-items: center; }
-.btn-action {
+/* ACTION BUTTONS */
+.appt-actions-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    justify-content: flex-end;
+}
+.btn-appt-tool {
     width: 32px;
     height: 32px;
     border-radius: 8px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid var(--border);
-    background: var(--bg-main);
-    color: var(--text-primary);
+    border: 1px solid #e2e8f0;
+    background: #ffffff;
+    color: #0f172a;
     cursor: pointer;
     transition: all 0.2s;
     text-decoration: none;
 }
-.btn-action:hover { transform: translateY(-2px); border-color: var(--primary); }
-.btn-wa { background: #25d366; color: white !important; border-color: #25d366; }
-.btn-call { background: #0f172a; color: white !important; }
+.btn-appt-tool:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0,0,0,0.06);
+}
+.btn-appt-gcal {
+    background: #ffffff;
+    color: #2563eb !important;
+    border-color: #bfdbfe;
+}
+.btn-appt-gcal:hover {
+    background: #eff6ff;
+    border-color: #2563eb;
+}
+.btn-appt-wa {
+    background: #25d366;
+    color: #ffffff !important;
+    border-color: #25d366;
+}
+.btn-appt-call {
+    background: #0f172a;
+    color: #ffffff !important;
+    border-color: #0f172a;
+}
 </style>
 
-<div class="appt-hub">
-    <!-- TOP HEADER -->
-    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-        <div>
-            <h1 style="font-size:24px; font-weight:800; font-family:'Outfit',sans-serif; margin:0; display:flex; align-items:center; gap:10px;">
-                <i data-lucide="calendar" style="color:#0f172a; width:26px; height:26px;"></i>
+<div class="appt-container">
+    <!-- 1. TOP HEADER -->
+    <div class="appt-topbar">
+        <div class="appt-title-group">
+            <h1>
+                <i data-lucide="calendar" style="color:#0f172a; width:24px; height:24px;"></i>
                 Website Appointments Desk
             </h1>
-            <p style="font-size:13px; color:var(--text-muted); margin:4px 0 0;">
-                All live doorstep visits, phone consultations & meeting slots booked from <code>bfsfin.com/appointment</code>
+            <p>
+                All consultation meetings & doorstep visit requests booked from <code>bfsfin.com/appointment</code>
             </p>
         </div>
-        <div style="display:flex; gap:10px;">
-            <a href="leads.php" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:8px 14px;">
-                <i data-lucide="target" style="width:15px; height:15px;"></i> All Leads Desk
+        <div style="display:flex; gap:10px; align-items:center;">
+            <a href="leads.php" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:7px 12px;">
+                <i data-lucide="target" style="width:14px; height:14px;"></i> Leads Desk
             </a>
-            <a href="reminders.php" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:13px; padding:8px 14px;">
-                <i data-lucide="bell" style="width:15px; height:15px;"></i> Reminders
+            <a href="reminders.php" class="btn btn-outline" style="display:inline-flex; align-items:center; gap:6px; font-size:12.5px; padding:7px 12px;">
+                <i data-lucide="bell" style="width:14px; height:14px;"></i> Reminders
             </a>
         </div>
     </div>
 
-    <!-- KPIS -->
+    <!-- 2. HIGH-SIGNAL KPIS -->
     <div class="appt-kpis">
         <div class="appt-kpi">
             <div class="appt-kpi-icon" style="background:#eff6ff; color:#2563eb;">
-                <i data-lucide="calendar" style="width:24px; height:24px;"></i>
+                <i data-lucide="calendar-days" style="width:22px; height:22px;"></i>
             </div>
             <div>
                 <div class="appt-kpi-val"><?php echo $total_count; ?></div>
-                <div class="appt-kpi-lbl">Total Appointments</div>
+                <div class="appt-kpi-lbl">Total Bookings</div>
             </div>
         </div>
         <div class="appt-kpi">
-            <div class="appt-kpi-icon" style="background:#fef3c7; color:#d97706;">
-                <i data-lucide="clock" style="width:24px; height:24px;"></i>
+            <div class="appt-kpi-icon" style="background:#fffbeb; color:#d97706;">
+                <i data-lucide="clock" style="width:22px; height:22px;"></i>
             </div>
             <div>
                 <div class="appt-kpi-val" style="color:#d97706;"><?php echo $today_count; ?></div>
@@ -284,16 +507,16 @@ $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WH
         </div>
         <div class="appt-kpi">
             <div class="appt-kpi-icon" style="background:#f0fdf4; color:#16a34a;">
-                <i data-lucide="check-circle" style="width:24px; height:24px;"></i>
+                <i data-lucide="calendar-check" style="width:22px; height:22px;"></i>
             </div>
             <div>
                 <div class="appt-kpi-val" style="color:#16a34a;"><?php echo $scheduled_count; ?></div>
-                <div class="appt-kpi-lbl">Active / Pending</div>
+                <div class="appt-kpi-lbl">Active & Pending</div>
             </div>
         </div>
         <div class="appt-kpi">
             <div class="appt-kpi-icon" style="background:#f8fafc; color:#64748b;">
-                <i data-lucide="folder-check" style="width:24px; height:24px;"></i>
+                <i data-lucide="check-check" style="width:22px; height:22px;"></i>
             </div>
             <div>
                 <div class="appt-kpi-val"><?php echo $completed_count; ?></div>
@@ -302,96 +525,180 @@ $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WH
         </div>
     </div>
 
-    <!-- FILTER BAR -->
-    <form method="GET" class="appt-filter-bar">
-        <div class="appt-search">
+    <!-- 3. QUICK STATUS TABS -->
+    <div class="appt-quick-tabs">
+        <a href="appointments.php" class="appt-tab-btn <?php echo ($filter_status === 'all' && $filter_date === 'all') ? 'active' : ''; ?>">
+            <span>All Bookings</span>
+            <span class="appt-tab-badge"><?php echo $total_count; ?></span>
+        </a>
+        <a href="appointments.php?date_range=today" class="appt-tab-btn <?php echo ($filter_date === 'today') ? 'active' : ''; ?>">
+            <span>Today's</span>
+            <span class="appt-tab-badge"><?php echo $today_count; ?></span>
+        </a>
+        <a href="appointments.php?date_range=tomorrow" class="appt-tab-btn <?php echo ($filter_date === 'tomorrow') ? 'active' : ''; ?>">
+            <span>Tomorrow</span>
+        </a>
+        <a href="appointments.php?date_range=upcoming" class="appt-tab-btn <?php echo ($filter_date === 'upcoming') ? 'active' : ''; ?>">
+            <span>Active / Pending</span>
+            <span class="appt-tab-badge"><?php echo $scheduled_count; ?></span>
+        </a>
+        <a href="appointments.php?status=Completed" class="appt-tab-btn <?php echo ($filter_status === 'Completed') ? 'active' : ''; ?>">
+            <span>Completed</span>
+            <span class="appt-tab-badge"><?php echo $completed_count; ?></span>
+        </a>
+    </div>
+
+    <!-- 4. PERFECT IN-LINE FILTER BAR -->
+    <form method="GET" class="appt-filter-row">
+        <!-- Search Input -->
+        <div class="appt-search-field">
             <i data-lucide="search"></i>
-            <input type="text" name="search" placeholder="Search by applicant name, mobile, email or city..." value="<?php echo htmlspecialchars($search); ?>">
+            <input type="text" name="search" placeholder="Search applicant, phone, email, city..." value="<?php echo htmlspecialchars($search); ?>">
         </div>
-        <div class="appt-selects">
+
+        <!-- Date Range Filter -->
+        <div class="appt-select-field">
             <select name="date_range" onchange="this.form.submit()">
                 <option value="all" <?php echo $filter_date === 'all' ? 'selected' : ''; ?>>All Dates</option>
-                <option value="today" <?php echo $filter_date === 'today' ? 'selected' : ''; ?>>Today's Appointments</option>
-                <option value="upcoming" <?php echo $filter_date === 'upcoming' ? 'selected' : ''; ?>>Active / Upcoming</option>
-                <option value="completed" <?php echo $filter_date === 'completed' ? 'selected' : ''; ?>>Completed</option>
+                <option value="today" <?php echo $filter_date === 'today' ? 'selected' : ''; ?>>Today</option>
+                <option value="tomorrow" <?php echo $filter_date === 'tomorrow' ? 'selected' : ''; ?>>Tomorrow</option>
+                <option value="upcoming" <?php echo $filter_date === 'upcoming' ? 'selected' : ''; ?>>Active Upcoming</option>
+                <option value="completed" <?php echo $filter_date === 'completed' ? 'selected' : ''; ?>>Past / Completed</option>
             </select>
+        </div>
+
+        <!-- Status Filter -->
+        <div class="appt-select-field">
             <select name="status" onchange="this.form.submit()">
                 <option value="all" <?php echo $filter_status === 'all' ? 'selected' : ''; ?>>All Statuses</option>
                 <option value="Scheduled" <?php echo $filter_status === 'Scheduled' ? 'selected' : ''; ?>>Scheduled</option>
                 <option value="Confirmed" <?php echo $filter_status === 'Confirmed' ? 'selected' : ''; ?>>Confirmed</option>
                 <option value="Completed" <?php echo $filter_status === 'Completed' ? 'selected' : ''; ?>>Completed</option>
+                <option value="Rescheduled" <?php echo $filter_status === 'Rescheduled' ? 'selected' : ''; ?>>Rescheduled</option>
                 <option value="Cancelled" <?php echo $filter_status === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
             </select>
-            <?php if (!empty($search) || $filter_status !== 'all' || $filter_date !== 'all'): ?>
-            <a href="appointments.php" class="btn btn-outline" style="padding:8px 12px; font-size:12.5px;">Clear</a>
-            <?php endif; ?>
         </div>
+
+        <!-- Product Filter -->
+        <div class="appt-select-field">
+            <select name="product" onchange="this.form.submit()">
+                <option value="all" <?php echo $filter_prod === 'all' ? 'selected' : ''; ?>>All Products</option>
+                <option value="Home Loan" <?php echo $filter_prod === 'Home Loan' ? 'selected' : ''; ?>>Home Loan</option>
+                <option value="LAP" <?php echo $filter_prod === 'LAP' ? 'selected' : ''; ?>>Loan Against Property</option>
+                <option value="Business" <?php echo $filter_prod === 'Business' ? 'selected' : ''; ?>>Business Loan</option>
+                <option value="Doctor" <?php echo $filter_prod === 'Doctor' ? 'selected' : ''; ?>>Doctor Loan</option>
+                <option value="Insurance" <?php echo $filter_prod === 'Insurance' ? 'selected' : ''; ?>>Insurance</option>
+            </select>
+        </div>
+
+        <!-- RM Filter -->
+        <div class="appt-select-field">
+            <select name="rm" onchange="this.form.submit()">
+                <option value="all" <?php echo $filter_rm === 'all' ? 'selected' : ''; ?>>All Assigned RMs</option>
+                <option value="unassigned" <?php echo $filter_rm === 'unassigned' ? 'selected' : ''; ?>>Unassigned Only</option>
+                <?php foreach ($staff_list as $st): ?>
+                <option value="<?php echo htmlspecialchars($st['username']); ?>" <?php echo $filter_rm === $st['username'] ? 'selected' : ''; ?>>
+                    <?php echo htmlspecialchars($st['full_name'] ?: $st['username']); ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
+        <!-- Reset Button -->
+        <?php if (!empty($search) || $filter_status !== 'all' || $filter_date !== 'all' || $filter_prod !== 'all' || $filter_rm !== 'all'): ?>
+        <a href="appointments.php" class="btn-filter-clear">
+            <i data-lucide="x" style="width:13px; height:13px;"></i> Clear
+        </a>
+        <?php endif; ?>
     </form>
 
-    <!-- APPOINTMENTS TABLE -->
-    <div class="appt-table-card">
+    <!-- 5. APPOINTMENTS TABLE -->
+    <div class="appt-card-wrapper">
         <?php if (empty($appointments)): ?>
-        <div style="padding:48px 20px; text-align:center; color:var(--text-muted);">
-            <i data-lucide="calendar-x" style="width:48px; height:48px; stroke-width:1.5; margin:0 auto 12px; display:block; opacity:0.6;"></i>
-            <h3 style="font-size:16px; font-weight:700; color:var(--text-primary); margin:0 0 6px;">No Appointments Found</h3>
-            <p style="font-size:13px; margin:0;">No bookings matched your filter criteria. When visitors schedule from the website, they appear here instantly.</p>
+        <div style="padding:48px 20px; text-align:center; color:var(--appt-muted);">
+            <i data-lucide="calendar-x" style="width:44px; height:44px; stroke-width:1.5; margin:0 auto 10px; display:block; opacity:0.5;"></i>
+            <h3 style="font-size:16px; font-weight:700; color:var(--appt-text); margin:0 0 5px;">No Appointments Found</h3>
+            <p style="font-size:13px; margin:0;">No bookings matched your filter selection. Try adjusting the inline filters above.</p>
         </div>
         <?php else: ?>
         <div style="overflow-x:auto;">
             <table class="appt-table">
                 <thead>
                     <tr>
-                        <th>Slot & Date</th>
-                        <th>Applicant</th>
-                        <th>Product / Purpose</th>
-                        <th>City / Location</th>
+                        <th style="min-width:160px;">Slot & Date</th>
+                        <th style="min-width:200px;">Applicant Profile</th>
+                        <th style="min-width:180px;">Product / Requirement</th>
+                        <th>Location</th>
                         <th>Status</th>
                         <th>Assigned RM</th>
-                        <th style="text-align:right;">Actions</th>
+                        <th style="text-align:right; min-width:140px;">Quick Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php foreach ($appointments as $app): 
                         $raw_phone = preg_replace('/[^0-9]/', '', $app['phone']);
-                        $wa_msg = urlencode("Hi " . $app['name'] . ", this is regarding your appointment with Bhardwaj Financial Services on " . ($app['slot_date'] ?: 'your scheduled date') . ". How can we assist you today?");
+                        $wa_msg = urlencode("Hi " . $app['name'] . ", this is regarding your consultation appointment with Bhardwaj Financial Services scheduled for " . ($app['slot_date'] ?: 'your booking') . " (" . ($app['slot_time'] ?: '') . "). Please let us know if this time works for you!");
+                        $is_home_visit = (stripos($app['source'] ?? '', 'Home Visit') !== false || stripos($app['message'] ?? '', 'Doorstep') !== false);
+                        $gcal_url = get_google_calendar_url($app);
                     ?>
                     <tr>
+                        <!-- Slot & Date -->
                         <td>
-                            <div class="slot-badge">
-                                <i data-lucide="clock" style="width:13px; height:13px;"></i>
-                                <span><?php echo htmlspecialchars($app['slot_date'] ?: 'TBD'); ?></span>
+                            <div class="slot-capsule <?php echo $is_home_visit ? 'slot-home-visit' : ''; ?>">
+                                <i data-lucide="<?php echo $is_home_visit ? 'home' : 'clock'; ?>" style="width:12px; height:12px;"></i>
+                                <span class="slot-date-text"><?php echo htmlspecialchars($app['slot_date'] ?: 'TBD'); ?></span>
                                 <?php if (!empty($app['slot_time'])): ?>
-                                <span style="opacity:0.75;">• <?php echo htmlspecialchars($app['slot_time']); ?></span>
+                                <span class="slot-time-text">• <?php echo htmlspecialchars($app['slot_time']); ?></span>
                                 <?php endif; ?>
                             </div>
-                            <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+                            <?php if ($is_home_visit): ?>
+                            <div style="font-size:11px; font-weight:700; color:#2563eb; margin-top:3px;">
+                                🏠 Doorstep Visit
+                            </div>
+                            <?php endif; ?>
+                            <div style="font-size:10.5px; color:#94a3b8; margin-top:3px;">
                                 Booked: <?php echo date('d M, h:i A', strtotime($app['created_at'])); ?>
                             </div>
                         </td>
+
+                        <!-- Applicant Profile -->
                         <td>
-                            <div class="client-name"><?php echo htmlspecialchars($app['name']); ?></div>
-                            <div class="client-meta">
+                            <div style="font-weight:700; color:var(--appt-text); font-size:14px;">
+                                <?php echo htmlspecialchars($app['name']); ?>
+                            </div>
+                            <div style="font-size:12px; color:var(--appt-muted); display:flex; gap:6px; align-items:center; margin-top:2px;">
                                 <span><i data-lucide="phone" style="width:11px; height:11px;"></i> <?php echo htmlspecialchars($app['phone']); ?></span>
                                 <?php if (!empty($app['email']) && !str_contains($app['email'], 'no-email')): ?>
                                 <span>• <?php echo htmlspecialchars($app['email']); ?></span>
                                 <?php endif; ?>
                             </div>
                         </td>
+
+                        <!-- Product & Purpose -->
                         <td>
-                            <div style="font-weight:700; color:var(--text-primary);">
+                            <div style="font-weight:700; color:var(--appt-text);">
                                 <?php echo htmlspecialchars($app['product_type'] ?: 'Finance'); ?>
                             </div>
-                            <div style="font-size:12px; color:var(--text-muted);">
+                            <div style="font-size:11.5px; color:var(--appt-muted); margin-top:2px;">
                                 <?php echo htmlspecialchars($app['sub_type'] ?: 'Consultation'); ?>
                             </div>
+                            <?php if (!empty($app['message']) && stripos($app['message'], 'DPDP') === false): ?>
+                            <div style="font-size:11px; color:#64748b; margin-top:3px; max-width:260px; line-height:1.3; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($app['message']); ?>">
+                                💬 "<?php echo htmlspecialchars($app['message']); ?>"
+                            </div>
+                            <?php endif; ?>
                         </td>
+
+                        <!-- Location -->
                         <td>
-                            <span style="font-weight:600; color:var(--text-primary);">
+                            <span style="font-weight:600; color:var(--appt-text);">
                                 <?php echo htmlspecialchars($app['city'] ?: 'Agra'); ?>
                             </span>
                         </td>
+
+                        <!-- Status -->
                         <td>
-                            <select onchange="updateApptStatus(<?php echo $app['id']; ?>, this.value)" class="status-pill status-<?php echo htmlspecialchars($app['status']); ?>" style="cursor:pointer; outline:none; border:none;">
+                            <select onchange="updateApptStatus(<?php echo $app['id']; ?>, this.value)" class="appt-status-select appt-status-<?php echo htmlspecialchars($app['status']); ?>">
                                 <option value="Scheduled" <?php echo $app['status'] === 'Scheduled' ? 'selected' : ''; ?>>Scheduled</option>
                                 <option value="Confirmed" <?php echo $app['status'] === 'Confirmed' ? 'selected' : ''; ?>>Confirmed</option>
                                 <option value="Completed" <?php echo $app['status'] === 'Completed' ? 'selected' : ''; ?>>Completed</option>
@@ -399,8 +706,10 @@ $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WH
                                 <option value="Cancelled" <?php echo $app['status'] === 'Cancelled' ? 'selected' : ''; ?>>Cancelled</option>
                             </select>
                         </td>
+
+                        <!-- Assigned RM -->
                         <td>
-                            <select onchange="assignApptRM(<?php echo $app['id']; ?>, this.value)" style="padding:4px 8px; border-radius:6px; font-size:12px; border:1px solid var(--border); background:var(--bg-main); color:var(--text-primary); cursor:pointer;">
+                            <select onchange="assignApptRM(<?php echo $app['id']; ?>, this.value)" style="padding:4px 8px; border-radius:6px; font-size:12px; border:1px solid #e2e8f0; background:#f8fafc; color:var(--appt-text); cursor:pointer;">
                                 <option value="">Unassigned</option>
                                 <?php foreach ($staff_list as $st): ?>
                                 <option value="<?php echo htmlspecialchars($st['username']); ?>" <?php echo $app['assigned_to'] === $st['username'] ? 'selected' : ''; ?>>
@@ -409,19 +718,30 @@ $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WH
                                 <?php endforeach; ?>
                             </select>
                         </td>
+
+                        <!-- Quick Actions -->
                         <td style="text-align:right;">
-                            <div class="appt-actions" style="justify-content:flex-end;">
-                                <?php if (!empty($raw_phone)): ?>
-                                <a href="tel:<?php echo $raw_phone; ?>" class="btn-action btn-call" title="Call Applicant">
-                                    <i data-lucide="phone" style="width:14px; height:14px;"></i>
+                            <div class="appt-actions-bar">
+                                <!-- 1. Add to Google Calendar -->
+                                <a href="<?php echo $gcal_url; ?>" target="_blank" class="btn-appt-tool btn-appt-gcal" title="Sync / Add to Google Calendar">
+                                    <i data-lucide="calendar-plus" style="width:14px; height:14px;"></i>
                                 </a>
-                                <a href="https://wa.me/91<?php echo substr($raw_phone, -10); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="btn-action btn-wa" title="Open WhatsApp Chat">
+
+                                <?php if (!empty($raw_phone)): ?>
+                                <!-- 2. Direct Call -->
+                                <a href="tel:<?php echo $raw_phone; ?>" class="btn-appt-tool btn-appt-call" title="Call Applicant">
+                                    <i data-lucide="phone" style="width:13px; height:13px;"></i>
+                                </a>
+                                <!-- 3. Direct WhatsApp -->
+                                <a href="https://wa.me/91<?php echo substr($raw_phone, -10); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="btn-appt-tool btn-appt-wa" title="WhatsApp Appointment Confirmation">
                                     <i data-lucide="message-circle" style="width:14px; height:14px;"></i>
                                 </a>
                                 <?php endif; ?>
+
                                 <?php if (!empty($app['lead_id'])): ?>
-                                <a href="leads.php?edit_lead=<?php echo (int)$app['lead_id']; ?>" class="btn-action" title="View Full CRM Lead Profile">
-                                    <i data-lucide="external-link" style="width:14px; height:14px;"></i>
+                                <!-- 4. CRM Lead Profile -->
+                                <a href="leads.php?edit_lead=<?php echo (int)$app['lead_id']; ?>" class="btn-appt-tool" title="Open Full Lead File">
+                                    <i data-lucide="external-link" style="width:13px; height:13px;"></i>
                                 </a>
                                 <?php endif; ?>
                             </div>
@@ -463,7 +783,7 @@ function assignApptRM(id, rm) {
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                // assigned
+                // silently assigned
             } else {
                 alert('Failed to assign RM.');
             }

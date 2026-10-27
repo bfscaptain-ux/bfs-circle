@@ -6,6 +6,76 @@ $page_subtitle = ' Manage external referral partners, DSAs, and sub-agents';
 $hide_main_header = true;
 require_once 'header.php';
 
+// Active Tab ('network' or 'inquiries')
+$active_tab = $_GET['tab'] ?? 'network';
+
+// Handle AJAX Actions for Partner Inquiries Tab
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    header('Content-Type: application/json');
+    $action = $_POST['action'];
+
+    if ($action === 'update_partner_status') {
+        $req_id = (int)($_POST['id'] ?? 0);
+        $new_status = trim($_POST['status'] ?? '');
+        $allowed = ['Pending Review', 'Contacted', 'Approved', 'Rejected'];
+        if ($req_id > 0 && in_array($new_status, $allowed)) {
+            $stmt = $db->prepare("UPDATE partner_requests SET status = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
+            $stmt->execute([$new_status, $req_id]);
+            echo json_encode(['success' => true]);
+            exit;
+        }
+    }
+
+    if ($action === 'approve_dsa') {
+        $req_id = (int)($_POST['id'] ?? 0);
+        $stmt_r = $db->prepare("SELECT * FROM partner_requests WHERE id = ?");
+        $stmt_r->execute([$req_id]);
+        $req = $stmt_r->fetch(PDO::FETCH_ASSOC);
+
+        if ($req) {
+            $dsa_code = 'DSA-' . strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $req['name']), 0, 3)) . rand(100, 999);
+            $ref_type = 'DSA';
+            $p_lower = strtolower($req['profession'] ?? '');
+            if (strpos($p_lower, 'ca') !== false || strpos($p_lower, 'chartered') !== false) $ref_type = 'CA';
+            elseif (strpos($p_lower, 'builder') !== false) $ref_type = 'Builder';
+            elseif (strpos($p_lower, 'broker') !== false || strpos($p_lower, 'real estate') !== false) $ref_type = 'Agent';
+
+            $ins = $db->prepare("INSERT INTO referrals (
+                referral_id, referrer_type, full_name, mobile, email, 
+                city_state, status, commission_rate, payout_frequency, created_at, extra_details
+            ) VALUES (?, ?, ?, ?, ?, ?, 'Active', '0.40%', 'Monthly', datetime('now', 'localtime'), ?)");
+
+            $extra = "Onboarded from Website Partner Inquiries. Profession: " . ($req['profession'] ?? '') . " | Monthly Volume: " . ($req['monthly_volume'] ?? '');
+            $city_state = trim(($req['city'] ?? '') . ', ' . ($req['state'] ?? ''));
+
+            $ins->execute([
+                $dsa_code,
+                $ref_type,
+                $req['name'],
+                $req['phone'],
+                $req['email'],
+                $city_state,
+                $extra
+            ]);
+
+            $upd = $db->prepare("UPDATE partner_requests SET status = 'Approved', dsa_code = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
+            $upd->execute([$dsa_code, $req_id]);
+
+            log_activity("Approved Website Partner {$req['name']} as DSA ({$dsa_code})", "referrals_list.php");
+
+            echo json_encode(['success' => true, 'dsa_code' => $dsa_code]);
+            exit;
+        }
+    }
+
+    echo json_encode(['success' => false, 'error' => 'Invalid action']);
+    exit;
+}
+
+$pending_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Pending Review'")->fetchColumn();
+$total_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests")->fetchColumn();
+
+
 // Pagination and Filter Setup
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
 if ($page < 1) $page = 1;
@@ -759,9 +829,451 @@ if ($per_page_param === 'all') {
     border-color: #0f172a !important;
     box-shadow: 0 0 0 2px rgba(15, 23, 42, 0.08) !important;
 }
+
+/* Segmented Luxury Tab Switcher */
+.partner-luxury-tabs-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 8px;
+    align-items: center;
+}
+.partner-luxury-tab {
+    padding: 8px 18px;
+    border-radius: 10px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #64748b;
+    background: transparent;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    border: 1px solid transparent;
+}
+.partner-luxury-tab:hover {
+    color: #0f172a;
+    background: #f1f5f9;
+}
+.partner-luxury-tab.active {
+    background: #0f172a;
+    color: #ffffff !important;
+    border-color: #0f172a;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+.partner-luxury-pill {
+    padding: 2px 7px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 800;
+    background: rgba(0,0,0,0.08);
+}
+.partner-luxury-tab.active .partner-luxury-pill {
+    background: rgba(255,255,255,0.22);
+    color: #ffffff;
+}
+.partner-luxury-pill.pill-alert {
+    background: #f59e0b !important;
+    color: #ffffff !important;
+}
+
+/* In-line Filter Bar for Inquiries Tab */
+.inq-filter-row {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 10px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+    margin-bottom: 16px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.03);
+}
+@media (max-width: 850px) {
+    .inq-filter-row { flex-wrap: wrap; }
+}
+.inq-search-field {
+    flex: 2;
+    min-width: 200px;
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+.inq-search-field input {
+    width: 100%;
+    padding: 8px 12px 8px 36px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 13px;
+    outline: none;
+    transition: all 0.2s;
+}
+.inq-search-field input:focus {
+    background: #ffffff;
+    border-color: #0f172a;
+}
+.inq-search-field i {
+    position: absolute;
+    left: 11px;
+    color: #94a3b8;
+    width: 15px;
+    height: 15px;
+}
+.inq-select-field {
+    flex: 1;
+    min-width: 140px;
+}
+.inq-select-field select {
+    width: 100%;
+    padding: 8px 24px 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background: #f8fafc;
+    color: #0f172a;
+    font-size: 12.5px;
+    font-weight: 500;
+    outline: none;
+    cursor: pointer;
+}
+.inq-select-field select:focus {
+    background: #ffffff;
+    border-color: #0f172a;
+}
+.btn-approve-dsa-luxury {
+    background: #0f172a;
+    color: #ffffff !important;
+    border: none;
+    border-radius: 7px;
+    padding: 6px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s;
+}
+.btn-approve-dsa-luxury:hover {
+    background: #1e293b;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.2);
+}
+.pr-badge-prof {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    background: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
+}
+.pr-status-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    display: inline-block;
+    outline: none;
+    cursor: pointer;
+}
+.pr-status-PendingReview { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+.pr-status-Contacted     { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+.pr-status-Approved      { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+.pr-status-Rejected      { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
 </style>
 
+
 <div class="view-container partner-view-wrapper">
+
+    <!-- Segmented Tab Navigation Bar -->
+    <div class="partner-luxury-tabs-bar">
+        <a href="referrals_list.php?tab=network" class="partner-luxury-tab <?php echo $active_tab === 'network' ? 'active' : ''; ?>">
+            <i data-lucide="briefcase" style="width:16px; height:16px;"></i>
+            <span>Active DSA Network</span>
+            <span class="partner-luxury-pill"><?php echo $total_registered_partners; ?></span>
+        </a>
+        <a href="referrals_list.php?tab=inquiries" class="partner-luxury-tab <?php echo $active_tab === 'inquiries' ? 'active' : ''; ?>">
+            <i data-lucide="handshake" style="width:16px; height:16px;"></i>
+            <span>Website Partner Inquiries</span>
+            <?php if ($pending_inquiries_cnt > 0): ?>
+            <span class="partner-luxury-pill pill-alert"><?php echo $pending_inquiries_cnt; ?> New</span>
+            <?php else: ?>
+            <span class="partner-luxury-pill"><?php echo $total_inquiries_cnt; ?></span>
+            <?php endif; ?>
+        </a>
+    </div>
+
+
+<?php if ($active_tab === 'inquiries'): 
+    // Inquiries logic
+    $filter_inq_prof = $_GET['prof'] ?? 'all';
+    $filter_inq_status = $_GET['inq_status'] ?? 'all';
+    $inq_search = trim($_GET['inq_search'] ?? '');
+
+    $inq_sql = "SELECT * FROM partner_requests WHERE 1=1";
+    $inq_params = [];
+
+    if ($filter_inq_status !== 'all' && !empty($filter_inq_status)) {
+        $inq_sql .= " AND status = ?";
+        $inq_params[] = $filter_inq_status;
+    }
+    if ($filter_inq_prof !== 'all' && !empty($filter_inq_prof)) {
+        $inq_sql .= " AND profession LIKE ?";
+        $inq_params[] = "%$filter_inq_prof%";
+    }
+    if (!empty($inq_search)) {
+        $inq_sql .= " AND (name LIKE ? OR phone LIKE ? OR email LIKE ? OR city LIKE ? OR state LIKE ?)";
+        $s = "%$inq_search%";
+        $inq_params[] = $s; $inq_params[] = $s; $inq_params[] = $s; $inq_params[] = $s; $inq_params[] = $s;
+    }
+    $inq_sql .= " ORDER BY id DESC";
+    $stmt_inq = $db->prepare($inq_sql);
+    $stmt_inq->execute($inq_params);
+    $inquiry_records = $stmt_inq->fetchAll(PDO::FETCH_ASSOC);
+
+    $appr_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Approved'")->fetchColumn();
+    $cont_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Contacted'")->fetchColumn();
+?>
+    <!-- Inquiries Header -->
+    <div class="partner-page-header">
+        <div class="partner-page-title">
+            <h1>
+                <i data-lucide="handshake" style="width:22px; height:22px; color:#0f172a;"></i>
+                Website Partner Inquiries Desk
+                <?php if ($pending_inquiries_cnt > 0): ?>
+                <span style="font-size:11.5px; font-weight:700; background:#fef3c7; color:#b45309; border:1px solid #fde68a; padding:2px 8px; border-radius:10px;">
+                    <?php echo $pending_inquiries_cnt; ?> Pending
+                </span>
+                <?php endif; ?>
+            </h1>
+            <p>B2B Channel Partners, CAs, Builders &amp; DSA Onboarding Requests submitted from <code>bfsfin.com/partner</code></p>
+        </div>
+        <div>
+            <?php if (($_SESSION['role'] ?? '') === 'Admin'): ?>
+            <a href="add_referral.php" class="btn-add-partner">
+                <i data-lucide="plus-circle" style="width:16px; height:16px;"></i> Add Manual Partner
+            </a>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- Inquiries KPIs -->
+    <div class="partner-kpi-grid">
+        <div class="partner-kpi-card">
+            <div class="partner-kpi-icon" style="background:#eff6ff; color:#2563eb; border-color:#bfdbfe;">
+                <i data-lucide="users" style="width:18px; height:18px;"></i>
+            </div>
+            <div>
+                <div class="partner-kpi-value"><?php echo $total_inquiries_cnt; ?></div>
+                <div class="partner-kpi-title">Total Requests</div>
+            </div>
+        </div>
+        <div class="partner-kpi-card">
+            <div class="partner-kpi-icon" style="background:#fffbeb; color:#d97706; border-color:#fde68a;">
+                <i data-lucide="clock" style="width:18px; height:18px;"></i>
+            </div>
+            <div>
+                <div class="partner-kpi-value" style="color:#d97706;"><?php echo $pending_inquiries_cnt; ?></div>
+                <div class="partner-kpi-title">Pending Review</div>
+            </div>
+        </div>
+        <div class="partner-kpi-card">
+            <div class="partner-kpi-icon" style="background:#f0fdf4; color:#16a34a; border-color:#bbf7d0;">
+                <i data-lucide="check-circle-2" style="width:18px; height:18px;"></i>
+            </div>
+            <div>
+                <div class="partner-kpi-value" style="color:#16a34a;"><?php echo $appr_cnt; ?></div>
+                <div class="partner-kpi-title">Approved as DSA</div>
+            </div>
+        </div>
+        <div class="partner-kpi-card">
+            <div class="partner-kpi-icon" style="background:#f8fafc; color:#64748b; border-color:#e2e8f0;">
+                <i data-lucide="phone-call" style="width:18px; height:18px;"></i>
+            </div>
+            <div>
+                <div class="partner-kpi-value"><?php echo $cont_cnt; ?></div>
+                <div class="partner-kpi-title">Contacted</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unified In-line Filter Bar for Inquiries -->
+    <form method="GET" class="inq-filter-row">
+        <input type="hidden" name="tab" value="inquiries">
+        
+        <div class="inq-search-field">
+            <i data-lucide="search"></i>
+            <input type="text" name="inq_search" placeholder="Search partner name, mobile, email, city..." value="<?php echo htmlspecialchars($inq_search); ?>">
+        </div>
+
+        <div class="inq-select-field">
+            <select name="prof" onchange="this.form.submit()">
+                <option value="all" <?php echo $filter_inq_prof === 'all' ? 'selected' : ''; ?>>All Professions</option>
+                <option value="Chartered Accountant" <?php echo $filter_inq_prof === 'Chartered Accountant' ? 'selected' : ''; ?>>CA / Tax Consultant</option>
+                <option value="Builder" <?php echo $filter_inq_prof === 'Builder' ? 'selected' : ''; ?>>Builder / Developer</option>
+                <option value="Real Estate" <?php echo $filter_inq_prof === 'Real Estate' ? 'selected' : ''; ?>>Real Estate Broker</option>
+                <option value="DSA" <?php echo $filter_inq_prof === 'DSA' ? 'selected' : ''; ?>>Direct Selling Agent (DSA)</option>
+                <option value="Financial Advisor" <?php echo $filter_inq_prof === 'Financial Advisor' ? 'selected' : ''; ?>>Financial Advisor</option>
+            </select>
+        </div>
+
+        <div class="inq-select-field">
+            <select name="inq_status" onchange="this.form.submit()">
+                <option value="all" <?php echo $filter_inq_status === 'all' ? 'selected' : ''; ?>>All Statuses</option>
+                <option value="Pending Review" <?php echo $filter_inq_status === 'Pending Review' ? 'selected' : ''; ?>>Pending Review</option>
+                <option value="Contacted" <?php echo $filter_inq_status === 'Contacted' ? 'selected' : ''; ?>>Contacted</option>
+                <option value="Approved" <?php echo $filter_inq_status === 'Approved' ? 'selected' : ''; ?>>Approved</option>
+                <option value="Rejected" <?php echo $filter_inq_status === 'Rejected' ? 'selected' : ''; ?>>Rejected</option>
+            </select>
+        </div>
+
+        <?php if (!empty($inq_search) || $filter_inq_status !== 'all' || $filter_inq_prof !== 'all'): ?>
+        <a href="referrals_list.php?tab=inquiries" class="btn-filter-clear">
+            <i data-lucide="x" style="width:13px; height:13px;"></i> Clear
+        </a>
+        <?php endif; ?>
+    </form>
+
+    <!-- Inquiries Table Card -->
+    <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(15,23,42,0.03);">
+        <?php if (empty($inquiry_records)): ?>
+        <div style="padding:48px 20px; text-align:center; color:#64748b;">
+            <i data-lucide="user-x" style="width:44px; height:44px; margin:0 auto 10px; display:block; opacity:0.5;"></i>
+            <h3 style="font-size:16px; font-weight:700; color:#0f172a; margin:0 0 4px;">No Partner Requests Found</h3>
+            <p style="font-size:13px; margin:0;">No website inquiries match your filter criteria.</p>
+        </div>
+        <?php else: ?>
+        <div style="overflow-x:auto;">
+            <table class="partner-table">
+                <thead>
+                    <tr>
+                        <th style="min-width:200px;">Partner Profile</th>
+                        <th style="min-width:140px;">Profession</th>
+                        <th>Monthly Volume</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Onboarding Action</th>
+                        <th style="text-align:right; min-width:110px;">Quick Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($inquiry_records as $pr): 
+                        $raw_p = preg_replace('/[^0-9]/', '', $pr['phone']);
+                        $wa_txt = urlencode("Hi " . $pr['name'] . ", thanks for your interest in joining Bhardwaj Financial Services as a Channel Partner (" . ($pr['profession'] ?: 'DSA') . "). When can we connect for an onboarding call?");
+                        $st_cls = str_replace(' ', '', $pr['status']);
+                    ?>
+                    <tr>
+                        <td>
+                            <div style="font-weight:700; color:#0f172a; font-size:14px;">
+                                <?php echo htmlspecialchars($pr['name']); ?>
+                            </div>
+                            <div style="font-size:12px; color:#64748b; display:flex; gap:6px; align-items:center; margin-top:2px;">
+                                <span><i data-lucide="phone" style="width:11px; height:11px;"></i> <?php echo htmlspecialchars($pr['phone']); ?></span>
+                                <?php if (!empty($pr['email']) && !str_contains($pr['email'], 'partner-')): ?>
+                                <span>• <?php echo htmlspecialchars($pr['email']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                            <div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">
+                                Applied: <?php echo date('d M Y, h:i A', strtotime($pr['created_at'])); ?>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="pr-badge-prof"><?php echo htmlspecialchars($pr['profession'] ?: 'Partner'); ?></span>
+                            <?php if (!empty($pr['experience'])): ?>
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">Exp: <?php echo htmlspecialchars($pr['experience']); ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <span style="font-weight:700; color:#10b981; font-size:13px;">
+                                <?php echo htmlspecialchars($pr['monthly_volume'] ?: 'N/A'); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <div style="font-weight:600; color:#0f172a; font-size:13px;"><?php echo htmlspecialchars($pr['city'] ?: 'Agra'); ?></div>
+                            <div style="font-size:11px; color:#64748b;"><?php echo htmlspecialchars($pr['state'] ?: 'UP'); ?></div>
+                        </td>
+                        <td>
+                            <select onchange="updateInqStatus(<?php echo $pr['id']; ?>, this.value)" class="pr-status-pill pr-status-<?php echo htmlspecialchars($st_cls); ?>">
+                                <option value="Pending Review" <?php echo $pr['status'] === 'Pending Review' ? 'selected' : ''; ?>>Pending Review</option>
+                                <option value="Contacted" <?php echo $pr['status'] === 'Contacted' ? 'selected' : ''; ?>>Contacted</option>
+                                <option value="Approved" <?php echo $pr['status'] === 'Approved' ? 'selected' : ''; ?>>Approved</option>
+                                <option value="Rejected" <?php echo $pr['status'] === 'Rejected' ? 'selected' : ''; ?>>Rejected</option>
+                            </select>
+                        </td>
+                        <td>
+                            <?php if (!empty($pr['dsa_code'])): ?>
+                            <a href="referrals_list.php?tab=network&search=<?php echo urlencode($pr['dsa_code']); ?>" style="display:inline-flex; align-items:center; gap:4px; font-weight:800; font-size:12px; color:#15803d; text-decoration:none;">
+                                <i data-lucide="check-circle" style="width:13px; height:13px;"></i>
+                                <?php echo htmlspecialchars($pr['dsa_code']); ?>
+                            </a>
+                            <?php elseif ($pr['status'] !== 'Rejected'): ?>
+                            <button type="button" onclick="approveDSAInq(<?php echo $pr['id']; ?>, '<?php echo htmlspecialchars(addslashes($pr['name'])); ?>')" class="btn-approve-dsa-luxury">
+                                <i data-lucide="user-check" style="width:13px; height:13px;"></i>
+                                Approve &amp; Onboard DSA
+                            </button>
+                            <?php else: ?>
+                            <span style="font-size:11px; color:#ef4444; font-weight:600;">Rejected</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="text-align:right;">
+                            <div style="display:flex; gap:6px; justify-content:flex-end;">
+                                <?php if (!empty($raw_p)): ?>
+                                <a href="tel:<?php echo $raw_p; ?>" class="partner-action-btn" title="Call Partner">
+                                    <i data-lucide="phone" style="width:13px; height:13px;"></i>
+                                </a>
+                                <a href="https://wa.me/91<?php echo substr($raw_p, -10); ?>?text=<?php echo $wa_txt; ?>" target="_blank" class="partner-action-btn" style="background:#25d366 !important; color:#ffffff !important; border-color:#25d366 !important;" title="WhatsApp Partner">
+                                    <i data-lucide="message-circle" style="width:13px; height:13px;"></i>
+                                </a>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <script>
+    function updateInqStatus(id, status) {
+        const fd = new FormData();
+        fd.append('action', 'update_partner_status');
+        fd.append('id', id);
+        fd.append('status', status);
+        fetch('referrals_list.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => { if (d.success) location.reload(); else alert('Failed to update status.'); })
+            .catch(() => alert('Network error.'));
+    }
+
+    function approveDSAInq(id, name) {
+        if (!confirm('Approve ' + name + ' as an official DSA partner? This will generate their DSA Code and create their active profile in the Active DSA Network tab.')) return;
+        const fd = new FormData();
+        fd.append('action', 'approve_dsa');
+        fd.append('id', id);
+        fetch('referrals_list.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.success) {
+                    alert('Partner onboarded successfully with Code: ' + d.dsa_code);
+                    location.href = 'referrals_list.php?tab=network&search=' + encodeURIComponent(d.dsa_code);
+                } else {
+                    alert('Approval failed: ' + (d.error || 'Error'));
+                }
+            }).catch(() => alert('Network error.'));
+    }
+    </script>
+
+<?php else: ?>
 
     <!-- Top Page Header & CTA -->
     <div class="partner-page-header">
@@ -1349,6 +1861,8 @@ async function deleteReferral(id, name = 'this referral partner') {
         });
     }
 }
+<?php endif; // End of tab check ?>
+
 </script>
 
 <?php require_once 'footer.php'; ?>
