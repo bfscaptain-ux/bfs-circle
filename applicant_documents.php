@@ -96,37 +96,108 @@ require_once 'header.php';
 
         </div>
 
-        <!-- ROW 2: UNIFIED FULL-WIDTH EXECUTIVE ACTION TOOLBAR -->
-        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #18181b; padding: 6px; border-radius: 8px; border: 1px solid #27272a; flex-wrap: wrap; width: 100%;">
+        <!-- ROW 2: UNIFIED FULL-WIDTH EXECUTIVE ACTION TOOLBAR (CLEAN ORGANIZED WORKFLOW) -->
+        <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; background: #18181b; padding: 6px 10px; border-radius: 8px; border: 1px solid #27272a; flex-wrap: wrap; width: 100%;">
             <!-- Left Action Button Group -->
-            <div style="display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                <a href="add_applicant.php?id=<?php echo $id; ?>" class="btn" style="background: #0d9488; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; text-decoration:none; box-shadow: 0 1px 3px rgba(13,148,136,0.3);" title="Edit Application Form & Customer Profile">
+            <div style="display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                
+                <!-- 1. Primary Direct Action: Edit Form -->
+                <a href="add_applicant.php?id=<?php echo $id; ?>" class="btn" style="background: #0d9488; color: #ffffff; border: none; padding: 6px 13px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; text-decoration:none; box-shadow: 0 1px 3px rgba(13,148,136,0.3);" title="Edit Application Form & Customer Profile">
                     <i data-lucide="edit-3" style="width: 13px; height: 13px; color: #ffffff;"></i> Edit Form Details
                 </a>
-                <button type="button" onclick="sendClientSelfUploadLink(<?php echo $id; ?>)" class="btn" style="background: #ffffff; color: #000000; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" title="Open Client Upload Portal Link Dialog">
-                    <i data-lucide="link-2" style="width: 13px; height: 13px; color: #000000;"></i> Client Link
-                </button>
-                <button type="button" onclick="triggerAiMissingDocsWhatsApp(<?php echo $id; ?>)" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
-                    <i data-lucide="message-circle" style="width: 13px; height: 13px; color: #ffffff;"></i> WhatsApp Audit
-                </button>
-                <button type="button" onclick="openPhotoGalleryModal()" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
-                    <i data-lucide="images" style="width: 13px; height: 13px; color: #ffffff;"></i> Photos Lightbox
-                </button>
-                <button type="button" onclick="openBankDocketModal()" class="btn" style="background: #047857; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 800; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 3px rgba(4,120,87,0.4);" title="Compile all verified docs into a single PDF dossier with watermark & BFS cover sheet">
+
+                <!-- 2. Primary 1-Click Master Compiler: Bank Docket -->
+                <button type="button" onclick="openBankDocketModal()" class="btn" style="background: #047857; color: #ffffff; border: none; padding: 6px 13px; border-radius: 6px; font-weight: 800; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; box-shadow: 0 1px 3px rgba(4,120,87,0.4);" title="Compile all verified docs into a single PDF dossier with watermark & BFS cover sheet">
                     <i data-lucide="file-check-2" style="width: 13px; height: 13px; color: #ffffff;"></i> ⚡ Bank Docket
                 </button>
-                <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>)" class="btn" style="background: #18181b; color: #38bdf8; border: 1px solid #0284c7; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#0369a1'; this.style.color='#fff';" onmouseout="this.style.background='#18181b'; this.style.color='#38bdf8';" title="Open local physical folder on F:\BFS in Windows Explorer">
+
+                <!-- 3. Physical Storage Vault Button -->
+                <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>)" class="btn" style="background: #18181b; color: #38bdf8; border: 1px solid #0284c7; padding: 6px 13px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: background 0.15s ease;" onmouseover="this.style.background='#0369a1'; this.style.color='#fff';" onmouseout="this.style.background='#18181b'; this.style.color='#38bdf8';" title="Open local physical folder on F:\BFS in Windows Explorer">
                     <i data-lucide="folder" style="width: 13px; height: 13px;"></i> 📂 Vault (F:\BFS)
                 </button>
-                <button type="button" onclick="generateAndPreviewMasterPdf()" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
-                    <i data-lucide="file-text" style="width: 13px; height: 13px; color: #ffffff;"></i> Master PDF
-                </button>
-                <a href="generate_zip.php?id=<?php echo $id; ?>" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; text-decoration:none; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
-                    <i data-lucide="download" style="width: 13px; height: 13px; color: #ffffff;"></i> Bank Dossier (ZIP)
-                </a>
-                <button type="button" onclick="openEmailPendencyModal()" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
-                    <i data-lucide="send" style="width: 13px; height: 13px; color: #ffffff;"></i> Email Client
-                </button>
+
+                <!-- 4. DROPDOWN 1: Customer Outreach (Communication Hub) -->
+                <div class="top-nav-dropdown-wrapper" style="position: relative; display: inline-block;">
+                    <button type="button" onclick="toggleTopNavDropdown('dropdown-client-outreach', event)" class="btn" style="background: #27272a; color: #ffffff; border: 1px solid #3f3f46; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease;">
+                        <i data-lucide="message-circle" style="width: 13px; height: 13px; color: #38bdf8;"></i>
+                        <span>Customer Outreach</span>
+                        <i data-lucide="chevron-down" style="width: 12px; height: 12px; opacity: 0.7;"></i>
+                    </button>
+                    <div id="dropdown-client-outreach" class="top-nav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 5px); left: 0; min-width: 255px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); z-index: 999999; padding: 5px; backdrop-filter: blur(8px);">
+                        
+                        <button type="button" onclick="sendClientSelfUploadLink(<?php echo $id; ?>); toggleTopNavDropdown('dropdown-client-outreach');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #ffffff; color: #000; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="link-2" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700;">Client Upload Portal Link</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Send mobile camera upload link to client</div>
+                            </div>
+                        </button>
+
+                        <button type="button" onclick="triggerAiMissingDocsWhatsApp(<?php echo $id; ?>); toggleTopNavDropdown('dropdown-client-outreach');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #15803d; color: #fff; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="message-circle" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700;">WhatsApp Docs Audit</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Dispatch AI reminder on WhatsApp</div>
+                            </div>
+                        </button>
+
+                        <button type="button" onclick="openEmailPendencyModal(); toggleTopNavDropdown('dropdown-client-outreach');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #1e293b; border: 1px solid #334155; color: #38bdf8; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="send" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700;">Email Pendency Notice</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Send official BFS email with pending list</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 5. DROPDOWN 2: Dossier & Document Tools -->
+                <div class="top-nav-dropdown-wrapper" style="position: relative; display: inline-block;">
+                    <button type="button" onclick="toggleTopNavDropdown('dropdown-dossier-tools', event)" class="btn" style="background: #27272a; color: #ffffff; border: 1px solid #3f3f46; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease;">
+                        <i data-lucide="archive" style="width: 13px; height: 13px; color: #fbbf24;"></i>
+                        <span>Dossier & Exports</span>
+                        <i data-lucide="chevron-down" style="width: 12px; height: 12px; opacity: 0.7;"></i>
+                    </button>
+                    <div id="dropdown-dossier-tools" class="top-nav-dropdown-menu" style="display: none; position: absolute; top: calc(100% + 5px); left: 0; min-width: 255px; background: #18181b; border: 1px solid #3f3f46; border-radius: 8px; box-shadow: 0 15px 35px rgba(0,0,0,0.6); z-index: 999999; padding: 5px; backdrop-filter: blur(8px);">
+                        
+                        <button type="button" onclick="generateAndPreviewMasterPdf(); toggleTopNavDropdown('dropdown-dossier-tools');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #312e81; color: #a5b4fc; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="file-text" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700;">Master PDF Preview</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Consolidated PDF preview in browser</div>
+                            </div>
+                        </button>
+
+                        <a href="generate_zip.php?id=<?php echo $id; ?>" onclick="toggleTopNavDropdown('dropdown-dossier-tools');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; text-decoration: none; cursor: pointer; transition: background 0.15s ease; box-sizing: border-box;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #831843; color: #f472b6; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="download" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700;">Bank Dossier (ZIP)</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Download all files in 1 compressed ZIP</div>
+                            </div>
+                        </a>
+
+                        <button type="button" onclick="openPhotoGalleryModal(); toggleTopNavDropdown('dropdown-dossier-tools');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; cursor: pointer; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #14532d; color: #86efac; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="images" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700;">Photos Lightbox Gallery</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Full-screen customer photo gallery</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Right Anchored Action Button Group (Phase 3 CTA) -->
@@ -2406,6 +2477,32 @@ require_once 'header.php';
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdn.asprise.com/scannerjs/scanner.js"></script>
 <script>
+    // ===== EXECUTIVE TOP NAV ACTION DROPDOWNS =====
+    function toggleTopNavDropdown(menuId, e) {
+        if (e) e.stopPropagation();
+        const targetMenu = document.getElementById(menuId);
+        if (!targetMenu) return;
+        const isShowing = targetMenu.style.display === 'block';
+
+        // Close all other top nav dropdowns first
+        document.querySelectorAll('.top-nav-dropdown-menu').forEach(m => {
+            m.style.display = 'none';
+        });
+
+        if (!isShowing) {
+            targetMenu.style.display = 'block';
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('.top-nav-dropdown-wrapper')) {
+            document.querySelectorAll('.top-nav-dropdown-menu').forEach(m => {
+                m.style.display = 'none';
+            });
+        }
+    });
+
     // ===== BFS 10X VAULT & BANK DOCKET SCRIPTS =====
     async function openWindowsVaultFolder(appId) {
         try {
