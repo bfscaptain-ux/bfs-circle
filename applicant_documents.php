@@ -258,9 +258,9 @@ require_once 'header.php';
                     
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
                         <!-- Target Bank Filter Pill (Eligible Banks Only) -->
-                        <div style="display: flex; align-items: center; gap: 8px; background: #ffffff; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1; height: 34px; box-sizing: border-box; box-shadow: 0 1px 2px rgba(15,23,42,0.04);">
+                        <div style="display: flex; align-items: center; gap: 8px; background: #ffffff; padding: 0 10px; border-radius: 6px; border: 1px solid #cbd5e1; height: 34px; box-sizing: border-box; box-shadow: 0 1px 2px rgba(15,23,42,0.04);">
                             <i data-lucide="landmark" style="width: 14px; height: 14px; color: #0f172a; flex-shrink: 0;"></i>
-                            <span style="font-size: 11.5px; font-weight: 700; color: #475569; white-space: nowrap;">Target Bank Filter:</span>
+                            <span style="font-size: 11.5px; font-weight: 700; color: #475569; white-space: nowrap;">Target Bank:</span>
                             <select id="target-bank-filter" onchange="setTargetBankFilter(this.value)" style="border: 1px solid #cbd5e1; background: #ffffff; font-size: 11.5px; font-weight: 700; color: #0f172a; cursor: pointer; outline: none; padding: 3px 8px; border-radius: 5px; font-family: 'Outfit', sans-serif; height: 26px; transition: all 0.15s ease;" onfocus="this.style.borderColor='#0f172a'" onblur="this.style.borderColor='#cbd5e1'">
                                 <option value="ALL" style="padding: 6px 10px; font-weight: 700; color: #0f172a; background: #ffffff;">All Eligible Banks (<?php echo count($eligible_banks); ?>)</option>
                                 <?php foreach ($eligible_banks as $b_name): ?>
@@ -269,13 +269,16 @@ require_once 'header.php';
                                     </option>
                                 <?php endforeach; ?>
                             </select>
-                            <span style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;" title="Filtered for <?php echo htmlspecialchars($applicant['loan_type'] ?? 'Loan'); ?><?php echo !empty($applicant['loan_amount_requested']) ? ' • ₹' . number_format($applicant['loan_amount_requested']) : ''; ?> (<?php echo $ineligible_bankers_count; ?> non-matching lenders excluded)">
-                                <i data-lucide="shield-check" style="width:12px; height:12px;"></i> <?php echo count($eligible_banks); ?> Eligible
-                            </span>
+                        </div>
+
+                        <!-- 🛡️ Standalone High-Visibility Eligible Lenders Badge -->
+                        <div style="display: inline-flex; align-items: center; gap: 6px; background: #ecfdf5; border: 1px solid #86efac; color: #047857; height: 34px; padding: 0 12px; border-radius: 6px; font-size: 12px; font-weight: 800; white-space: nowrap; box-sizing: border-box; box-shadow: 0 1px 2px rgba(16,185,129,0.08); font-family: 'Outfit', sans-serif;" title="Matched for <?php echo htmlspecialchars($applicant['loan_type'] ?? 'Loan'); ?><?php echo !empty($applicant['loan_amount_requested']) ? ' • ₹' . number_format($applicant['loan_amount_requested']) : ''; ?> (<?php echo $ineligible_bankers_count; ?> non-matching lenders excluded)">
+                            <i data-lucide="shield-check" style="width: 15px; height: 15px; color: #059669; flex-shrink: 0;"></i>
+                            <span><?php echo count($eligible_banks); ?> Eligible</span>
                         </div>
 
                         <!-- Collapse Toggle Button -->
-                        <button type="button" onclick="toggleChecklistBody()" id="checklist-toggle-btn" class="btn" style="background:#0f172a; color:#ffffff; border:1px solid #0f172a; padding:0 14px; height:34px; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.15s ease; box-sizing:border-box;">
+                        <button type="button" onclick="toggleChecklistBody()" id="checklist-toggle-btn" class="btn" style="background:#0f172a; color:#ffffff; border:1px solid #0f172a; padding:0 14px; height:34px; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:all 0.15s ease; box-sizing:border-box; white-space:nowrap;">
                             <i data-lucide="chevron-up" id="chk-toggle-icon" style="width:14px; height:14px;"></i> Collapse All
                         </button>
                     </div>
