@@ -48,6 +48,35 @@ $late_punch_penalty_count = $profile['late_punch_penalty_count'] ?? 3;
 ?>
 
 <style>
+    /* Executive Pagination & Page Management Styles */
+    .pg-btn {
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        color: #334155;
+        padding: 5px 11px;
+        border-radius: 6px;
+        font-size: 12px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 32px;
+        height: 32px;
+        text-decoration: none;
+    }
+    .pg-btn:hover:not([disabled]) {
+        background: #f1f5f9;
+        border-color: #0f172a;
+        color: #0f172a;
+    }
+    .pg-btn-active {
+        background: #0f172a !important;
+        border-color: #0f172a !important;
+        color: #ffffff !important;
+        box-shadow: 0 2px 6px rgba(15,23,42,0.2);
+    }
     .settings-layout { display: flex; gap: 24px; align-items: flex-start; }
     .settings-sidebar { 
         width: 275px; 
@@ -1305,19 +1334,44 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                         </div>
                     </div>
 
-                    <!-- 4. MAIN HERO: ACTIVE PHYSICAL LEAD FOLDERS TABLE -->
+                    <!-- 4. MAIN HERO: ACTIVE PHYSICAL LEAD FOLDERS TABLE & PAGE MANAGEMENT -->
                     <div style="margin-top:22px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
                             <div>
                                 <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
                                     Active Customer Vault Directories
-                                    <span style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px;">
+                                    <span id="vault-lead-badge" style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px;">
                                         <?= count($vaultLeadFolders) ?> Leads
                                     </span>
                                 </h3>
                                 <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Individual categorized folders provisioned on office local storage.</div>
                             </div>
-                            <input type="text" id="vault-settings-filter" placeholder="🔍 Search customer or folder..." onkeyup="filterSettingsVaultTable()" style="padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:240px;">
+
+                            <!-- Search, Filters, Sort, and Export Tools -->
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <input type="text" id="vault-settings-filter" placeholder="🔍 Search applicant, folder, loan ID..." oninput="filterAndRenderVaultRoster(true)" style="padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:220px; outline:none;">
+
+                                <select id="vault-filter-product" onchange="filterAndRenderVaultRoster(true)" style="padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; color:#0f172a; background:#ffffff; cursor:pointer;">
+                                    <option value="">All Loan Products</option>
+                                </select>
+
+                                <select id="vault-sort-select" onchange="filterAndRenderVaultRoster(true)" style="padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; color:#0f172a; background:#ffffff; cursor:pointer;">
+                                    <option value="name_asc">Sort: Customer (A → Z)</option>
+                                    <option value="name_desc">Sort: Customer (Z → A)</option>
+                                    <option value="size_desc">Sort: Size (Largest First)</option>
+                                    <option value="size_asc">Sort: Size (Smallest First)</option>
+                                    <option value="files_desc">Sort: Files (Most First)</option>
+                                    <option value="files_asc">Sort: Files (Least First)</option>
+                                </select>
+
+                                <button type="button" onclick="resetVaultFilters()" class="btn-black-outline" style="font-size:11.5px; padding:6px 10px; cursor:pointer;" title="Reset search &amp; filters">
+                                    🔄
+                                </button>
+
+                                <button type="button" onclick="exportVaultRosterCSV()" class="btn-black-outline" style="font-size:11.5px; padding:6px 12px; cursor:pointer; color:#0369a1; border-color:#bae6fd; background:#f0f9ff; font-weight:700;" title="Export current list to CSV">
+                                    📥 CSV
+                                </button>
+                            </div>
                         </div>
 
                         <div class="table-responsive">
@@ -1325,63 +1379,39 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                 <thead>
                                     <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
                                         <th style="padding:10px 12px; text-align:left;">Applicant &amp; Folder</th>
-                                        <th style="padding:10px 12px; text-align:left;">Loan Ref</th>
+                                        <th style="padding:10px 12px; text-align:left;">Loan Ref &amp; Product</th>
                                         <th style="padding:10px 12px; text-align:center;">Category Breakdown</th>
-                                        <th style="padding:10px 12px; text-align:right;">Total Size</th>
+                                        <th style="padding:10px 12px; text-align:right;">Total Size &amp; Files</th>
                                         <th style="padding:10px 12px; text-align:right;">Dossier &amp; Explorer Actions</th>
                                     </tr>
                                 </thead>
-                                <tbody>
-                                    <?php if (empty($vaultLeadFolders)): ?>
-                                        <tr>
-                                            <td colspan="5" style="text-align:center; padding:24px; color:#64748b;">
-                                                No lead folders found on F:\BFS\Vault_Leads yet.
-                                            </td>
-                                        </tr>
-                                    <?php else: ?>
-                                        <?php foreach ($vaultLeadFolders as $vf): ?>
-                                            <tr class="vault-settings-row" style="border-bottom:1px solid #f1f5f9;">
-                                                <td style="padding:10px 12px;">
-                                                    <div style="font-weight:700; color:#0f172a;"><?= htmlspecialchars($vf['customer_name']) ?></div>
-                                                    <div style="font-size:11px; color:#64748b; font-family:monospace;"><?= htmlspecialchars($vf['folder_name']) ?></div>
-                                                </td>
-                                                <td style="padding:10px 12px;">
-                                                    <span style="font-weight:600; color:#0f172a;"><?= htmlspecialchars($vf['loan_id']) ?></span>
-                                                    <div style="font-size:11px; color:#64748b;"><?= htmlspecialchars($vf['loan_type']) ?></div>
-                                                </td>
-                                                <td style="padding:10px 12px; text-align:center;">
-                                                    <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
-                                                        <span style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="KYC Documents">KYC: <?= $vf['sub_counts']['kyc'] ?></span>
-                                                        <span style="background:#dcfce7; color:#15803d; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Income & Banking">Inc: <?= $vf['sub_counts']['income'] ?></span>
-                                                        <span style="background:#fef3c7; color:#b45309; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Property & Legal">Prop: <?= $vf['sub_counts']['property'] ?></span>
-                                                        <span style="background:#f1f5f9; color:#475569; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Business & Financials">Biz: <?= $vf['sub_counts']['business'] ?></span>
-                                                        <span style="background:#f3e8ff; color:#7e22ce; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Bank Dockets">Dkt: <?= $vf['sub_counts']['dockets'] ?></span>
-                                                    </div>
-                                                </td>
-                                                <td style="padding:10px 12px; text-align:right; font-weight:600; color:#475569;">
-                                                    <?= $vf['size_kb'] > 1024 ? round($vf['size_kb']/1024, 1) . ' MB' : $vf['size_kb'] . ' KB' ?>
-                                                    <div style="font-size:10.5px; color:#94a3b8; font-weight:normal;"><?= $vf['total_files'] ?> files</div>
-                                                </td>
-                                                <td style="padding:10px 12px; text-align:right; white-space:nowrap;">
-                                                    <div style="display:flex; gap:5px; justify-content:flex-end; align-items:center;">
-                                                        <button type="button" onclick="openLeadFolder(<?= $vf['applicant_id'] ?>, '<?= addslashes($vf['customer_name']) ?>')" class="btn-black-outline" style="font-size:11px; padding:5px 9px; cursor:pointer;" title="Open in Windows Explorer">
-                                                            📂 Explorer
-                                                        </button>
-                                                        <?php if ($vf['applicant_id'] > 0): ?>
-                                                        <a href="generate_zip.php?id=<?= $vf['applicant_id'] ?>" class="btn-black-outline" style="font-size:11px; padding:5px 9px; text-decoration:none; color:#be185d; border-color:#fbcfe8;" title="Download All Files in 1 ZIP">
-                                                            📦 Bank ZIP
-                                                        </a>
-                                                        <a href="applicant_documents.php?id=<?= $vf['applicant_id'] ?>" class="btn-black-solid" style="text-decoration:none; font-size:11px; padding:5px 10px;">
-                                                            📄 CRM Docs
-                                                        </a>
-                                                        <?php endif; ?>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    <?php endif; ?>
+                                <tbody id="vault-roster-tbody">
+                                    <!-- Rendered dynamically via JS engine for zero-lag pagination & sorting -->
                                 </tbody>
                             </table>
+                        </div>
+
+                        <!-- Executive Pagination Footer Bar -->
+                        <div style="display:flex; justify-content:space-between; align-items:center; padding-top:14px; margin-top:14px; border-top:1px solid #e2e8f0; flex-wrap:wrap; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:8px; font-size:12.5px; color:#64748b; font-weight:500; white-space:nowrap; flex-shrink:0;">
+                                <span>Show</span>
+                                <select id="vaultPageSizeSelect" onchange="changeVaultPageSize(this.value)" style="padding:5px 9px; border-radius:6px; border:1px solid #cbd5e1; font-size:12px; font-weight:700; color:#0f172a; background:#ffffff; cursor:pointer;">
+                                    <option value="5">5</option>
+                                    <option value="10" selected>10</option>
+                                    <option value="25">25</option>
+                                    <option value="50">50</option>
+                                    <option value="100">100</option>
+                                </select>
+                                <span>entries per page</span>
+                            </div>
+
+                            <div id="vault-pagination-info" style="font-size:12.5px; color:#64748b; font-weight:500; white-space:nowrap;">
+                                Showing <b>0</b> to <b>0</b> of <b>0</b> entries
+                            </div>
+
+                            <div id="vault-pagination-controls" style="display:flex; gap:4px; align-items:center; flex-wrap:wrap;">
+                                <!-- Dynamically populated via JS -->
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2040,6 +2070,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         else if (tabId === 'docmatrix') loadDocComplianceMatrix();
         else if (tabId === 'backup') loadSystemHealth();
         else if (tabId === 'tracking') loadTrackingTokensList();
+        else if (tabId === 'vault') initAndRenderVaultRoster();
     }
     
     document.addEventListener('DOMContentLoaded', () => {
@@ -2051,6 +2082,11 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         if (tabToActivate) {
             switchSettingsTab(tabToLoad, tabToActivate, false);
         }
+
+        // Initialize vault roster if vault is default or open
+        if (tabToLoad === 'vault' || document.getElementById('tab-vault')?.classList.contains('active')) {
+            initAndRenderVaultRoster();
+        }
     });
 
     window.onpopstate = function(event) {
@@ -2059,6 +2095,9 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         let tabToActivate = document.querySelector(`.settings-menu-item[onclick*="${tabFromUrl}"]`);
         if (tabToActivate) {
             switchSettingsTab(tabFromUrl, tabToActivate, false);
+        }
+        if (tabFromUrl === 'vault') {
+            initAndRenderVaultRoster();
         }
     };
 
@@ -2172,11 +2211,340 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         }
     }
 
-    function filterSettingsVaultTable() {
-        const query = (document.getElementById('vault-settings-filter')?.value || '').toLowerCase();
-        document.querySelectorAll('.vault-settings-row').forEach(r => {
-            r.style.display = r.innerText.toLowerCase().includes(query) ? '' : 'none';
+    // --- ON-PREMISE VAULT EXECUTIVE PAGE MANAGEMENT & PAGINATION ENGINE ---
+    window.vaultLeadFolders = <?= json_encode($vaultLeadFolders ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+    let vaultCurrentPage = 1;
+    let vaultPageSize = 10;
+    let vaultFilteredList = [];
+    let vaultProductInitialized = false;
+
+    function escapeVaultHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    }
+
+    function escapeVaultJs(str) {
+        if (!str) return '';
+        return String(str).replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
+    }
+
+    function initVaultProductOptions() {
+        if (vaultProductInitialized) return;
+        const select = document.getElementById('vault-filter-product');
+        if (!select) return;
+
+        const currentVal = select.value;
+        const products = new Set();
+        (window.vaultLeadFolders || []).forEach(vf => {
+            if (vf.loan_type && vf.loan_type.trim() !== '') {
+                products.add(vf.loan_type.trim());
+            }
         });
+
+        // Retain first "All Loan Products" option
+        select.innerHTML = '<option value="">All Loan Products</option>';
+        Array.from(products).sort().forEach(prod => {
+            const opt = document.createElement('option');
+            opt.value = prod;
+            opt.textContent = prod;
+            if (prod === currentVal) opt.selected = true;
+            select.appendChild(opt);
+        });
+        vaultProductInitialized = true;
+    }
+
+    function initAndRenderVaultRoster() {
+        initVaultProductOptions();
+        filterAndRenderVaultRoster(false);
+    }
+
+    function filterAndRenderVaultRoster(resetPage = false) {
+        if (resetPage) vaultCurrentPage = 1;
+        initVaultProductOptions();
+
+        const searchInput = document.getElementById('vault-settings-filter');
+        const query = (searchInput?.value || '').trim().toLowerCase();
+
+        const productFilter = document.getElementById('vault-filter-product')?.value || '';
+        const sortMode = document.getElementById('vault-sort-select')?.value || 'name_asc';
+
+        const sourceList = window.vaultLeadFolders || [];
+
+        // 1. Filter
+        vaultFilteredList = sourceList.filter(item => {
+            // Search text match
+            if (query) {
+                const matchName = (item.customer_name || '').toLowerCase().includes(query);
+                const matchFolder = (item.folder_name || '').toLowerCase().includes(query);
+                const matchLoanId = (item.loan_id || '').toLowerCase().includes(query);
+                const matchLoanType = (item.loan_type || '').toLowerCase().includes(query);
+                const matchMobile = (item.mobile || '').toLowerCase().includes(query);
+                if (!matchName && !matchFolder && !matchLoanId && !matchLoanType && !matchMobile) {
+                    return false;
+                }
+            }
+
+            // Loan Product match
+            if (productFilter && (item.loan_type || '') !== productFilter) {
+                return false;
+            }
+
+            return true;
+        });
+
+        // 2. Sort
+        vaultFilteredList.sort((a, b) => {
+            switch (sortMode) {
+                case 'name_desc':
+                    return (b.customer_name || '').localeCompare(a.customer_name || '');
+                case 'size_desc':
+                    return (b.size_kb || 0) - (a.size_kb || 0);
+                case 'size_asc':
+                    return (a.size_kb || 0) - (b.size_kb || 0);
+                case 'files_desc':
+                    return (b.total_files || 0) - (a.total_files || 0);
+                case 'files_asc':
+                    return (a.total_files || 0) - (b.total_files || 0);
+                case 'name_asc':
+                default:
+                    return (a.customer_name || '').localeCompare(b.customer_name || '');
+            }
+        });
+
+        // 3. Update Badge
+        const badge = document.getElementById('vault-lead-badge');
+        if (badge) {
+            if (vaultFilteredList.length === sourceList.length) {
+                badge.innerText = `${sourceList.length} Leads`;
+            } else {
+                badge.innerText = `${vaultFilteredList.length} of ${sourceList.length} Leads`;
+            }
+        }
+
+        // 4. Pagination Slicing
+        const totalItems = vaultFilteredList.length;
+        const totalPages = Math.max(1, Math.ceil(totalItems / vaultPageSize));
+        if (vaultCurrentPage > totalPages) vaultCurrentPage = totalPages;
+
+        const startIndex = totalItems === 0 ? 0 : (vaultCurrentPage - 1) * vaultPageSize;
+        const endIndex = Math.min(startIndex + vaultPageSize, totalItems);
+        const pageItems = vaultFilteredList.slice(startIndex, endIndex);
+
+        // 5. Render Table Rows
+        const tbody = document.getElementById('vault-roster-tbody');
+        if (tbody) {
+            if (totalItems === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" style="text-align:center; padding:32px 16px; color:#64748b;">
+                            <div style="font-size:28px; margin-bottom:6px;">🔍</div>
+                            <div style="font-weight:700; color:#334155; font-size:13.5px;">No customer vaults match your search criteria</div>
+                            <div style="font-size:11.5px; color:#94a3b8; margin-top:3px;">Try clearing filters or searching with a different applicant name or loan ID.</div>
+                        </td>
+                    </tr>
+                `;
+            } else {
+                let html = '';
+                pageItems.forEach(vf => {
+                    const custName = escapeVaultHtml(vf.customer_name || 'Applicant');
+                    const folderName = escapeVaultHtml(vf.folder_name || '');
+                    const loanId = escapeVaultHtml(vf.loan_id || 'REF-PENDING');
+                    const loanType = escapeVaultHtml(vf.loan_type || 'Loan');
+                    const mobile = escapeVaultHtml(vf.mobile || '');
+                    const sizeFormatted = (vf.size_kb || 0) > 1024 ? (vf.size_kb / 1024).toFixed(1) + ' MB' : (vf.size_kb || 0) + ' KB';
+                    const totalFiles = vf.total_files || 0;
+                    const subCounts = vf.sub_counts || {};
+
+                    const safeCustJs = escapeVaultJs(vf.customer_name || 'Applicant');
+
+                    html += `
+                        <tr class="vault-settings-row" style="border-bottom:1px solid #f1f5f9;">
+                            <td style="padding:10px 12px;">
+                                <div style="font-weight:700; color:#0f172a;">${custName}</div>
+                                <div style="font-size:11px; color:#64748b; font-family:monospace;">${folderName}</div>
+                                ${mobile && mobile !== '-' ? `<div style="font-size:10.5px; color:#94a3b8; margin-top:2px;">📱 ${mobile}</div>` : ''}
+                            </td>
+                            <td style="padding:10px 12px;">
+                                <span style="font-weight:600; color:#0f172a;">${loanId}</span>
+                                <div>
+                                    <span style="display:inline-block; font-size:10.5px; background:#f1f5f9; color:#475569; padding:2px 7px; border-radius:4px; font-weight:700; margin-top:3px;">
+                                        ${loanType}
+                                    </span>
+                                </div>
+                            </td>
+                            <td style="padding:10px 12px; text-align:center;">
+                                <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                                    <span style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="KYC Documents">KYC: ${subCounts.kyc || 0}</span>
+                                    <span style="background:#dcfce7; color:#15803d; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Income &amp; Banking">Inc: ${subCounts.income || 0}</span>
+                                    <span style="background:#fef3c7; color:#b45309; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Property &amp; Legal">Prop: ${subCounts.property || 0}</span>
+                                    <span style="background:#f1f5f9; color:#475569; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Business &amp; Financials">Biz: ${subCounts.business || 0}</span>
+                                    <span style="background:#f3e8ff; color:#7e22ce; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Bank Dockets">Dkt: ${subCounts.dockets || 0}</span>
+                                </div>
+                            </td>
+                            <td style="padding:10px 12px; text-align:right; font-weight:600; color:#475569;">
+                                ${sizeFormatted}
+                                <div style="font-size:10.5px; color:#94a3b8; font-weight:normal;">${totalFiles} files</div>
+                            </td>
+                            <td style="padding:10px 12px; text-align:right; white-space:nowrap;">
+                                <div style="display:flex; gap:5px; justify-content:flex-end; align-items:center;">
+                                    <button type="button" onclick="openLeadFolder(${vf.applicant_id || 0}, '${safeCustJs}')" class="btn-black-outline" style="font-size:11px; padding:5px 9px; cursor:pointer;" title="Open in Windows Explorer">
+                                        📂 Explorer
+                                    </button>
+                                    ${(vf.applicant_id && vf.applicant_id > 0) ? `
+                                    <a href="generate_zip.php?id=${vf.applicant_id}" class="btn-black-outline" style="font-size:11px; padding:5px 9px; text-decoration:none; color:#be185d; border-color:#fbcfe8;" title="Download All Files in 1 ZIP">
+                                        📦 Bank ZIP
+                                    </a>
+                                    <a href="applicant_documents.php?id=${vf.applicant_id}" class="btn-black-solid" style="text-decoration:none; font-size:11px; padding:5px 10px;">
+                                        📄 CRM Docs
+                                    </a>
+                                    ` : ''}
+                                </div>
+                            </td>
+                        </tr>
+                    `;
+                });
+                tbody.innerHTML = html;
+            }
+        }
+
+        // 6. Render Pagination UI
+        renderVaultPaginationUI(totalItems === 0 ? 0 : startIndex + 1, endIndex, totalItems);
+    }
+
+    function renderVaultPaginationUI(startItem, endItem, totalItems) {
+        const infoEl = document.getElementById('vault-pagination-info');
+        const controlsEl = document.getElementById('vault-pagination-controls');
+
+        if (!infoEl || !controlsEl) return;
+
+        if (totalItems === 0) {
+            infoEl.innerHTML = 'Showing <b>0</b> to <b>0</b> of <b>0</b> entries';
+            controlsEl.innerHTML = '';
+            return;
+        }
+
+        infoEl.innerHTML = `Showing <b>${startItem}</b> to <b>${endItem}</b> of <b>${totalItems}</b> entries`;
+
+        const totalPages = Math.ceil(totalItems / vaultPageSize);
+        let buttonsHtml = '';
+
+        // First & Previous buttons
+        const prevDisabled = vaultCurrentPage === 1 ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
+        buttonsHtml += `<button type="button" onclick="goToVaultPage(1)" ${prevDisabled} class="pg-btn" title="First Page">««</button>`;
+        buttonsHtml += `<button type="button" onclick="goToVaultPage(${vaultCurrentPage - 1})" ${prevDisabled} class="pg-btn" title="Previous Page">‹</button>`;
+
+        // Page number buttons (show up to 5 surrounding pages)
+        let startPage = Math.max(1, vaultCurrentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+
+        for (let p = startPage; p <= endPage; p++) {
+            const activeClass = p === vaultCurrentPage ? 'pg-btn-active' : '';
+            buttonsHtml += `<button type="button" onclick="goToVaultPage(${p})" class="pg-btn ${activeClass}">${p}</button>`;
+        }
+
+        // Next & Last buttons
+        const nextDisabled = vaultCurrentPage === totalPages ? 'disabled style="opacity:0.4; cursor:not-allowed;"' : '';
+        buttonsHtml += `<button type="button" onclick="goToVaultPage(${vaultCurrentPage + 1})" ${nextDisabled} class="pg-btn" title="Next Page">›</button>`;
+        buttonsHtml += `<button type="button" onclick="goToVaultPage(${totalPages})" ${nextDisabled} class="pg-btn" title="Last Page">»»</button>`;
+
+        controlsEl.innerHTML = buttonsHtml;
+    }
+
+    function goToVaultPage(page) {
+        const totalPages = Math.ceil(vaultFilteredList.length / vaultPageSize);
+        if (page < 1 || page > totalPages) return;
+        vaultCurrentPage = page;
+        filterAndRenderVaultRoster(false);
+
+        const tableCard = document.getElementById('vault-settings-table');
+        if (tableCard) {
+            tableCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }
+
+    function changeVaultPageSize(newSize) {
+        vaultPageSize = parseInt(newSize, 10) || 10;
+        vaultCurrentPage = 1;
+        filterAndRenderVaultRoster(false);
+    }
+
+    function resetVaultFilters() {
+        const searchInput = document.getElementById('vault-settings-filter');
+        if (searchInput) searchInput.value = '';
+        const prodSelect = document.getElementById('vault-filter-product');
+        if (prodSelect) prodSelect.value = '';
+        const sortSelect = document.getElementById('vault-sort-select');
+        if (sortSelect) sortSelect.value = 'name_asc';
+        filterAndRenderVaultRoster(true);
+    }
+
+    function exportVaultRosterCSV() {
+        if (!vaultFilteredList || vaultFilteredList.length === 0) {
+            alert('No vault entries available to export.');
+            return;
+        }
+
+        const headers = [
+            'Applicant Name',
+            'Loan ID',
+            'Loan Product',
+            'Mobile',
+            'Folder Name',
+            'KYC Files',
+            'Income Files',
+            'Property Files',
+            'Business Files',
+            'Docket Files',
+            'Total Files',
+            'Size (KB)',
+            'Size (Formatted)',
+            'Local Storage Path'
+        ];
+
+        const rows = vaultFilteredList.map(item => {
+            const sizeFormatted = (item.size_kb || 0) > 1024 ? ((item.size_kb || 0) / 1024).toFixed(1) + ' MB' : (item.size_kb || 0) + ' KB';
+            const sub = item.sub_counts || {};
+            return [
+                `"${(item.customer_name || '').replace(/"/g, '""')}"`,
+                `"${(item.loan_id || '').replace(/"/g, '""')}"`,
+                `"${(item.loan_type || '').replace(/"/g, '""')}"`,
+                `"${(item.mobile || '').replace(/"/g, '""')}"`,
+                `"${(item.folder_name || '').replace(/"/g, '""')}"`,
+                sub.kyc || 0,
+                sub.income || 0,
+                sub.property || 0,
+                sub.business || 0,
+                sub.dockets || 0,
+                item.total_files || 0,
+                item.size_kb || 0,
+                `"${sizeFormatted}"`,
+                `"${(item.folder_path || '').replace(/"/g, '""')}"`
+            ].join(',');
+        });
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        link.setAttribute('href', url);
+        link.setAttribute('download', `BFS_Vault_Leads_Roster_${dateStr}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+
+        if (typeof showNotification === 'function') {
+            showNotification(`📥 Exported ${vaultFilteredList.length} vault directories to CSV!`, 'success');
+        }
     }
 
     async function testVpsBridgeConnection() {
