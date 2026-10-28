@@ -3,8 +3,8 @@ require_once 'config.php';
 require_auth();
 require_role(['Admin', 'Staff']);
 
-$page_title = 'Postiz Social Media & Marketing Hub';
-$page_subtitle = 'Multi-Platform AI Social Scheduling, Content Calendar & Lead Generation (Instagram, Facebook, LinkedIn, X, YouTube)';
+$page_title = 'BFS Circle Social Hub';
+$page_subtitle = 'Multi-Platform AI Social Scheduling, Content Calendar & Lead Generation for BFS Circle';
 $active_page = 'postiz.php';
 $hide_main_header = true;
 
@@ -201,11 +201,11 @@ include 'header.php';
     <!-- Top Hub Action Bar -->
     <div class="postiz-topbar">
         <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <div style="width:36px; height:36px; border-radius:10px; background:#0f172a; border:1px solid #334155; color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                 <i data-lucide="share-2" style="width:20px; height:20px;"></i>
             </div>
             <div>
-                <div style="font-size:14px; font-weight:800; color:#ffffff; line-height:1.2;">BFS Circle Postiz Social Hub</div>
+                <div style="font-size:14px; font-weight:800; color:#ffffff; line-height:1.2;">BFS Circle Social Hub</div>
                 <div style="font-size:11.5px; color:#94a3b8; font-weight:500;">Multi-Channel AI Social Scheduler • Port: <?php echo $postiz_port; ?></div>
             </div>
         </div>
@@ -213,7 +213,7 @@ include 'header.php';
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <div class="postiz-status-badge <?php echo $is_postiz_online ? 'status-online' : 'status-offline'; ?>">
                 <span class="status-pulse <?php echo $is_postiz_online ? 'pulse-indigo' : 'pulse-red'; ?>"></span>
-                <span><?php echo $is_postiz_online ? 'Postiz Engine Online' : 'Engine Offline (Port ' . $postiz_port . ')'; ?></span>
+                <span><?php echo $is_postiz_online ? 'BFS Social Online' : 'Engine Offline (Port ' . $postiz_port . ')'; ?></span>
             </div>
 
             <div class="postiz-actions">

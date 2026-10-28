@@ -2,7 +2,7 @@
 require_once 'config.php';
 require_auth();
 
-$page_title = 'WhatsApp CRM & Live Hub';
+$page_title = 'BFS Circle WhatsApp Hub';
 $page_subtitle = 'Integrated Multi-Agent WhatsApp Inbox, Baileys QR Engine, Broadcasts & Automations';
 $active_page = 'whatsapp_crm.php';
 $hide_main_header = true;

@@ -281,9 +281,9 @@ if (isset($db)) {
             flex-shrink: 0;
         }
         .menu-item.active .nav-badge {
-            background: #ffffff;
-            color: #000000;
-            border-color: #ffffff;
+            background: #000000 !important;
+            color: #ffffff !important;
+            border-color: #000000 !important;
             font-weight: 800;
         }
 
@@ -2839,9 +2839,9 @@ if (isset($db)) {
             { title: 'RM Loan Workspace', type: 'Page', url: '<?php echo $base_path; ?>rm/dashboard.php', icon: 'user-check' },
             { title: 'Pre-Leads (Raw Data)', type: 'Page', url: '<?php echo $base_path; ?>pre_leads.php', icon: 'inbox' },
             { title: 'Lead Management', type: 'Page', url: '<?php echo $base_path; ?>leads.php', icon: 'target' },
-            { title: 'WhatsApp CRM & Live Hub', type: 'Tool', url: '<?php echo $base_path; ?>whatsapp_crm.php', icon: 'message-circle' },
-            { title: 'Email Marketing & Campaigns (Listmonk)', type: 'Tool', url: '<?php echo $base_path; ?>marketing.php', icon: 'send' },
-            { title: 'Postiz Social Media Scheduler & Marketing Hub', type: 'Tool', url: '<?php echo $base_path; ?>postiz.php', icon: 'share-2', desc: 'AI-Powered Social Media Scheduling & Multi-Platform Publishing' },
+            { title: 'BFS Circle WhatsApp Hub', type: 'Tool', url: '<?php echo $base_path; ?>whatsapp_crm.php', icon: 'message-circle' },
+            { title: 'BFS Circle Mailer (Email Campaigns)', type: 'Tool', url: '<?php echo $base_path; ?>marketing.php', icon: 'mail' },
+            { title: 'BFS Circle Social Hub', type: 'Tool', url: '<?php echo $base_path; ?>postiz.php', icon: 'share-2', desc: 'AI-Powered Social Media Scheduling & Multi-Platform Publishing for BFS Circle' },
             { title: 'Website Appointments Desk', type: 'Page', url: '<?php echo $base_path; ?>appointments.php', icon: 'calendar' },
             { title: 'Partner Portal Requests', type: 'Page', url: '<?php echo $base_path; ?>partner_requests.php', icon: 'handshake' },
             { title: 'Field Visits', type: 'Page', url: '<?php echo $base_path; ?>field_visits.php', icon: 'map-pin' },
@@ -3503,40 +3503,40 @@ if (isset($db)) {
                 </a>
             </li>
 
-            <!-- 4. TOOLS SECTION (COLLAPSIBLE DROPDOWN) -->
-            <div class="sidebar-section-header"><span>Tools</span></div>
+            <!-- 4. BFS CIRCLE TOOLS (MONOCHROME BLACK & WHITE DROPDOWN) -->
+            <div class="sidebar-section-header"><span>BFS Circle Tools</span></div>
             <?php $is_tools_active = in_array($active_page, ['whatsapp_crm.php', 'marketing.php', 'postiz.php']); ?>
             <li class="menu-item menu-item-has-children <?php echo $is_tools_active ? 'active-parent' : ''; ?>" id="nav-tools-item">
-                <a href="javascript:void(0)" onclick="toggleToolsMenu(event)" title="Click to open Tool Section (WhatsApp, Listmonk, Postiz)" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                <a href="javascript:void(0)" onclick="toggleToolsMenu(event)" title="Click to open BFS Circle Tools" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
                     <div style="display:flex; align-items:center; gap:10px;">
-                        <i data-lucide="wrench" style="color:#38bdf8;"></i>
-                        <span class="menu-text" style="font-weight:600;">Tool Section</span>
+                        <i data-lucide="wrench"></i>
+                        <span class="menu-text" style="font-weight:700;">BFS Circle Tools</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="nav-badge" style="background:rgba(56,189,248,0.18); color:#38bdf8; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">3 LIVE</span>
+                        <span class="nav-badge" style="font-size:9px; padding:1px 6px; font-weight:800; border-radius:10px;">3 LIVE</span>
                         <i data-lucide="chevron-down" id="tools-chevron" style="width:13px; height:13px; transition:transform 0.2s; <?php echo $is_tools_active ? 'transform:rotate(-180deg);' : ''; ?>"></i>
                     </div>
                 </a>
-                <ul id="tools-dropdown-list" style="list-style:none; padding:4px 0 6px 12px; margin:0; border-left:1px dashed rgba(255,255,255,0.15); margin-left:18px; margin-top:2px; display: <?php echo $is_tools_active ? 'block' : 'none'; ?>;">
+                <ul id="tools-dropdown-list" style="list-style:none; padding:4px 0 6px 12px; margin:0; border-left:1px dashed rgba(255,255,255,0.18); margin-left:18px; margin-top:2px; display: <?php echo $is_tools_active ? 'block' : 'none'; ?>;">
                     <li class="menu-item <?php echo ($active_page === 'whatsapp_crm.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
-                        <a href="<?php echo $base_path; ?>whatsapp_crm.php" title="WhatsApp CRM & Live Hub" style="padding:7px 10px; font-size:12.5px;">
-                            <i data-lucide="message-circle" style="color:#25d366; width:15px; height:15px;"></i>
-                            <span class="menu-text">WhatsApp CRM</span>
-                            <span class="nav-badge" style="background:#22c55e; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        <a href="<?php echo $base_path; ?>whatsapp_crm.php" title="BFS Circle WhatsApp Hub" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="message-circle" style="width:15px; height:15px;"></i>
+                            <span class="menu-text">BFS WhatsApp</span>
+                            <span class="nav-badge" style="font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                         </a>
                     </li>
                     <li class="menu-item <?php echo ($active_page === 'marketing.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
-                        <a href="<?php echo $base_path; ?>marketing.php" title="Listmonk Mailer & Campaign Hub" style="padding:7px 10px; font-size:12.5px;">
-                            <i data-lucide="mail" style="color:#10b981; width:15px; height:15px;"></i>
-                            <span class="menu-text">Listmonk Mailer</span>
-                            <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        <a href="<?php echo $base_path; ?>marketing.php" title="BFS Circle Mailer Hub" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="mail" style="width:15px; height:15px;"></i>
+                            <span class="menu-text">BFS Mailer</span>
+                            <span class="nav-badge" style="font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                         </a>
                     </li>
                     <li class="menu-item <?php echo ($active_page === 'postiz.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
-                        <a href="<?php echo $base_path; ?>postiz.php" title="Postiz Social Media Scheduler & Marketing Hub" style="padding:7px 10px; font-size:12.5px;">
-                            <i data-lucide="share-2" style="color:#6366f1; width:15px; height:15px;"></i>
-                            <span class="menu-text">Postiz Social Hub</span>
-                            <span class="nav-badge" style="background:#6366f1; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        <a href="<?php echo $base_path; ?>postiz.php" title="BFS Circle Social Hub" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="share-2" style="width:15px; height:15px;"></i>
+                            <span class="menu-text">BFS Social Hub</span>
+                            <span class="nav-badge" style="font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                         </a>
                     </li>
                 </ul>
@@ -3624,10 +3624,10 @@ if (isset($db)) {
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'whatsapp_crm.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>whatsapp_crm.php" title="WhatsApp CRM Hub">
-                    <i data-lucide="message-circle" style="color:#25d366;"></i>
-                    <span class="menu-text">WhatsApp CRM</span>
-                    <span class="nav-badge" style="background:#22c55e; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                <a href="<?php echo $base_path; ?>whatsapp_crm.php" title="BFS Circle WhatsApp Hub">
+                    <i data-lucide="message-circle"></i>
+                    <span class="menu-text">BFS WhatsApp</span>
+                    <span class="nav-badge" style="font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                 </a>
             </li>
             <li class="menu-item <?php echo ($active_page === 'pre_leads.php') ? 'active' : ''; ?>">

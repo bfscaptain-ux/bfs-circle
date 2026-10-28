@@ -3,8 +3,8 @@ require_once 'config.php';
 require_auth();
 require_role(['Admin', 'Staff']);
 
-$page_title = 'Listmonk Mailer & Campaign Hub';
-$page_subtitle = 'Integrated High-Speed Bulk Campaign & Audience Engine powered by Listmonk Go Backend';
+$page_title = 'BFS Circle Mailer & Campaign Hub';
+$page_subtitle = 'Integrated High-Speed Bulk Campaign & Audience Engine for BFS Circle';
 $active_page = 'marketing.php';
 $hide_main_header = true;
 
@@ -182,19 +182,19 @@ include 'header.php';
     <!-- Top Hub Action Bar -->
     <div class="lmcrm-topbar">
         <div style="display:flex; align-items:center; gap:12px;">
-            <div style="width:36px; height:36px; border-radius:10px; background:linear-gradient(135deg, #10b981 0%, #059669 100%); color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+            <div style="width:36px; height:36px; border-radius:10px; background:#0f172a; border:1px solid #334155; color:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
                 <i data-lucide="mail" style="width:20px; height:20px;"></i>
             </div>
             <div>
-                <div style="font-size:14px; font-weight:800; color:#ffffff; line-height:1.2;">BFS Circle Listmonk Mailer Control Center</div>
-                <div style="font-size:11.5px; color:#94a3b8; font-weight:500;">Connected Engine: <code>Go Backend</code> • Port: <?php echo $lm_port; ?></div>
+                <div style="font-size:14px; font-weight:800; color:#ffffff; line-height:1.2;">BFS Circle Mailer Control Center</div>
+                <div style="font-size:11.5px; color:#94a3b8; font-weight:500;">High-Speed Campaign Engine • Port: <?php echo $lm_port; ?></div>
             </div>
         </div>
 
         <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <div class="lmcrm-status-badge <?php echo $is_lm_online ? 'status-online' : 'status-offline'; ?>">
                 <span class="status-pulse <?php echo $is_lm_online ? 'pulse-green' : 'pulse-red'; ?>"></span>
-                <span><?php echo $is_lm_online ? 'Listmonk Engine Online' : 'Engine Offline (Port ' . $lm_port . ')'; ?></span>
+                <span><?php echo $is_lm_online ? 'BFS Mailer Online' : 'Engine Offline (Port ' . $lm_port . ')'; ?></span>
             </div>
 
             <div class="lmcrm-actions">
