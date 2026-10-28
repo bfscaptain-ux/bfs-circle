@@ -111,12 +111,7 @@ require_once 'header.php';
                     <i data-lucide="file-check-2" style="width: 13px; height: 13px; color: #ffffff;"></i> ⚡ Bank Docket
                 </button>
 
-                <!-- 3. Physical Storage Vault Button -->
-                <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>)" class="btn" style="background: #18181b; color: #38bdf8; border: 1px solid #0284c7; padding: 6px 13px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: background 0.15s ease;" onmouseover="this.style.background='#0369a1'; this.style.color='#fff';" onmouseout="this.style.background='#18181b'; this.style.color='#38bdf8';" title="Open local physical folder on F:\BFS in Windows Explorer">
-                    <i data-lucide="folder" style="width: 13px; height: 13px;"></i> 📂 Vault (F:\BFS)
-                </button>
-
-                <!-- 4. DROPDOWN 1: Customer Outreach (Communication Hub) -->
+                <!-- 3. DROPDOWN 1: Customer Outreach (Communication Hub) -->
                 <div class="top-nav-dropdown-wrapper" style="position: relative; display: inline-block;">
                     <button type="button" onclick="toggleTopNavDropdown('dropdown-client-outreach', event)" class="btn" style="background: #27272a; color: #ffffff; border: 1px solid #3f3f46; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: all 0.15s ease;">
                         <i data-lucide="message-circle" style="width: 13px; height: 13px; color: #38bdf8;"></i>
@@ -193,6 +188,16 @@ require_once 'header.php';
                             <div>
                                 <div style="font-size: 12px; font-weight: 700;">Photos Lightbox Gallery</div>
                                 <div style="font-size: 10.5px; color: #a1a1aa;">Full-screen customer photo gallery</div>
+                            </div>
+                        </button>
+
+                        <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>); toggleTopNavDropdown('dropdown-dossier-tools');" style="display: flex; align-items: flex-start; gap: 10px; width: 100%; padding: 8px 10px; border-radius: 6px; border: none; background: transparent; color: #f4f4f5; text-align: left; cursor: pointer; transition: background 0.15s ease; border-top: 1px solid #27272a; margin-top: 2px;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='transparent'">
+                            <div style="background: #0284c7; color: #ffffff; border-radius: 5px; width: 26px; height: 26px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px;">
+                                <i data-lucide="folder" style="width: 13px; height: 13px;"></i>
+                            </div>
+                            <div>
+                                <div style="font-size: 12px; font-weight: 700; color: #38bdf8;">Open Local Vault (F:\BFS)</div>
+                                <div style="font-size: 10.5px; color: #a1a1aa;">Reveal physical folder in Windows Explorer</div>
                             </div>
                         </button>
                     </div>
@@ -2509,11 +2514,7 @@ require_once 'header.php';
             const res = await fetch(`open_vault_folder.php?id=${appId}&ajax=1`);
             const data = await res.json();
             if (data.success) {
-                if (typeof showCustomAlert === 'function') {
-                    showCustomAlert("📂 Vault Opened", "Physical folder revealed in Windows Explorer:\n" + data.path);
-                } else {
-                    alert("📂 Folder opened in Windows Explorer:\n" + data.path);
-                }
+                showNotification("📂 Physical vault folder revealed on F:\\BFS (" + (data.path || '') + ")", "success");
             } else {
                 alert(data.error || "Failed to open folder");
             }
