@@ -6706,6 +6706,43 @@ try {
             $app['co_applicants'] = $co_apps;
 
             $suggestions = getLoanDocumentSuggestions($app['loan_type'] ?? '', $app['loan_sub_type'] ?? '', $app['employment_type'] ?? 'Salaried', $co_apps);
+
+            // Apply applicant custom checklist overrides (renamed, added, or deleted requirements)
+            try {
+                $ov_stmt = $db->prepare("SELECT * FROM applicant_custom_checklist WHERE applicant_id = ?");
+                $ov_stmt->execute([$id]);
+                $overrides = $ov_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+                if (!empty($overrides)) {
+                    foreach ($overrides as $ov) {
+                        if ((int)$ov['is_deleted'] === 1) {
+                            $suggestions = array_values(array_filter($suggestions, function($s) use ($ov) {
+                                return strcasecmp($s['doc_name'], $ov['original_doc_name']) !== 0;
+                            }));
+                        } elseif (!empty($ov['original_doc_name'])) {
+                            foreach ($suggestions as &$s) {
+                                if (strcasecmp($s['doc_name'], $ov['original_doc_name']) === 0) {
+                                    $s['original_doc_name'] = $ov['original_doc_name'];
+                                    $s['doc_name'] = $ov['custom_doc_name'];
+                                    if (!empty($ov['hint'])) $s['hint'] = $ov['hint'];
+                                    if (isset($ov['is_mandatory'])) $s['is_mandatory'] = (bool)$ov['is_mandatory'];
+                                    $s['is_customized'] = true;
+                                }
+                            }
+                            unset($s);
+                        } else {
+                            $suggestions[] = [
+                                'category'     => $ov['category'],
+                                'doc_name'     => $ov['custom_doc_name'],
+                                'is_mandatory' => (bool)$ov['is_mandatory'],
+                                'owner_type'   => 'Applicant',
+                                'hint'         => $ov['hint'] ?: 'Custom added requirement',
+                                'is_customized'=> true
+                            ];
+                        }
+                    }
+                }
+            } catch (Exception $e) {}
             
             // documents
             $stmt = $db->prepare("
@@ -8330,6 +8367,75 @@ try {
             }
 
             return_json(['error' => 'Failed to save files. Please check file permissions or format.'], 500);
+            break;
+
+        case 'edit_checklist_doc_name':
+            $app_id = (int)($_POST['applicant_id'] ?? 0);
+            $orig_name = trim($_POST['original_name'] ?? '');
+            $new_name = trim($_POST['new_name'] ?? '');
+            $category = trim($_POST['category'] ?? 'Basic KYC');
+            $hint = trim($_POST['hint'] ?? '');
+            $is_mand = isset($_POST['is_mandatory']) ? (int)$_POST['is_mandatory'] : 1;
+            $action = trim($_POST['action'] ?? 'rename');
+
+            if ($app_id <= 0 || empty($new_name)) {
+                return_json(['error' => 'Missing applicant ID or document name'], 400);
+            }
+
+            if ($action === 'delete') {
+                $stmt = $db->prepare("INSERT INTO applicant_custom_checklist (applicant_id, category, original_doc_name, custom_doc_name, is_deleted) VALUES (?, ?, ?, ?, 1)");
+                $stmt->execute([$app_id, $category, $orig_name, $orig_name]);
+                log_activity("Removed checklist requirement '$orig_name' for applicant #$app_id", "applicant_documents.php?id=$app_id");
+                return_json(['success' => true, 'message' => "Checklist requirement '$orig_name' removed."]);
+            }
+
+            // Check if existing override exists
+            $chk = $db->prepare("SELECT id FROM applicant_custom_checklist WHERE applicant_id = ? AND (original_doc_name = ? OR custom_doc_name = ?)");
+            $chk->execute([$app_id, $orig_name, $orig_name]);
+            $existing_id = $chk->fetchColumn();
+
+            if ($existing_id) {
+                $upd = $db->prepare("UPDATE applicant_custom_checklist SET custom_doc_name = ?, hint = ?, is_mandatory = ?, is_deleted = 0 WHERE id = ?");
+                $upd->execute([$new_name, $hint, $is_mand, $existing_id]);
+            } else {
+                $ins = $db->prepare("INSERT INTO applicant_custom_checklist (applicant_id, category, original_doc_name, custom_doc_name, hint, is_mandatory) VALUES (?, ?, ?, ?, ?, ?)");
+                $ins->execute([$app_id, $category, $orig_name, $new_name, $hint, $is_mand]);
+            }
+
+            // Also update any matching uploaded document name
+            $upd_doc = $db->prepare("UPDATE applicant_documents SET document_name = ? WHERE applicant_id = ? AND (document_name = ? OR document_name = ?)");
+            $upd_doc->execute([$new_name, $app_id, $orig_name, $orig_name . ' (Original)']);
+
+            log_activity("Renamed checklist item '$orig_name' to '$new_name' for applicant #$app_id", "applicant_documents.php?id=$app_id");
+            return_json(['success' => true, 'message' => "Document name updated to '$new_name' successfully!"]);
+            break;
+
+        case 'add_custom_checklist_item':
+            $app_id = (int)($_POST['applicant_id'] ?? 0);
+            $doc_name = trim($_POST['doc_name'] ?? '');
+            $category = trim($_POST['category'] ?? 'Basic KYC');
+            $hint = trim($_POST['hint'] ?? '');
+            $is_mand = isset($_POST['is_mandatory']) ? (int)$_POST['is_mandatory'] : 0;
+
+            if ($app_id <= 0 || empty($doc_name)) {
+                return_json(['error' => 'Missing applicant ID or document title'], 400);
+            }
+
+            $ins = $db->prepare("INSERT INTO applicant_custom_checklist (applicant_id, category, original_doc_name, custom_doc_name, hint, is_mandatory) VALUES (?, ?, NULL, ?, ?, ?)");
+            $ins->execute([$app_id, $category, $doc_name, $hint, $is_mand]);
+
+            log_activity("Added custom checklist requirement '$doc_name' under $category for applicant #$app_id", "applicant_documents.php?id=$app_id");
+            return_json(['success' => true, 'message' => "Added custom document '$doc_name' to checklist!"]);
+            break;
+
+        case 'rename_uploaded_document':
+            $doc_id = (int)($_POST['doc_id'] ?? 0);
+            $new_name = trim($_POST['new_name'] ?? '');
+            if ($doc_id <= 0 || empty($new_name)) return_json(['error' => 'Missing ID or name'], 400);
+
+            $stmt = $db->prepare("UPDATE applicant_documents SET document_name = ? WHERE id = ?");
+            $stmt->execute([$new_name, $doc_id]);
+            return_json(['success' => true, 'message' => 'Document title updated in vault!']);
             break;
 
         case 'get_document_boundations':

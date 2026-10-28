@@ -432,6 +432,111 @@ require_once 'header.php';
     </div>
 </div>
 
+
+<!-- ✏️ EDIT / RENAME CHECKLIST DOCUMENT NAME MODAL -->
+<div id="edit-doc-name-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:999999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
+    <div style="background:#ffffff; border-radius:12px; width:92%; max-width:480px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.3); overflow:hidden; border:1px solid #e2e8f0; font-family:'Outfit', sans-serif;">
+        <div style="padding:16px 20px; background:#0f172a; color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i data-lucide="edit-3" style="width:17px; height:17px; color:#38bdf8;"></i>
+                <span style="font-weight:800; font-size:15px;">Rename Document Requirement</span>
+            </div>
+            <button type="button" onclick="closeEditDocNameModal()" style="background:none; border:none; color:#a1a1aa; cursor:pointer; font-size:22px; line-height:1;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#a1a1aa'">&times;</button>
+        </div>
+        <form id="edit-doc-name-form" onsubmit="submitRenameDocName(event)" style="padding:20px;">
+            <input type="hidden" id="edit-orig-doc-name">
+            <input type="hidden" id="edit-doc-category">
+
+            <div style="margin-bottom:14px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Original Document Name</label>
+                <div id="edit-orig-name-display" style="font-size:12.5px; font-weight:600; color:#64748b; background:#f1f5f9; padding:8px 12px; border-radius:6px; border:1px solid #cbd5e1;"></div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label class="required" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Custom / New Document Title</label>
+                <input type="text" id="edit-new-doc-name" required style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Requirement Description / Instructions (Hint)</label>
+                <input type="text" id="edit-doc-hint" placeholder="e.g. Color copy with both sides" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; color:#0f172a; outline:none; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:18px; background:#f8fafc; padding:10px 12px; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:12px; font-weight:700; color:#0f172a;">Mandatory Requirement</div>
+                    <div style="font-size:11px; color:#64748b;">Lock Phase 3 until this document is uploaded</div>
+                </div>
+                <input type="checkbox" id="edit-is-mandatory" style="width:18px; height:18px; accent-color:#0f172a; cursor:pointer;">
+            </div>
+
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                <button type="button" onclick="deleteChecklistItem()" class="btn" style="background:#fee2e2; color:#991b1b; border:1px solid #fecaca; padding:8px 14px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                    <i data-lucide="trash-2" style="width:13px; height:13px;"></i> Remove from Checklist
+                </button>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" onclick="closeEditDocNameModal()" class="btn" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:8px 14px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer;">Cancel</button>
+                    <button type="submit" class="btn" style="background:#0f172a; color:#ffffff; border:none; padding:8px 18px; font-size:12px; font-weight:800; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">Save Name</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- ➕ ADD CUSTOM DOCUMENT TO CHECKLIST MODAL -->
+<div id="add-custom-doc-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:999999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
+    <div style="background:#ffffff; border-radius:12px; width:92%; max-width:480px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.3); overflow:hidden; border:1px solid #e2e8f0; font-family:'Outfit', sans-serif;">
+        <div style="padding:16px 20px; background:#0f172a; color:#ffffff; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i data-lucide="plus-circle" style="width:18px; height:18px; color:#10b981;"></i>
+                <span style="font-weight:800; font-size:15px;">Add Custom Document Requirement</span>
+            </div>
+            <button type="button" onclick="closeAddCustomDocModal()" style="background:none; border:none; color:#a1a1aa; cursor:pointer; font-size:22px; line-height:1;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#a1a1aa'">&times;</button>
+        </div>
+        <form id="add-custom-doc-form" onsubmit="submitAddCustomDoc(event)" style="padding:20px;">
+            <div style="margin-bottom:14px;">
+                <label class="required" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Category</label>
+                <select id="custom-doc-category" required style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; color:#0f172a;">
+                    <option value="Basic KYC">🪪 Basic KYC</option>
+                    <option value="Income Proof">💼 Income Proof</option>
+                    <option value="Business Proof">🏢 Business Proof</option>
+                    <option value="Property / Asset Docs">🏠 Property / Asset Docs</option>
+                    <option value="Vehicle Docs">🚗 Vehicle Docs</option>
+                    <option value="Existing Loan Obligations">🏦 Existing Loan Obligations</option>
+                    <option value="Co-Applicant Docs">👥 Co-Applicant Docs</option>
+                    <option value="Bank Login & Fee Receipts">💳 Bank Receipts</option>
+                    <option value="Other">📁 Other Custom Docs</option>
+                </select>
+            </div>
+
+            <div style="margin-bottom:14px;">
+                <label class="required" style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Document Name / Title</label>
+                <input type="text" id="custom-doc-title" placeholder="e.g. Khasra Khatoni / Rent Agreement" required style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:13px; font-weight:600; color:#0f172a; outline:none; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#334155; margin-bottom:5px;">Requirement Description / Hint</label>
+                <input type="text" id="custom-doc-hint" placeholder="e.g. Latest certified copy under 3 months" style="width:100%; padding:9px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12.5px; color:#0f172a; outline:none; box-sizing:border-box;">
+            </div>
+
+            <div style="margin-bottom:18px; background:#f8fafc; padding:10px 12px; border-radius:6px; border:1px solid #e2e8f0; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:12px; font-weight:700; color:#0f172a;">Is this Mandatory?</div>
+                    <div style="font-size:11px; color:#64748b;">Must be uploaded before Phase 3 proceed</div>
+                </div>
+                <input type="checkbox" id="custom-doc-mandatory" style="width:18px; height:18px; accent-color:#0f172a; cursor:pointer;">
+            </div>
+
+            <div style="display:flex; justify-content:flex-end; gap:8px;">
+                <button type="button" onclick="closeAddCustomDocModal()" class="btn" style="background:#f1f5f9; color:#475569; border:1px solid #cbd5e1; padding:8px 14px; font-size:12px; font-weight:700; border-radius:6px; cursor:pointer;">Cancel</button>
+                <button type="submit" class="btn" style="background:#059669; color:#ffffff; border:none; padding:8px 18px; font-size:12px; font-weight:800; border-radius:6px; cursor:pointer; display:inline-flex; align-items:center; gap:4px;">
+                    <i data-lucide="plus" style="width:13px; height:13px;"></i> Add to Checklist
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Instant Document Preview Modal -->
 <div id="doc-preview-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
     <div style="background:#fff; border-radius:12px; width:90%; max-width:900px; height:85vh; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
@@ -1145,7 +1250,10 @@ require_once 'header.php';
                                     <div style="font-size:11px; color:#64748b; font-weight:500;">${groupItems.length} requirement(s) listed</div>
                                 </div>
                             </div>
-                            <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <button type="button" onclick="event.stopPropagation(); openAddCustomDocModal('${catName.replace(/'/g, "\\'")}')" style="background:#ffffff; color:#0f172a; border:1px solid #cbd5e1; font-size:11px; font-weight:700; padding:3px 9px; border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Add new custom document requirement to ${catName}">
+                                    <i data-lucide="plus" style="width:12px; height:12px; color:#059669;"></i> Add Doc
+                                </button>
                                 <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; ${isAllUploaded ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;'}">
                                     ${isAllUploaded ? '✓ Complete (' + uploadedCount + '/' + groupItems.length + ')' : uploadedCount + ' of ' + groupItems.length + ' Uploaded'}
                                 </span>
@@ -1201,9 +1309,14 @@ require_once 'header.php';
                         <div style="background:#ffffff; border:1px solid ${isUploaded ? '#cbd5e1' : (hasVault ? '#e9d5ff' : '#cbd5e1')}; border-radius:8px; padding:12px; display:flex; flex-direction:column; justify-content:space-between; gap:10px; box-shadow:0 1px 2px rgba(15,23,42,0.03); transition:border-color 0.15s ease;" onmouseover="this.style.borderColor='#94a3b8'" onmouseout="this.style.borderColor='${isUploaded ? '#cbd5e1' : (hasVault ? '#e9d5ff' : '#cbd5e1')}'">
                             <div>
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:4px; gap:6px;">
-                                    <span style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3;">
-                                        ${item.doc_name} ${item.is_mandatory ? '<span style="color:#ef4444; font-weight:bold;" title="Mandatory">*</span>' : ''}
-                                    </span>
+                                    <div style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                                        <span style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3;">
+                                            ${item.doc_name} ${item.is_mandatory ? '<span style="color:#ef4444; font-weight:bold;" title="Mandatory">*</span>' : ''}
+                                        </span>
+                                        <button type="button" onclick="event.stopPropagation(); openEditDocNameModal('${encodeURIComponent(item.doc_name)}', '${encodeURIComponent(item.hint || '')}', '${encodeURIComponent(item.category)}', ${item.is_mandatory ? 1 : 0}, '${encodeURIComponent(item.original_doc_name || item.doc_name)}')" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px; border-radius:3px; display:inline-flex; align-items:center; transition:color 0.15s ease;" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#94a3b8'" title="Rename / Edit Document Title">
+                                            <i data-lucide="edit-2" style="width:11px; height:11px;"></i>
+                                        </button>
+                                    </div>
                                     ${ownerBadge}
                                 </div>
                                 <div style="font-size:11px; color:#64748b; line-height:1.3;">${item.hint || item.category}</div>
@@ -2375,6 +2488,156 @@ require_once 'header.php';
             btn.disabled = false;
             btn.innerHTML = originalText;
             if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+
+    // ===== CHECKLIST CUSTOMIZATION & RENAMING SCRIPTS =====
+    function openEditDocNameModal(docNameEnc, hintEnc, catEnc, isMandatory, origNameEnc) {
+        const docName = decodeURIComponent(docNameEnc);
+        const hint = decodeURIComponent(hintEnc || '');
+        const cat = decodeURIComponent(catEnc || '');
+        const origName = decodeURIComponent(origNameEnc || docName);
+
+        document.getElementById('edit-orig-doc-name').value = origName;
+        document.getElementById('edit-doc-category').value = cat;
+        document.getElementById('edit-orig-name-display').innerText = origName;
+        document.getElementById('edit-new-doc-name').value = docName;
+        document.getElementById('edit-doc-hint').value = hint;
+        document.getElementById('edit-is-mandatory').checked = (isMandatory == 1);
+
+        const modal = document.getElementById('edit-doc-name-modal');
+        if (modal) modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeEditDocNameModal() {
+        const modal = document.getElementById('edit-doc-name-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function submitRenameDocName(e) {
+        e.preventDefault();
+        const origName = document.getElementById('edit-orig-doc-name').value;
+        const cat = document.getElementById('edit-doc-category').value;
+        const newName = document.getElementById('edit-new-doc-name').value.trim();
+        const hint = document.getElementById('edit-doc-hint').value.trim();
+        const isMand = document.getElementById('edit-is-mandatory').checked ? 1 : 0;
+
+        if (!newName) return;
+
+        try {
+            const fd = new FormData();
+            fd.append('applicant_id', applicantId);
+            fd.append('original_name', origName);
+            fd.append('new_name', newName);
+            fd.append('category', cat);
+            fd.append('hint', hint);
+            fd.append('is_mandatory', isMand);
+            fd.append('action', 'rename');
+
+            const res = await fetch('api.php?api=edit_checklist_doc_name', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.success) {
+                closeEditDocNameModal();
+                showNotification(data.message || 'Document name updated!', 'success');
+                loadDocuments();
+            } else {
+                alert(data.error || 'Failed to update name');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error updating document name');
+        }
+    }
+
+    async function deleteChecklistItem() {
+        const origName = document.getElementById('edit-orig-doc-name').value;
+        const cat = document.getElementById('edit-doc-category').value;
+
+        if (!confirm(`Are you sure you want to remove '${origName}' from this applicant's checklist?`)) return;
+
+        try {
+            const fd = new FormData();
+            fd.append('applicant_id', applicantId);
+            fd.append('original_name', origName);
+            fd.append('new_name', origName);
+            fd.append('category', cat);
+            fd.append('action', 'delete');
+
+            const res = await fetch('api.php?api=edit_checklist_doc_name', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.success) {
+                closeEditDocNameModal();
+                showNotification(`Removed '${origName}' from checklist!`, 'info');
+                loadDocuments();
+            } else {
+                alert(data.error || 'Failed to remove');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error removing checklist item');
+        }
+    }
+
+    function openAddCustomDocModal(category = '') {
+        if (category) {
+            const sel = document.getElementById('custom-doc-category');
+            if (sel) {
+                for (let opt of sel.options) {
+                    if (opt.value.toLowerCase().includes(category.toLowerCase()) || category.toLowerCase().includes(opt.value.toLowerCase())) {
+                        sel.value = opt.value;
+                        break;
+                    }
+                }
+            }
+        }
+        document.getElementById('custom-doc-title').value = '';
+        document.getElementById('custom-doc-hint').value = '';
+        document.getElementById('custom-doc-mandatory').checked = false;
+
+        const modal = document.getElementById('add-custom-doc-modal');
+        if (modal) modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeAddCustomDocModal() {
+        const modal = document.getElementById('add-custom-doc-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function submitAddCustomDoc(e) {
+        e.preventDefault();
+        const cat = document.getElementById('custom-doc-category').value;
+        const title = document.getElementById('custom-doc-title').value.trim();
+        const hint = document.getElementById('custom-doc-hint').value.trim();
+        const isMand = document.getElementById('custom-doc-mandatory').checked ? 1 : 0;
+
+        if (!title) return;
+
+        try {
+            const fd = new FormData();
+            fd.append('applicant_id', applicantId);
+            fd.append('category', cat);
+            fd.append('doc_name', title);
+            fd.append('hint', hint);
+            fd.append('is_mandatory', isMand);
+
+            const res = await fetch('api.php?api=add_custom_checklist_item', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.success) {
+                closeAddCustomDocModal();
+                showNotification(`Added '${title}' to checklist!`, 'success');
+                loadDocuments();
+            } else {
+                alert(data.error || 'Failed to add custom doc');
+            }
+        } catch (err) {
+            console.error(err);
+            alert('Error adding custom document');
         }
     }
 
