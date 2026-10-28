@@ -8455,6 +8455,24 @@ try {
             return_json(['success' => true, 'metrics' => BfsVaultEngine::getVaultMetrics()]);
             break;
 
+        case 'get_system_drives':
+            return_json([
+                'success' => true,
+                'drives' => BfsVaultEngine::getAvailableSystemDrives(),
+                'active_root' => BfsVaultEngine::getActiveBasePath()
+            ]);
+            break;
+
+        case 'switch_vault_storage_path':
+            $newPath = trim($_POST['new_path'] ?? '');
+            $migrate = !empty($_POST['migrate']) && ($_POST['migrate'] === '1' || $_POST['migrate'] === 'true');
+            if (empty($newPath)) {
+                return_json(['success' => false, 'error' => 'Storage path cannot be empty'], 400);
+            }
+            $res = BfsVaultEngine::switchVaultStoragePath($newPath, $migrate);
+            return_json($res, $res['success'] ? 200 : 400);
+            break;
+
         case 'open_lead_vault_folder':
             $app_id = (int)($_POST['id'] ?? ($_GET['id'] ?? 0));
             $c_name = trim($_POST['customer_name'] ?? ($_GET['customer_name'] ?? ''));

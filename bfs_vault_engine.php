@@ -20,17 +20,61 @@ class BfsVaultEngine {
     ];
 
     /**
+     * Configuration file path for dynamic storage settings
+     */
+    public static function getConfigPath(): string {
+        return __DIR__ . DIRECTORY_SEPARATOR . 'vault_config.json';
+    }
+
+    /**
+     * Loads the dynamic vault configuration
+     */
+    public static function getVaultConfig(): array {
+        $cfgPath = self::getConfigPath();
+        if (file_exists($cfgPath)) {
+            $json = @file_get_contents($cfgPath);
+            $data = json_decode($json, true);
+            if (is_array($data) && !empty($data['vault_root'])) {
+                return $data;
+            }
+        }
+        return [
+            'vault_root' => self::PRIMARY_VAULT_PATH,
+            'backup_mirror_root' => '',
+            'auto_purge_vps' => true
+        ];
+    }
+
+    /**
+     * Persists vault configuration
+     */
+    public static function saveVaultConfig(array $config): bool {
+        $cfgPath = self::getConfigPath();
+        return (bool)@file_put_contents($cfgPath, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+    }
+
+    /**
      * Resolves the active base vault path.
-     * Uses F:\BFS\Vault_Leads if drive F: is available, else falls back.
+     * Uses configured vault_root if drive is available, else falls back to uploads/vault_leads/.
      */
     public static function getActiveBasePath(): string {
-        $primaryDir = 'F:\\BFS';
-        if (is_dir($primaryDir) || @is_readable($primaryDir)) {
-            $vaultDir = self::PRIMARY_VAULT_PATH;
-            if (!is_dir($vaultDir)) {
-                @mkdir($vaultDir, 0777, true);
+        $cfg = self::getVaultConfig();
+        $target = trim($cfg['vault_root'] ?? self::PRIMARY_VAULT_PATH);
+
+        if (!empty($target)) {
+            if (preg_match('/^([a-zA-Z]:)/', $target, $m)) {
+                $driveRoot = $m[1] . '\\';
+                if (file_exists($driveRoot)) {
+                    if (!is_dir($target)) {
+                        @mkdir($target, 0777, true);
+                    }
+                    if (is_dir($target)) {
+                        return rtrim($target, '\\/');
+                    }
+                }
+            } elseif (is_dir($target)) {
+                return rtrim($target, '\\/');
             }
-            return $vaultDir;
         }
 
         // Fallback for safety
@@ -205,21 +249,51 @@ class BfsVaultEngine {
     }
 
     /**
-     * Returns real-time disk and vault metrics for Drive F:
+     * Scans and returns all available Windows logical filesystem drives
+     */
+    public static function getAvailableSystemDrives(): array {
+        $drives = [];
+        $letters = ['C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K'];
+        foreach ($letters as $l) {
+            $root = $l . ':\\';
+            if (@file_exists($root)) {
+                $free = @disk_free_space($root);
+                $total = @disk_total_space($root);
+                if ($total > 0) {
+                    $drives[] = [
+                        'letter'    => $l . ':',
+                        'root'      => $root,
+                        'free_gb'   => round($free / (1024 * 1024 * 1024), 1),
+                        'total_gb'  => round($total / (1024 * 1024 * 1024), 1),
+                        'free_pct'  => round(($free / $total) * 100, 1)
+                    ];
+                }
+            }
+        }
+        return $drives;
+    }
+
+    /**
+     * Returns real-time disk and vault metrics for the active target drive
      */
     public static function getVaultMetrics(): array {
-        $primaryTarget = 'F:\\BFS';
         $activeBase = self::getActiveBasePath();
-        $isFDrive = (stripos($activeBase, 'F:') === 0);
+        
+        $driveLetter = 'F:';
+        if (preg_match('/^([a-zA-Z]:)/', $activeBase, $m)) {
+            $driveLetter = strtoupper($m[1]);
+        }
+        $driveRoot = $driveLetter . '\\';
+        $isMounted = file_exists($driveRoot) && (stripos($activeBase, $driveLetter) === 0);
 
         $diskTotal = 0;
         $diskFree = 0;
         $diskUsed = 0;
         $freePercent = 0;
 
-        if (file_exists('F:\\')) {
-            $diskTotal = @disk_total_space('F:\\') ?: 0;
-            $diskFree  = @disk_free_space('F:\\') ?: 0;
+        if (file_exists($driveRoot)) {
+            $diskTotal = @disk_total_space($driveRoot) ?: 0;
+            $diskFree  = @disk_free_space($driveRoot) ?: 0;
             $diskUsed  = $diskTotal - $diskFree;
             if ($diskTotal > 0) {
                 $freePercent = round(($diskFree / $diskTotal) * 100, 1);
@@ -258,9 +332,9 @@ class BfsVaultEngine {
         }
 
         return [
-            'drive_letter'        => 'F:',
+            'drive_letter'        => $driveLetter,
             'vault_root'          => $activeBase,
-            'is_f_mounted'        => $isFDrive,
+            'is_f_mounted'        => $isMounted,
             'disk_total_gb'       => round($diskTotal / (1024 * 1024 * 1024), 2),
             'disk_free_gb'        => round($diskFree / (1024 * 1024 * 1024), 2),
             'disk_used_gb'        => round($diskUsed / (1024 * 1024 * 1024), 2),
@@ -268,7 +342,116 @@ class BfsVaultEngine {
             'lead_folders_count'  => $leadFoldersCount,
             'total_files_in_vault'=> $totalVaultFiles,
             'vault_size_mb'       => round($totalVaultSize / (1024 * 1024), 2),
-            'status'              => $isFDrive ? 'ONLINE_ACTIVE' : 'FALLBACK_LOCAL'
+            'status'              => $isMounted ? 'ONLINE_ACTIVE' : 'FALLBACK_LOCAL'
         ];
+    }
+
+    /**
+     * Switch storage root to a new local drive / directory with checkpoints & migration
+     */
+    public static function switchVaultStoragePath(string $newPath, bool $migrateExisting = false): array {
+        $cleanPath = trim(str_replace('/', DIRECTORY_SEPARATOR, $newPath));
+        $cleanPath = rtrim($cleanPath, '\\/');
+
+        // Checkpoint 1: Format validation
+        if (!preg_match('/^[a-zA-Z]:[\\\\\/]/', $cleanPath)) {
+            return ['success' => false, 'error' => 'Invalid Windows drive path format. Example: D:\\BFS\\Vault_Leads'];
+        }
+
+        // Checkpoint 2: Drive existence
+        preg_match('/^([a-zA-Z]:)/', $cleanPath, $m);
+        $driveLetter = strtoupper($m[1]);
+        $driveRoot = $driveLetter . '\\';
+        if (!file_exists($driveRoot)) {
+            return ['success' => false, 'error' => "Drive $driveLetter does not exist or is disconnected on this machine."];
+        }
+
+        // Checkpoint 3: Directory creation & write permissions test
+        if (!is_dir($cleanPath)) {
+            $created = @mkdir($cleanPath, 0777, true);
+            if (!$created && !is_dir($cleanPath)) {
+                return ['success' => false, 'error' => "Could not create target directory: $cleanPath. Check Windows permissions."];
+            }
+        }
+
+        $testFile = $cleanPath . DIRECTORY_SEPARATOR . '.bfs_permission_test_' . time() . '.tmp';
+        $writeOk = @file_put_contents($testFile, 'BFS_WRITE_OK');
+        if (!$writeOk) {
+            return ['success' => false, 'error' => "Directory is read-only or permission denied: $cleanPath"];
+        }
+        @unlink($testFile);
+
+        // Checkpoint 4: Minimum free disk space check (at least 1 GB)
+        $freeBytes = @disk_free_space($driveRoot) ?: 0;
+        $freeGb = round($freeBytes / (1024 * 1024 * 1024), 2);
+        if ($freeGb < 1.0) {
+            return ['success' => false, 'error' => "Drive $driveLetter has insufficient free space ($freeGb GB). Need at least 1 GB."];
+        }
+
+        $oldBase = self::getActiveBasePath();
+        $migratedCount = 0;
+
+        // Checkpoint 5: Migration of existing lead files
+        if ($migrateExisting && is_dir($oldBase) && strcasecmp($oldBase, $cleanPath) !== 0) {
+            global $db;
+            $items = @scandir($oldBase) ?: [];
+            foreach ($items as $item) {
+                if ($item === '.' || $item === '..') continue;
+                $srcLead = $oldBase . DIRECTORY_SEPARATOR . $item;
+                $dstLead = $cleanPath . DIRECTORY_SEPARATOR . $item;
+                if (is_dir($srcLead) && strpos($item, 'Lead_') === 0) {
+                    self::copyRecursive($srcLead, $dstLead);
+                }
+            }
+
+            // Update database paths
+            if (isset($db)) {
+                $stmt = $db->prepare("SELECT id, file_path FROM applicant_documents WHERE file_path LIKE ?");
+                $stmt->execute([$oldBase . '%']);
+                $docs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                foreach ($docs as $d) {
+                    $newFilePath = str_replace($oldBase, $cleanPath, $d['file_path']);
+                    $upd = $db->prepare("UPDATE applicant_documents SET file_path = ? WHERE id = ?");
+                    $upd->execute([$newFilePath, $d['id']]);
+                    $migratedCount++;
+                }
+            }
+        }
+
+        // Save new path to config
+        $cfg = self::getVaultConfig();
+        $cfg['vault_root'] = $cleanPath;
+        $cfg['last_updated'] = date('Y-m-d H:i:s');
+        self::saveVaultConfig($cfg);
+
+        return [
+            'success'        => true,
+            'old_path'       => $oldBase,
+            'new_path'       => $cleanPath,
+            'drive_letter'   => $driveLetter,
+            'free_gb'        => $freeGb,
+            'migrated_files' => $migratedCount,
+            'message'        => "Storage location successfully switched to $cleanPath! Drive $driveLetter has $freeGb GB free space."
+        ];
+    }
+
+    private static function copyRecursive(string $src, string $dst): void {
+        if (!is_dir($dst)) {
+            @mkdir($dst, 0777, true);
+        }
+        $dir = @opendir($src);
+        if (!$dir) return;
+        while (false !== ($file = readdir($dir))) {
+            if ($file != '.' && $file != '..') {
+                $srcFile = $src . DIRECTORY_SEPARATOR . $file;
+                $dstFile = $dst . DIRECTORY_SEPARATOR . $file;
+                if (is_dir($srcFile)) {
+                    self::copyRecursive($srcFile, $dstFile);
+                } else {
+                    @copy($srcFile, $dstFile);
+                }
+            }
+        }
+        closedir($dir);
     }
 }

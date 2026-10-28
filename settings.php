@@ -1133,6 +1133,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             require_once __DIR__ . '/bfs_vault_engine.php';
             $vaultMetrics = BfsVaultEngine::getVaultMetrics();
             $activeVaultBase = BfsVaultEngine::getActiveBasePath();
+            $systemDrives = BfsVaultEngine::getAvailableSystemDrives();
 
             $vaultLeadFolders = [];
             if (is_dir($activeVaultBase)) {
@@ -1308,6 +1309,60 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                 <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">Security Handshake</div>
                                 <div style="color:#f59e0b; font-weight:800; margin-top:4px; font-size:13px;">SHA-256 Salt Bridge Key</div>
                                 <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Mutual cryptographic auth</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- STORAGE DRIVE RELOCATION DESK -->
+                    <div style="margin-top:16px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.03);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+                            <div>
+                                <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                                    Local Storage Location &amp; Drive Relocation Wizard
+                                </h3>
+                                <div style="font-size:12px; color:#64748b; margin-top:3px;">
+                                    Change your local hard drive folder anytime (e.g. switch to D:, E:, G: or an external USB hard disk) with 1-click automatic data migration.
+                                </div>
+                            </div>
+                            <span style="font-size:11.5px; background:#f1f5f9; border:1px solid #e2e8f0; padding:4px 10px; border-radius:6px; color:#475569;">
+                                Active Storage: <strong style="color:#0f172a; font-family:monospace;"><?= htmlspecialchars($activeVaultBase) ?></strong>
+                            </span>
+                        </div>
+
+                        <!-- Detected Available Drives Quick Select -->
+                        <div style="margin-bottom:14px;">
+                            <label style="font-size:11.5px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:6px;">
+                                ⚡ Click Drive Letter to Auto-Fill:
+                            </label>
+                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                                <?php foreach ($systemDrives as $drv): ?>
+                                    <button type="button" onclick="selectVaultDrive('<?= addslashes($drv['letter']) ?>\\BFS\\Vault_Leads')" class="btn-black-outline" style="font-size:11.5px; padding:6px 12px; cursor:pointer; background:#f8fafc; border-color:#cbd5e1; display:inline-flex; align-items:center; gap:6px;">
+                                        <strong><?= $drv['letter'] ?></strong> (<?= $drv['free_gb'] ?> GB Free)
+                                    </button>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                        <!-- Path Input & Action -->
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
+                            <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end;">
+                                <div>
+                                    <label for="new_vault_path_input" style="font-size:12px; font-weight:700; color:#0f172a; display:block; margin-bottom:4px;">
+                                        Target Folder Path on Local Machine:
+                                    </label>
+                                    <input type="text" id="new_vault_path_input" class="ctrl-input" value="<?= htmlspecialchars($activeVaultBase) ?>" placeholder="e.g. D:\BFS\Vault_Leads" style="padding:9px 12px; font-size:13px; font-family:monospace; width:100%; box-sizing:border-box;">
+                                </div>
+                                <button type="button" onclick="submitVaultPathChange()" id="btn-save-vault-path" class="btn-black-solid" style="padding:10px 18px; font-size:12.5px; font-weight:800; white-space:nowrap; cursor:pointer;">
+                                    🚀 Validate &amp; Switch Storage Location
+                                </button>
+                            </div>
+
+                            <div style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:#334155;">
+                                <input type="checkbox" id="chk_migrate_vault_files" checked style="width:16px; height:16px; cursor:pointer;">
+                                <label for="chk_migrate_vault_files" style="cursor:pointer; font-weight:600;">
+                                    Automatically copy all existing lead folders (<?= count($vaultLeadFolders) ?> leads / <?= $vaultMetrics['total_files_in_vault'] ?> files) to the new location &amp; update CRM database links
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -2190,6 +2245,68 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                 alert('⚠️ Could not connect to VPS sync bridge.');
             }
         } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+    }
+
+    function selectVaultDrive(samplePath) {
+        const input = document.getElementById('new_vault_path_input');
+        if (input) input.value = samplePath;
+    }
+
+    async function submitVaultPathChange() {
+        const input = document.getElementById('new_vault_path_input');
+        const chkMigrate = document.getElementById('chk_migrate_vault_files');
+        const btn = document.getElementById('btn-save-vault-path');
+        const newPath = (input ? input.value : '').trim();
+
+        if (!newPath) {
+            alert('Please enter a target folder path (e.g. D:\\BFS\\Vault_Leads)');
+            return;
+        }
+
+        const willMigrate = chkMigrate ? chkMigrate.checked : false;
+        const confirmMsg = `Are you sure you want to change the document vault storage to:\n\n${newPath}\n\n` + 
+            (willMigrate ? '✓ All existing customer files will be copied automatically to the new location.' : '⚠ Existing files will stay in the old folder; only new files will go to the new location.');
+
+        if (!confirm(confirmMsg)) return;
+
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⏳ Validating & Switching...';
+        }
+
+        try {
+            const formData = new FormData();
+            formData.append('new_path', newPath);
+            formData.append('migrate', willMigrate ? '1' : '0');
+
+            const res = await fetch('api.php?api=switch_vault_storage_path', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                if (typeof showNotification === 'function') {
+                    showNotification(data.message || 'Storage switched successfully!', 'success');
+                } else {
+                    alert(data.message || 'Storage switched successfully!');
+                }
+                setTimeout(() => location.reload(), 1500);
+            } else {
+                alert('Storage Switch Error: ' + (data.error || 'Failed to switch path'));
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = origText;
+                }
+            }
+        } catch (e) {
+            alert('Server error occurred while validating storage path.');
             if (btn) {
                 btn.disabled = false;
                 btn.innerHTML = origText;
