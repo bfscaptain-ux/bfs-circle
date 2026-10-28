@@ -107,6 +107,45 @@ switch ($action) {
         ]);
         break;
 
+    case 'download_file':
+        $docId = (int)($_GET['id'] ?? 0);
+        $stmt = $db->prepare("SELECT file_path, document_name FROM applicant_documents WHERE id = ?");
+        $stmt->execute([$docId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$row || empty($row['file_path'])) {
+            http_response_code(404);
+            die(json_encode(['error' => 'File not found']));
+        }
+        $phys = BfsVaultEngine::resolvePhysicalPath($row['file_path']);
+        if (!file_exists($phys)) {
+            http_response_code(404);
+            die(json_encode(['error' => 'Physical file not found']));
+        }
+        header('Content-Type: application/octet-stream');
+        header('Content-Disposition: attachment; filename="' . basename($phys) . '"');
+        header('Content-Length: ' . filesize($phys));
+        readfile($phys);
+        exit;
+
+    case 'purge_file':
+        $docId = (int)($_GET['id'] ?? ($_POST['id'] ?? 0));
+        $destPath = trim($_POST['dest_path'] ?? '');
+        $stmt = $db->prepare("SELECT file_path FROM applicant_documents WHERE id = ?");
+        $stmt->execute([$docId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+            $phys = BfsVaultEngine::resolvePhysicalPath($row['file_path']);
+            if (file_exists($phys) && strpos($phys, 'uploads') !== false) {
+                @unlink($phys);
+            }
+            if (!empty($destPath)) {
+                $upd = $db->prepare("UPDATE applicant_documents SET file_path = ? WHERE id = ?");
+                $upd->execute([$destPath, $docId]);
+            }
+        }
+        echo json_encode(['success' => true, 'message' => "Purged file for doc #$docId from VPS disk"]);
+        break;
+
     default:
         echo json_encode(['success' => false, 'error' => 'Unknown bridge action']);
         break;

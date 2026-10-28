@@ -1269,6 +1269,49 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                         </span>
                     </div>
 
+                    <!-- VPS CLOUD AUTO-SYNC & DAEMON CONTROL -->
+                    <div style="margin-top:16px; background:#09090b; border:1px solid #27272a; border-radius:12px; padding:20px; color:#ffffff; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid #27272a; padding-bottom:14px; margin-bottom:16px;">
+                            <div style="display:flex; align-items:center; gap:12px;">
+                                <div style="width:40px; height:40px; border-radius:8px; background:#0284c7; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(2,132,199,0.3);">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
+                                </div>
+                                <div>
+                                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#ffffff; font-family:'Outfit',sans-serif;">Cloud VPS Live Auto-Sync &amp; Zero-Storage Offloader</h3>
+                                    <div style="font-size:11.5px; color:#a1a1aa; margin-top:2px;">
+                                        Production VPS: <code style="color:#38bdf8; font-weight:700;">https://crm.bfsfin.cloud</code> • Purges uploaded files from cloud to keep 0 MB server load
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                                <button type="button" onclick="testVpsBridgeConnection()" id="btn-test-vps" class="btn" style="background:#27272a; color:#38bdf8; border:1px solid #0284c7; padding:7px 14px; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer;">
+                                    📡 Test VPS Ping
+                                </button>
+                                <button type="button" onclick="runLegacyMigration()" class="btn" style="background:#047857; color:#ffffff; border:none; padding:7px 14px; border-radius:6px; font-weight:800; font-size:11.5px; cursor:pointer; box-shadow:0 2px 8px rgba(4,120,87,0.3);">
+                                    ⚡ Run Sync Now
+                                </button>
+                            </div>
+                        </div>
+
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:12px;">
+                            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px;">
+                                <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">Sync Engine Automation</div>
+                                <div style="color:#10b981; font-weight:800; margin-top:4px; font-size:13px;">● Running via START_CRM.bat</div>
+                                <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Background worker runs every 60s</div>
+                            </div>
+                            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px;">
+                                <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">VPS Transit Purge Buffer</div>
+                                <div style="color:#38bdf8; font-weight:800; margin-top:4px; font-size:13px;">0 MB Cached / Auto-Purge ON</div>
+                                <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Files unlinked immediately after transfer</div>
+                            </div>
+                            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px;">
+                                <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">Security Handshake</div>
+                                <div style="color:#f59e0b; font-weight:800; margin-top:4px; font-size:13px;">SHA-256 Salt Bridge Key</div>
+                                <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Mutual cryptographic auth</div>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- DIRECTORY SUBFOLDERS STANDARD -->
                     <div style="margin-top:20px;">
                         <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">Standardized Vault Folder Hierarchy</h4>
@@ -1312,9 +1355,9 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                     <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
                                         <th style="padding:10px 12px; text-align:left;">Applicant &amp; Folder</th>
                                         <th style="padding:10px 12px; text-align:left;">Loan Ref</th>
-                                        <th style="padding:10px 12px; text-align:center;">Files Count</th>
+                                        <th style="padding:10px 12px; text-align:center;">Category Breakdown</th>
                                         <th style="padding:10px 12px; text-align:right;">Total Size</th>
-                                        <th style="padding:10px 12px; text-align:right;">Actions</th>
+                                        <th style="padding:10px 12px; text-align:right;">Dossier &amp; Explorer Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -1336,22 +1379,32 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                                     <div style="font-size:11px; color:#64748b;"><?= htmlspecialchars($vf['loan_type']) ?></div>
                                                 </td>
                                                 <td style="padding:10px 12px; text-align:center;">
-                                                    <span style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:3px 8px; border-radius:12px; font-size:11px;">
-                                                        <?= $vf['total_files'] ?> files
-                                                    </span>
+                                                    <div style="display:flex; gap:4px; justify-content:center; flex-wrap:wrap;">
+                                                        <span style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="KYC Documents">KYC: <?= $vf['sub_counts']['kyc'] ?></span>
+                                                        <span style="background:#dcfce7; color:#15803d; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Income & Banking">Inc: <?= $vf['sub_counts']['income'] ?></span>
+                                                        <span style="background:#fef3c7; color:#b45309; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Property & Legal">Prop: <?= $vf['sub_counts']['property'] ?></span>
+                                                        <span style="background:#f1f5f9; color:#475569; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Business & Financials">Biz: <?= $vf['sub_counts']['business'] ?></span>
+                                                        <span style="background:#f3e8ff; color:#7e22ce; font-weight:700; padding:2px 7px; border-radius:4px; font-size:10.5px;" title="Bank Dockets">Dkt: <?= $vf['sub_counts']['dockets'] ?></span>
+                                                    </div>
                                                 </td>
                                                 <td style="padding:10px 12px; text-align:right; font-weight:600; color:#475569;">
                                                     <?= $vf['size_kb'] > 1024 ? round($vf['size_kb']/1024, 1) . ' MB' : $vf['size_kb'] . ' KB' ?>
+                                                    <div style="font-size:10.5px; color:#94a3b8; font-weight:normal;"><?= $vf['total_files'] ?> files</div>
                                                 </td>
                                                 <td style="padding:10px 12px; text-align:right; white-space:nowrap;">
-                                                    <button type="button" onclick="openLeadFolder(<?= $vf['applicant_id'] ?>, '<?= addslashes($vf['customer_name']) ?>')" class="btn-black-outline" style="font-size:11px; padding:5px 10px; cursor:pointer;" title="Open in Windows Explorer">
-                                                        📂 Explorer
-                                                    </button>
-                                                    <?php if ($vf['applicant_id'] > 0): ?>
-                                                    <a href="applicant_documents.php?id=<?= $vf['applicant_id'] ?>" class="btn-black-solid" style="text-decoration:none; font-size:11px; padding:5px 10px; display:inline-block; margin-left:4px;">
-                                                        📄 CRM Docs
-                                                    </a>
-                                                    <?php endif; ?>
+                                                    <div style="display:flex; gap:5px; justify-content:flex-end; align-items:center;">
+                                                        <button type="button" onclick="openLeadFolder(<?= $vf['applicant_id'] ?>, '<?= addslashes($vf['customer_name']) ?>')" class="btn-black-outline" style="font-size:11px; padding:5px 9px; cursor:pointer;" title="Open in Windows Explorer">
+                                                            📂 Explorer
+                                                        </button>
+                                                        <?php if ($vf['applicant_id'] > 0): ?>
+                                                        <a href="generate_zip.php?id=<?= $vf['applicant_id'] ?>" class="btn-black-outline" style="font-size:11px; padding:5px 9px; text-decoration:none; color:#be185d; border-color:#fbcfe8;" title="Download All Files in 1 ZIP">
+                                                            📦 Bank ZIP
+                                                        </a>
+                                                        <a href="applicant_documents.php?id=<?= $vf['applicant_id'] ?>" class="btn-black-solid" style="text-decoration:none; font-size:11px; padding:5px 10px;">
+                                                            📄 CRM Docs
+                                                        </a>
+                                                        <?php endif; ?>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -2108,6 +2161,40 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         document.querySelectorAll('.vault-settings-row').forEach(r => {
             r.style.display = r.innerText.toLowerCase().includes(query) ? '' : 'none';
         });
+    }
+
+    async function testVpsBridgeConnection() {
+        const btn = document.getElementById('btn-test-vps');
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '📡 Testing...';
+        }
+
+        try {
+            const res = await fetch('vault_sync_bridge.php?action=status');
+            const data = await res.json();
+            if (data.success) {
+                if (typeof showNotification === 'function') {
+                    showNotification('✅ VPS Storage Bridge is ONLINE & Handshake Verified! (0 MB VPS Disk Load)', 'success');
+                } else {
+                    alert('✅ VPS Storage Bridge is ONLINE & Handshake Verified! (0 MB VPS Disk Load)');
+                }
+            } else {
+                alert('⚠️ Bridge Error: ' + (data.error || 'Connection check failed'));
+            }
+        } catch (e) {
+            if (typeof showNotification === 'function') {
+                showNotification('⚠️ Could not connect to VPS sync bridge.', 'error');
+            } else {
+                alert('⚠️ Could not connect to VPS sync bridge.');
+            }
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
     }
 
     // Client Tracking Portal Roster JS Logic

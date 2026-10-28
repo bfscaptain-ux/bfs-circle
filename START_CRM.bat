@@ -29,6 +29,12 @@ if %errorlevel% equ 0 (
     ping 127.0.0.1 -n 3 >nul
 )
 
+:: 3. Launch BFS On-Premise Document Vault Auto-Sync (Drive F:\BFS)
+if exist "F:\" (
+    echo [STARTING] Launching BFS On-Premise Vault Auto-Sync Engine (F:\BFS)...
+    start "BFS_VAULT_SYNC" /min cmd /c "%~dp0START_VAULT_AUTO_SYNC.bat"
+)
+
 echo.
 echo ======================================================================
 echo   [SUCCESS] Both CRM Services are Active! Opening in Browser...
