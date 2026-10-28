@@ -7,6 +7,7 @@ ob_start();
 error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);
 // api.php - BFS Financial Services backend API endpoints dispatcher
 require_once __DIR__ . '/config.php';
+require_once __DIR__ . '/bfs_vault_engine.php';
 
 if (!isset($_GET['api'])) {
     return_json(['error' => 'API command not specified.'], 400);
@@ -2174,6 +2175,11 @@ try {
 
             $new_applicant_id = $db->lastInsertId();
             $db->prepare("UPDATE leads SET stage = 'Converted' WHERE id = ?")->execute([$id]);
+
+            // Auto-provision physical on-premise vault folder on F:\BFS
+            try {
+                BfsVaultEngine::getLeadVaultDir($new_applicant_id, $lead['lead_name'] ?? 'Applicant');
+            } catch (Exception $e) {}
 
             log_activity("Converted lead to active loan file #$loan_id for: " . ($lead['lead_name'] ?? $lead['name'] ?? 'Client'), "leads.php");
 
@@ -5306,12 +5312,20 @@ try {
                 return_json(['error' => 'Invalid file type. Allowed: PDF, JPG, PNG, DOC, DOCX, ZIP'], 400);
             }
 
-            $new_filename = 'client_' . $applicant['id'] . '_' . time() . '_' . rand(100,999) . '.' . $ext;
-            $target_path = __DIR__ . '/uploads/' . $new_filename;
-
-            if (!move_uploaded_file($file['tmp_name'], $target_path)) {
-                return_json(['error' => 'Failed to save file on server'], 500);
+            $vaultRes = BfsVaultEngine::storeDocument(
+                $applicant['id'],
+                $applicant['customer_name'] ?? 'Applicant',
+                $category,
+                $document_name,
+                $file['tmp_name'],
+                $file['name']
+            );
+            if (!$vaultRes['success']) {
+                return_json(['error' => 'Failed to store in BFS Vault: ' . ($vaultRes['error'] ?? 'Disk error')], 500);
             }
+            $target_path = $vaultRes['full_path'];
+            $file_size = $vaultRes['file_size'];
+            $file_ext = $vaultRes['ext'];
 
             // Check if there is an existing 'Pending' document request for this applicant
             $chk_pending = $db->prepare("SELECT id FROM applicant_documents WHERE applicant_id = ? AND document_name = ? AND status = 'Pending'");
@@ -5319,11 +5333,11 @@ try {
             $pending_id = $chk_pending->fetchColumn();
 
             if ($pending_id) {
-                $upd_stmt = $db->prepare("UPDATE applicant_documents SET file_path = ?, status = 'Uploaded', qa_status = 'Under Review', reupload_requested = 0, rejection_reason = NULL, owner_type = ?, owner_id = ?, verified_by = 'Client Upload', uploaded_at = CURRENT_TIMESTAMP WHERE id = ?");
-                $upd_stmt->execute([$new_filename, $owner_type, $owner_id, $pending_id]);
+                $upd_stmt = $db->prepare("UPDATE applicant_documents SET file_path = ?, file_size = ?, file_ext = ?, status = 'Uploaded', qa_status = 'Under Review', reupload_requested = 0, rejection_reason = NULL, owner_type = ?, owner_id = ?, verified_by = 'Client Upload', uploaded_at = CURRENT_TIMESTAMP WHERE id = ?");
+                $upd_stmt->execute([$target_path, $file_size, $file_ext, $owner_type, $owner_id, $pending_id]);
             } else {
-                $doc_stmt = $db->prepare("INSERT INTO applicant_documents (applicant_id, document_name, category, owner_type, owner_id, file_path, status, qa_status, reupload_requested, verified_by, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, 'Uploaded', 'Under Review', 0, 'Client Upload', CURRENT_TIMESTAMP)");
-                $doc_stmt->execute([$applicant['id'], $document_name, $category, $owner_type, $owner_id, $new_filename]);
+                $doc_stmt = $db->prepare("INSERT INTO applicant_documents (applicant_id, document_name, document_category, owner_type, owner_id, file_path, file_size, file_ext, status, qa_status, reupload_requested, verified_by, uploaded_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Uploaded', 'Under Review', 0, 'Client Upload', CURRENT_TIMESTAMP)");
+                $doc_stmt->execute([$applicant['id'], $document_name, $category, $owner_type, $owner_id, $target_path, $file_size, $file_ext]);
             }
 
             // Update applicant last activity
@@ -6702,6 +6716,12 @@ try {
             ");
             $stmt->execute([$id]);
             $docs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($docs as &$d_item) {
+                $d_item['physical_path'] = $d_item['file_path'];
+                $d_item['stream_url'] = 'vault_stream.php?id=' . $d_item['id'];
+                $d_item['file_path'] = 'vault_stream.php?id=' . $d_item['id'];
+            }
+            unset($d_item);
             $app['documents'] = $docs;
             
             // Check Client Vault for any lifelong documents available
@@ -8254,15 +8274,13 @@ try {
                 $owner_id = null;
             }
 
-            // Get client mobile & pan for lifelong vault index
-            $app_stmt = $db->prepare("SELECT mobile, pan_number FROM applicants WHERE id = ?");
+            // Get client mobile, pan & name for lifelong vault index
+            $app_stmt = $db->prepare("SELECT mobile, pan_number, customer_name FROM applicants WHERE id = ?");
             $app_stmt->execute([$applicant_id]);
             $app_info = $app_stmt->fetch(PDO::FETCH_ASSOC);
             $client_mobile = $app_info['mobile'] ?? '';
             $client_pan = $app_info['pan_number'] ?? '';
-
-            $upload_dir = 'uploads/documents/';
-            if (!is_dir($upload_dir)) mkdir($upload_dir, 0777, true);
+            $customer_name = $app_info['customer_name'] ?? 'Applicant';
 
             $uploaded_count = 0;
             $total_files = count($files_to_process);
@@ -8273,10 +8291,6 @@ try {
                     continue;
                 }
 
-                $filename = uniqid('doc_') . '_' . $idx . '.' . $ext;
-                $filepath = $upload_dir . $filename;
-                $filesize = (int)($f['size'] ?? 0);
-
                 // Build clean display name when uploading multiple files at once
                 $doc_display_name = $base_name;
                 if ($total_files > 1) {
@@ -8284,12 +8298,21 @@ try {
                     $doc_display_name = $base_name . ' (' . $clean_orig_name . ')';
                 }
 
-                if (move_uploaded_file($f['tmp_name'], $filepath)) {
+                $vaultRes = BfsVaultEngine::storeDocument(
+                    $applicant_id,
+                    $customer_name,
+                    $category,
+                    $doc_display_name,
+                    $f['tmp_name'],
+                    $f['name']
+                );
+
+                if ($vaultRes['success']) {
                     $stmt = $db->prepare("
                         INSERT INTO applicant_documents (applicant_id, client_mobile, client_pan, document_category, document_name, file_path, file_size, file_ext, status, owner_type, owner_id) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'Pending', ?, ?)
                     ");
-                    $stmt->execute([$applicant_id, $client_mobile, $client_pan, $category, $doc_display_name, $filepath, $filesize, $ext, $owner_type, $owner_id]);
+                    $stmt->execute([$applicant_id, $client_mobile, $client_pan, $category, $doc_display_name, $vaultRes['full_path'], $vaultRes['file_size'], $vaultRes['ext'], $owner_type, $owner_id]);
                     $uploaded_count++;
                 }
             }
@@ -8307,6 +8330,21 @@ try {
             return_json(['error' => 'Failed to save files. Please check file permissions or format.'], 500);
             break;
 
+        case 'get_vault_metrics':
+            return_json(['success' => true, 'metrics' => BfsVaultEngine::getVaultMetrics()]);
+            break;
+
+        case 'open_lead_vault_folder':
+            $app_id = (int)($_POST['id'] ?? ($_GET['id'] ?? 0));
+            $c_name = trim($_POST['customer_name'] ?? ($_GET['customer_name'] ?? ''));
+            if ($app_id <= 0) return_json(['error' => 'Missing ID'], 400);
+            if (empty($c_name)) {
+                $c_name = $db->query("SELECT customer_name FROM applicants WHERE id = $app_id")->fetchColumn() ?: 'Applicant';
+            }
+            $openRes = BfsVaultEngine::openExplorer($app_id, $c_name);
+            return_json($openRes);
+            break;
+
         case 'delete_applicant_document':
             $id = (int)($_POST['id'] ?? 0);
             $stmt = $db->prepare("SELECT file_path, applicant_id, document_name FROM applicant_documents WHERE id = ?");
@@ -8314,11 +8352,11 @@ try {
             $doc = $stmt->fetch();
             
             if ($doc) {
-                if (file_exists($doc['file_path'])) {
-                    // Check if file is shared with another vault record before unlinking
+                $phys = BfsVaultEngine::resolvePhysicalPath($doc['file_path']);
+                if (!empty($phys) && file_exists($phys)) {
                     $other_count = $db->query("SELECT COUNT(*) FROM applicant_documents WHERE file_path = " . $db->quote($doc['file_path']) . " AND id != $id")->fetchColumn();
                     if ($other_count == 0) {
-                        unlink($doc['file_path']);
+                        @unlink($phys);
                     }
                 }
                 $db->prepare("DELETE FROM applicant_documents WHERE id = ?")->execute([$id]);

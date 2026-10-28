@@ -306,7 +306,13 @@ require_once 'header.php';
                     <td style="padding: 12px 14px;">${statusBadge}</td>
                     <td style="padding: 12px 14px; color: #64748b; font-size: 12px;">${app.added_by || 'System'}</td>
                     <td style="padding: 12px 14px; color: #64748b; font-size: 12px;">${app.created_at ? app.created_at.split(' ')[0] : '-'}</td>
-                    <td style="padding: 12px 14px; text-align: right;">
+                    <td style="padding: 12px 14px; text-align: right; white-space: nowrap;">
+                        <a href="applicant_documents.php?id=${app.id}" style="background:#f1f5f9; color:#0f172a; border:1px solid #cbd5e1; padding: 6px 10px; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px;" title="View Documents">
+                            <i data-lucide="folder-check" style="width: 13px; height: 13px;"></i> Docs
+                        </a>
+                        <button type="button" onclick="openWindowsVault(${app.id})" style="background:#18181b; color:#38bdf8; border:1px solid #0284c7; padding: 6px 9px; font-size: 12px; font-weight: 700; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; margin-right: 4px;" title="Open F:\BFS local storage in Windows Explorer">
+                            <i data-lucide="folder" style="width: 13px; height: 13px;"></i>
+                        </button>
                         <a href="${actionUrl}" style="${btnStyle} padding: 6px 14px; font-size: 12px; font-weight: 700; border-radius: 6px; text-decoration: none; display: inline-flex; align-items: center; gap: 5px;">
                             <i data-lucide="${btnIcon}" style="width: 13px; height: 13px;"></i> ${btnText}
                         </a>
@@ -376,6 +382,20 @@ require_once 'header.php';
         buttonsHtml += `<button onclick="goToPage(${totalPages})" ${nextDisabled} class="pg-btn" title="Last Page">»»</button>`;
 
         controlsEl.innerHTML = buttonsHtml;
+    }
+
+    async function openWindowsVault(appId) {
+        try {
+            const res = await fetch(`open_vault_folder.php?id=${appId}&ajax=1`);
+            const data = await res.json();
+            if (data.success) {
+                alert("📂 Opened in Windows Explorer:\n" + data.path);
+            } else {
+                alert(data.error || "Failed to open folder");
+            }
+        } catch (e) {
+            window.open(`open_vault_folder.php?id=${appId}`, '_blank');
+        }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

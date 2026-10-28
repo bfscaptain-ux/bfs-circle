@@ -3430,6 +3430,13 @@ if (isset($db)) {
                     <?php endif; ?>
                 </a>
             </li>
+            <li class="menu-item <?php echo ($active_page === 'vault_manager.php') ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>vault_manager.php" title="On-Premise Vault (F:\BFS)">
+                    <i data-lucide="hard-drive"></i>
+                    <span class="menu-text">On-Premise Vault</span>
+                    <span class="nav-badge" style="background:#047857; color:#fff; font-size:9.5px; padding:2px 6px;">F:\BFS</span>
+                </a>
+            </li>
             <li class="menu-item <?php echo ($active_page === 'search_track.php') ? 'active' : ''; ?>">
                 <a href="<?php echo $base_path; ?>search_track.php" title="Search & CRM Track">
                     <i data-lucide="search"></i>

@@ -117,6 +117,12 @@ require_once 'header.php';
                 <button type="button" onclick="openPhotoGalleryModal()" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
                     <i data-lucide="images" style="width: 13px; height: 13px; color: #ffffff;"></i> Photos Lightbox
                 </button>
+                <button type="button" onclick="openBankDocketModal()" class="btn" style="background: #047857; color: #ffffff; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 800; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; box-shadow: 0 1px 3px rgba(4,120,87,0.4);" title="Compile all verified docs into a single PDF dossier with watermark & BFS cover sheet">
+                    <i data-lucide="file-check-2" style="width: 13px; height: 13px; color: #ffffff;"></i> ⚡ Bank Docket
+                </button>
+                <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>)" class="btn" style="background: #18181b; color: #38bdf8; border: 1px solid #0284c7; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#0369a1'; this.style.color='#fff';" onmouseout="this.style.background='#18181b'; this.style.color='#38bdf8';" title="Open local physical folder on F:\BFS in Windows Explorer">
+                    <i data-lucide="folder" style="width: 13px; height: 13px;"></i> 📂 Vault (F:\BFS)
+                </button>
                 <button type="button" onclick="generateAndPreviewMasterPdf()" class="btn" style="background: #18181b; color: #ffffff; border: 1px solid #27272a; padding: 6px 12px; border-radius: 6px; font-weight: 700; font-size: 11.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: background 0.15s ease;" onmouseover="this.style.background='#27272a'" onmouseout="this.style.background='#18181b'">
                     <i data-lucide="file-text" style="width: 13px; height: 13px; color: #ffffff;"></i> Master PDF
                 </button>
@@ -144,6 +150,10 @@ require_once 'header.php';
                 <div>Submission Status: <span id="ai-bank-readiness-text" style="color: #ffffff; font-weight: 700;">Analyzing...</span></div>
                 <div style="color: #3f3f46;">|</div>
                 <div id="ai-wa-tracker-text" style="color: #a1a1aa;">Auto 2-Day WhatsApp Reminder Active</div>
+                <div style="color: #3f3f46;">|</div>
+                <div style="display:inline-flex; align-items:center; gap:5px; color:#38bdf8; font-weight:700; font-size:11px;">
+                    <i data-lucide="hard-drive" style="width:12px; height:12px; color:#10b981;"></i> On-Premise Vault F:\BFS (Active)
+                </div>
             </div>
             
             <button type="button" onclick="runAiDocAudit(<?php echo $id; ?>)" style="background: none; border: none; color: #a1a1aa; font-size: 11px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; transition: color 0.15s ease;" onmouseover="this.style.color='#ffffff'" onmouseout="this.style.color='#a1a1aa'">
@@ -294,6 +304,23 @@ require_once 'header.php';
 
             <!-- Uploaded Documents Vault Table Card -->
             <div class="card" style="padding: 18px;">
+                <!-- Physical Storage Location Header Strip -->
+                <div style="background: #09090b; border: 1px solid #27272a; border-radius: 8px; padding: 9px 14px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                        <span style="background: #15803d; color: #ffffff; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                            <i data-lucide="hard-drive" style="width:11px; height:11px;"></i> F:\BFS Active
+                        </span>
+                        <span style="color: #a1a1aa; font-size: 11.5px;">
+                            Local Vault: <code style="color: #38bdf8; font-family: monospace; font-size: 11px;">F:\BFS\Vault_Leads\Lead_<?php echo $id; ?>_...</code>
+                        </span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>)" class="btn" style="background: #18181b; color: #38bdf8; border: 1px solid #0284c7; padding: 4px 10px; font-size: 11px; font-weight: 700; border-radius: 5px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+                            <i data-lucide="folder" style="width:12px; height:12px;"></i> 📂 Reveal in Windows Explorer
+                        </button>
+                    </div>
+                </div>
+
                 <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 14px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
                     <h3 style="margin:0; font-size:15px; color:#0f172a; font-family:'Outfit', sans-serif;"><i data-lucide="folder-check" style="width:17px; vertical-align:-2px;"></i> Permanent Vault (<span id="uploaded-count">0</span> Files Uploaded)</h3>
                     <span id="doc-completion-badge" class="badge badge-info" style="font-weight:700;">0% Complete</span>
@@ -319,6 +346,90 @@ require_once 'header.php';
 
         </div>
 
+</div>
+
+
+<!-- ⚡ 1-CLICK ADVANCED BANK SUBMISSION DOCKET MODAL -->
+<div id="bank-docket-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.88); z-index:99999; justify-content:center; align-items:center; backdrop-filter:blur(6px);">
+    <div style="background:#09090b; border:1px solid #27272a; border-radius:14px; width:92%; max-width:620px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.6); overflow:hidden; color:#ffffff; font-family:'Outfit', sans-serif;">
+        <!-- Header -->
+        <div style="padding:16px 22px; background:#18181b; border-bottom:1px solid #27272a; display:flex; justify-content:space-between; align-items:center;">
+            <div style="display:flex; align-items:center; gap:10px;">
+                <div style="width:36px; height:36px; border-radius:8px; background:#047857; display:flex; align-items:center; justify-content:center;">
+                    <i data-lucide="file-check-2" style="width:20px; height:20px; color:#ffffff;"></i>
+                </div>
+                <div>
+                    <h3 style="margin:0; font-size:16px; font-weight:800; color:#ffffff;">⚡ 1-Click Master Bank Docket</h3>
+                    <div style="font-size:11.5px; color:#a1a1aa;">Compiles all verified documents into a single bank-ready dossier with BFS cover sheet</div>
+                </div>
+            </div>
+            <button type="button" onclick="closeBankDocketModal()" style="background:none; border:none; color:#a1a1aa; cursor:pointer; font-size:24px; line-height:1;" onmouseover="this.style.color='#fff'" onmouseout="this.style.color='#a1a1aa'">&times;</button>
+        </div>
+
+        <!-- Body -->
+        <div style="padding:22px; max-height:75vh; overflow-y:auto;">
+            <!-- Target Bank Selection -->
+            <div style="margin-bottom:16px;">
+                <label style="display:block; font-size:12px; font-weight:700; color:#e4e4e7; margin-bottom:6px;">Target Bank / Lending Institution</label>
+                <select id="docket-bank-select" style="width:100%; padding:10px 14px; background:#18181b; border:1px solid #3f3f46; border-radius:8px; color:#ffffff; font-size:13px; font-weight:600; outline:none;">
+                    <?php foreach ($all_banks_list as $b_name): ?>
+                        <option value="<?php echo htmlspecialchars($b_name); ?>" <?php echo (!empty($applicant['bank_name']) && $applicant['bank_name'] === $b_name) ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars($b_name); ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <!-- Anti-Fraud Security Watermark Option -->
+            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px; margin-bottom:16px; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:12.5px; font-weight:700; color:#ffffff; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="shield-check" style="width:15px; height:15px; color:#10b981;"></i> Anti-Fraud Security Watermark
+                    </div>
+                    <div style="font-size:11px; color:#a1a1aa; margin-top:2px;">Stamps "BFS CONFIDENTIAL - SUBMITTED FOR LOAN EVALUATION TO [BANK]" across pages</div>
+                </div>
+                <input type="checkbox" id="docket-watermark-toggle" checked style="width:20px; height:20px; accent-color:#10b981; cursor:pointer;">
+            </div>
+
+            <!-- Documents to be compiled preview list -->
+            <div style="margin-bottom:18px;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                    <span style="font-size:12px; font-weight:700; color:#e4e4e7;">Documents to be Stitched (<span id="docket-docs-count">0</span>):</span>
+                    <span style="font-size:11px; color:#38bdf8;">Saved directly on F:\BFS</span>
+                </div>
+                <div id="docket-docs-preview" style="background:#121214; border:1px solid #27272a; border-radius:8px; padding:10px; max-height:140px; overflow-y:auto; font-size:11.5px; display:flex; flex-direction:column; gap:6px;">
+                    <!-- Rendered via JS -->
+                </div>
+            </div>
+
+            <!-- Status / Result Banner -->
+            <div id="docket-result-box" style="display:none; background:#064e3b; border:1px solid #059669; border-radius:8px; padding:12px; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
+                    <span style="font-weight:800; font-size:13px; color:#a7f3d0; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="check-circle" style="width:16px; height:16px;"></i> Dossier Compiled Successfully!
+                    </span>
+                    <span id="docket-result-pages" style="font-size:11.5px; font-weight:700; background:#047857; color:#fff; padding:2px 8px; border-radius:12px;">0 Pages</span>
+                </div>
+                <div id="docket-result-path" style="font-family:monospace; font-size:10.5px; color:#d1fae5; word-break:break-all; margin-bottom:10px;"></div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <a id="docket-preview-link" href="#" target="_blank" class="btn" style="background:#ffffff; color:#000000; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:800; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+                        <i data-lucide="eye" style="width:13px; height:13px;"></i> View Docket
+                    </a>
+                    <a id="docket-download-link" href="#" download class="btn" style="background:#10b981; color:#ffffff; padding:6px 14px; border-radius:6px; font-size:12px; font-weight:800; text-decoration:none; display:inline-flex; align-items:center; gap:5px;">
+                        <i data-lucide="download" style="width:13px; height:13px;"></i> Download PDF
+                    </a>
+                    <button type="button" onclick="openWindowsVaultFolder(<?php echo $id; ?>)" class="btn" style="background:#18181b; color:#38bdf8; border:1px solid #0284c7; padding:6px 12px; border-radius:6px; font-size:12px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:5px;">
+                        <i data-lucide="folder" style="width:13px; height:13px;"></i> Open in Explorer
+                    </button>
+                </div>
+            </div>
+
+            <!-- Submit Button / Progress Indicator -->
+            <button type="button" id="btn-compile-docket" onclick="executeCompileDocket()" style="width:100%; background:#047857; color:#ffffff; border:none; padding:12px; border-radius:8px; font-weight:800; font-size:13.5px; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; box-shadow:0 4px 15px rgba(4,120,87,0.3); transition:all 0.15s ease;">
+                <i data-lucide="zap" style="width:16px; height:16px;"></i> Compile &amp; Save Bank Dossier (F:\BFS)
+            </button>
+        </div>
+    </div>
 </div>
 
 <!-- Instant Document Preview Modal -->
@@ -1207,7 +1318,8 @@ require_once 'header.php';
                                     <td>${statusBadge}</td>
                                     <td style="color:var(--text-muted); font-size:12px;">${dateStr}</td>
                                     <td style="text-align:right; white-space:nowrap;">
-                                        <button onclick="openPreviewModal('${doc.file_path}', '${encodeURIComponent(doc.document_name)}')" class="btn btn-secondary" style="padding: 4px 7px; font-size: 11px;" title="View Preview"><i data-lucide="eye" style="width:13px; height:13px;"></i></button>
+                                        <button onclick="openPreviewModal('${doc.file_path}', '${encodeURIComponent(doc.document_name)}', '${doc.file_ext || ''}')" class="btn btn-secondary" style="padding: 4px 7px; font-size: 11px;" title="View Preview"><i data-lucide="eye" style="width:13px; height:13px;"></i></button>
+                                        <a href="vault_stream.php?id=${doc.id}&download=1" download class="btn btn-secondary" style="padding: 4px 7px; font-size: 11px; margin-left:3px; text-decoration:none; display:inline-flex; align-items:center;" title="Direct Download"><i data-lucide="download" style="width:13px; height:13px;"></i></a>
                                         <button onclick="approveDocument(${doc.id}, '${encodeURIComponent(doc.document_name)}')" class="btn" style="padding: 4px 8px; font-size: 11px; background:#16a34a; color:#fff; border:none; margin-left:3px; font-weight:700; cursor:pointer;" title="Approve & Lock Document"><i data-lucide="check" style="width:12px; vertical-align:-1px;"></i> Accept</button>
                                         <button onclick="requestReuploadDocument(${doc.id}, '${encodeURIComponent(doc.document_name)}')" class="btn" style="padding: 4px 8px; font-size: 11px; background:#dc2626; color:#fff; border:none; margin-left:3px; font-weight:700; cursor:pointer;" title="Reject & Request Re-upload from Client"><i data-lucide="refresh-cw" style="width:12px; vertical-align:-1px;"></i> Reject</button>
                                         <button onclick="deleteDoc(${doc.id})" class="btn btn-danger" style="padding: 4px 7px; font-size: 11px; margin-left: 3px;" title="Delete"><i data-lucide="trash" style="width:13px; height:13px;"></i></button>
@@ -1310,7 +1422,7 @@ require_once 'header.php';
         }
     }
 
-    function openPreviewModal(filePath, docName) {
+    function openPreviewModal(filePath, docName, docExt = '') {
         const modal = document.getElementById('doc-preview-modal');
         const title = document.getElementById('preview-modal-title');
         const body = document.getElementById('preview-modal-body');
@@ -1320,9 +1432,19 @@ require_once 'header.php';
 
         const cleanName = decodeURIComponent(docName || 'Document Preview');
         title.innerText = cleanName;
-        downloadBtn.href = filePath;
+        downloadBtn.href = filePath.includes('?') ? filePath + '&download=1' : filePath;
         
-        const ext = filePath.split('.').pop().toLowerCase();
+        let ext = (docExt || '').toLowerCase();
+        if (!ext && filePath.includes('.')) {
+            ext = filePath.split('.').pop().split('?')[0].toLowerCase();
+        }
+        if (!ext || ext === 'php') {
+            if (cleanName.toLowerCase().includes('pdf') || cleanName.toLowerCase().includes('docket') || cleanName.toLowerCase().includes('itr') || cleanName.toLowerCase().includes('statement')) {
+                ext = 'pdf';
+            } else {
+                ext = 'jpg';
+            }
+        }
         if (ext === 'pdf') {
             body.innerHTML = `
                 <object data="${filePath}#toolbar=1" type="application/pdf" style="width:100%; height:100%; border:none; border-radius:8px;">
@@ -2161,7 +2283,102 @@ require_once 'header.php';
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.asprise.com/scannerjs/scanner.js"></script>
+<script src="https://cdn.asprise.com/scannerjs/scanner.js">
+    // ===== BFS 10X VAULT & BANK DOCKET SCRIPTS =====
+    async function openWindowsVaultFolder(appId) {
+        try {
+            const res = await fetch(`open_vault_folder.php?id=${appId}&ajax=1`);
+            const data = await res.json();
+            if (data.success) {
+                if (typeof showCustomAlert === 'function') {
+                    showCustomAlert("📂 Vault Opened", "Physical folder revealed in Windows Explorer:\n" + data.path);
+                } else {
+                    alert("📂 Folder opened in Windows Explorer:\n" + data.path);
+                }
+            } else {
+                alert(data.error || "Failed to open folder");
+            }
+        } catch (e) {
+            console.error(e);
+            window.open(`open_vault_folder.php?id=${appId}`, '_blank');
+        }
+    }
+
+    function openBankDocketModal() {
+        const modal = document.getElementById('bank-docket-modal');
+        const preview = document.getElementById('docket-docs-preview');
+        const countSpan = document.getElementById('docket-docs-count');
+        const resBox = document.getElementById('docket-result-box');
+        if (resBox) resBox.style.display = 'none';
+
+        const docs = (window.currentDocAppData && window.currentDocAppData.documents) ? window.currentDocAppData.documents : [];
+        if (countSpan) countSpan.innerText = docs.length;
+
+        if (preview) {
+            if (docs.length === 0) {
+                preview.innerHTML = '<div style="color:#71717a; text-align:center; padding:10px;">No documents uploaded yet. Upload KYC or Income proof first.</div>';
+            } else {
+                preview.innerHTML = docs.map((d, i) => `
+                    <div style="display:flex; justify-content:space-between; align-items:center; background:#18181b; padding:6px 10px; border-radius:5px; border:1px solid #27272a;">
+                        <span style="font-weight:600; color:#e4e4e7;"><i data-lucide="file" style="width:12px; height:12px; vertical-align:-1px; margin-right:4px;"></i> ${d.document_name}</span>
+                        <span style="color:#a1a1aa; font-size:10.5px;">${d.document_category}</span>
+                    </div>
+                `).join('');
+            }
+        }
+
+        if (modal) modal.style.display = 'flex';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function closeBankDocketModal() {
+        const modal = document.getElementById('bank-docket-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    async function executeCompileDocket() {
+        const btn = document.getElementById('btn-compile-docket');
+        const bank = document.getElementById('docket-bank-select').value;
+        const wm = document.getElementById('docket-watermark-toggle').checked ? 1 : 0;
+        const resBox = document.getElementById('docket-result-box');
+
+        const originalText = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:16px; height:16px;"></i> Compiling with PyMuPDF Engine on F:\BFS...';
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+
+        try {
+            const fd = new FormData();
+            fd.append('id', applicantId);
+            fd.append('bank_name', bank);
+            fd.append('watermark', wm);
+
+            const res = await fetch('compile_bank_docket.php', { method: 'POST', body: fd });
+            const data = await res.json();
+
+            if (data.success) {
+                if (resBox) {
+                    resBox.style.display = 'block';
+                    document.getElementById('docket-result-pages').innerText = `${data.total_pages} Pages`;
+                    document.getElementById('docket-result-path').innerText = data.file_path;
+                    document.getElementById('docket-preview-link').href = data.stream_url;
+                    document.getElementById('docket-download-link').href = data.download_url;
+                }
+                loadDocuments();
+            } else {
+                alert(data.error || 'Failed to compile docket');
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Server error occurred during PDF compilation.');
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalText;
+            if (typeof lucide !== 'undefined') lucide.createIcons();
+        }
+    }
+
+</script>
 
 <!-- Email Pendency Modal Dialog -->
 <div id="email-pendency-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.8); z-index:9999; justify-content:center; align-items:center; backdrop-filter:blur(4px);">
