@@ -77,6 +77,47 @@ $late_punch_penalty_count = $profile['late_punch_penalty_count'] ?? 3;
         color: #ffffff !important;
         box-shadow: 0 2px 6px rgba(15,23,42,0.2);
     }
+    .vault-toolbar-select {
+        width: auto !important;
+        max-width: 175px !important;
+        height: 34px !important;
+        padding: 0 10px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        font-weight: 600 !important;
+        color: #0f172a !important;
+        background-color: #ffffff !important;
+        cursor: pointer !important;
+        display: inline-block !important;
+        box-sizing: border-box !important;
+        flex-shrink: 0 !important;
+    }
+    .vault-toolbar-input {
+        width: 210px !important;
+        height: 34px !important;
+        padding: 0 12px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 6px !important;
+        font-size: 12px !important;
+        color: #0f172a !important;
+        background: #ffffff !important;
+        outline: none !important;
+        box-sizing: border-box !important;
+        flex-shrink: 0 !important;
+        display: inline-block !important;
+    }
+    .vault-toolbar-btn {
+        height: 34px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        font-size: 12px !important;
+        border-radius: 6px !important;
+        cursor: pointer !important;
+        box-sizing: border-box !important;
+        flex-shrink: 0 !important;
+    }
     .settings-layout { display: flex; gap: 24px; align-items: flex-start; }
     .settings-sidebar { 
         width: 275px; 
@@ -1336,8 +1377,8 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
 
                     <!-- 4. MAIN HERO: ACTIVE PHYSICAL LEAD FOLDERS TABLE & PAGE MANAGEMENT -->
                     <div style="margin-top:22px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:12px;">
-                            <div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:14px; flex-wrap:wrap;">
+                            <div style="flex-shrink:0;">
                                 <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
                                     Active Customer Vault Directories
                                     <span id="vault-lead-badge" style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px;">
@@ -1347,15 +1388,15 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                 <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Individual categorized folders provisioned on office local storage.</div>
                             </div>
 
-                            <!-- Search, Filters, Sort, and Export Tools -->
-                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-                                <input type="text" id="vault-settings-filter" placeholder="🔍 Search applicant, folder, loan ID..." oninput="filterAndRenderVaultRoster(true)" style="padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:220px; outline:none;">
+                            <!-- Search, Filters, Sort, and Export Tools (INLINE SINGLE ROW) -->
+                            <div style="display:flex; align-items:center; gap:8px; flex-wrap:nowrap; margin-left:auto;">
+                                <input type="text" id="vault-settings-filter" class="vault-toolbar-input" placeholder="🔍 Search applicant, folder..." oninput="filterAndRenderVaultRoster(true)">
 
-                                <select id="vault-filter-product" onchange="filterAndRenderVaultRoster(true)" style="padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; color:#0f172a; background:#ffffff; cursor:pointer;">
+                                <select id="vault-filter-product" class="vault-toolbar-select" onchange="filterAndRenderVaultRoster(true)">
                                     <option value="">All Loan Products</option>
                                 </select>
 
-                                <select id="vault-sort-select" onchange="filterAndRenderVaultRoster(true)" style="padding:7px 10px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; font-weight:600; color:#0f172a; background:#ffffff; cursor:pointer;">
+                                <select id="vault-sort-select" class="vault-toolbar-select" onchange="filterAndRenderVaultRoster(true)">
                                     <option value="name_asc">Sort: Customer (A → Z)</option>
                                     <option value="name_desc">Sort: Customer (Z → A)</option>
                                     <option value="size_desc">Sort: Size (Largest First)</option>
@@ -1364,11 +1405,11 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                     <option value="files_asc">Sort: Files (Least First)</option>
                                 </select>
 
-                                <button type="button" onclick="resetVaultFilters()" class="btn-black-outline" style="font-size:11.5px; padding:6px 10px; cursor:pointer;" title="Reset search &amp; filters">
+                                <button type="button" onclick="resetVaultFilters()" class="btn-black-outline vault-toolbar-btn" style="width:34px; padding:0;" title="Reset search &amp; filters">
                                     🔄
                                 </button>
 
-                                <button type="button" onclick="exportVaultRosterCSV()" class="btn-black-outline" style="font-size:11.5px; padding:6px 12px; cursor:pointer; color:#0369a1; border-color:#bae6fd; background:#f0f9ff; font-weight:700;" title="Export current list to CSV">
+                                <button type="button" onclick="exportVaultRosterCSV()" class="btn-black-outline vault-toolbar-btn" style="padding:0 12px; color:#0369a1; border-color:#bae6fd; background:#f0f9ff; font-weight:700; white-space:nowrap;" title="Export current list to CSV">
                                     📥 CSV
                                 </button>
                             </div>
