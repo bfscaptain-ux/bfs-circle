@@ -1187,221 +1187,137 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             }
             ?>
             <div id="tab-vault" class="settings-panel <?= $active_tab === 'vault' ? 'active' : '' ?>">
-                <div class="panel-card">
-                    <div class="panel-header" style="flex-wrap:wrap; gap:12px;">
+                <div class="panel-card" style="padding: 24px;">
+                    
+                    <!-- 1. COMPACT MASTER HEADER -->
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:16px; border-bottom:1px solid #e2e8f0; padding-bottom:18px;">
                         <div>
-                            <h2 class="panel-title" style="display:flex; align-items:center; gap:10px;">
-                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
-                                On-Premise Document Vault Storage (F:\BFS)
-                            </h2>
-                            <div style="font-size:12px; color:#64748b; margin-top:3px;">
-                                Physical office hard drive document vault • 0 MB VPS storage load • High-speed Windows Explorer integration
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                <h2 class="panel-title" style="margin:0; font-size:18px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                                    On-Premise Document Vault Storage
+                                </h2>
+                                <span style="background:#dcfce7; color:#15803d; border:1px solid #bbf7d0; font-size:11px; font-weight:800; padding:2px 8px; border-radius:20px; display:inline-flex; align-items:center; gap:4px;">
+                                    <span style="width:6px; height:6px; border-radius:50%; background:#16a34a;"></span>
+                                    ONLINE &amp; ACTIVE
+                                </span>
+                            </div>
+                            <div style="font-size:12px; color:#64748b; margin-top:5px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                <span>Storage Root: <strong style="color:#0f172a; font-family:monospace; background:#f1f5f9; padding:2px 6px; border-radius:4px;"><?= htmlspecialchars($activeVaultBase) ?></strong></span>
+                                <span>•</span>
+                                <span style="color:#0284c7; font-weight:600;">Zero Cloud Cost (0 MB VPS Load)</span>
+                                <span>•</span>
+                                <span style="color:#475569;">Auto-Sync Worker: Active (Every 60s)</span>
                             </div>
                         </div>
-                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-                            <a href="vault_manager.php" class="btn-black-solid" style="text-decoration:none; font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px;">
-                                🚀 Open Full Vault Cockpit
-                            </a>
-                            <button type="button" onclick="openRootVaultFolder()" class="btn-black-outline" style="font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+
+                        <!-- 3 Clear Primary Actions -->
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <button type="button" onclick="openRootVaultFolder()" class="btn-black-solid" style="font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Open in Windows Explorer">
                                 📂 Open F:\BFS in Explorer
                             </button>
-                            <button type="button" onclick="runLegacyMigration()" id="btn-sync-legacy-settings" class="btn-black-outline" style="font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
-                                ⚡ Sync Uploads to F:\BFS
+                            <button type="button" onclick="syncWithVpsBridge()" id="btn-sync-vps-action" class="btn-black-outline" style="font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;" title="Ping VPS and pull new uploads">
+                                ⚡ Sync with VPS
+                            </button>
+                            <button type="button" onclick="toggleDriveRelocationDrawer()" id="btn-toggle-drawer" class="btn-black-outline" style="font-size:12px; padding:7px 12px; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                                ⚙️ Change Drive ▾
                             </button>
                         </div>
                     </div>
 
-                    <!-- 4 STATS CARDS -->
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 18px;">
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Physical Free Space</div>
-                            <div style="font-size:22px; font-weight:800; color:#047857; margin-top:4px; font-family:'Outfit',sans-serif;">
+                    <!-- 2. SLIM 4-METRIC STATUS ROW -->
+                    <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-top:18px;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px;">Drive Free Space</div>
+                            <div style="font-size:20px; font-weight:800; color:#047857; margin-top:3px; font-family:'Outfit',sans-serif;">
                                 <?= $vaultMetrics['disk_free_gb'] ?> GB
                             </div>
-                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
-                                <?= $vaultMetrics['disk_free_percent'] ?>% available of <?= $vaultMetrics['disk_total_gb'] ?> GB
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                                <?= $vaultMetrics['disk_free_percent'] ?>% available on Drive <?= $vaultMetrics['drive_letter'] ?>
                             </div>
                         </div>
 
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Active Lead Vaults</div>
-                            <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:4px; font-family:'Outfit',sans-serif;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px;">Active Lead Vaults</div>
+                            <div style="font-size:20px; font-weight:800; color:#0f172a; margin-top:3px; font-family:'Outfit',sans-serif;">
                                 <?= count($vaultLeadFolders) ?> Leads
                             </div>
-                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
-                                Isolated structured folders on F:\BFS
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                                Structured isolated directories
                             </div>
                         </div>
 
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Indexed Documents</div>
-                            <div style="font-size:22px; font-weight:800; color:#0284c7; margin-top:4px; font-family:'Outfit',sans-serif;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px;">Indexed Documents</div>
+                            <div style="font-size:20px; font-weight:800; color:#0284c7; margin-top:3px; font-family:'Outfit',sans-serif;">
                                 <?= $vaultMetrics['total_files_in_vault'] ?> Files
                             </div>
-                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
-                                Total indexed size: <?= $vaultMetrics['vault_size_mb'] ?> MB
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                                Total size: <?= $vaultMetrics['vault_size_mb'] ?> MB
                             </div>
                         </div>
 
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
-                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Cloud VPS Storage Load</div>
-                            <div style="font-size:22px; font-weight:800; color:#d97706; margin-top:4px; font-family:'Outfit',sans-serif;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:12px 16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.4px;">Cloud VPS Disk Load</div>
+                            <div style="font-size:20px; font-weight:800; color:#d97706; margin-top:3px; font-family:'Outfit',sans-serif;">
                                 0 MB (100% Offloaded)
                             </div>
-                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
-                                Zero cloud storage fees
+                            <div style="font-size:11px; color:#64748b; margin-top:2px;">
+                                Auto-purged from VPS server
                             </div>
                         </div>
                     </div>
 
-                    <!-- ARCHITECTURE OVERVIEW BANNER -->
-                    <div style="margin-top:20px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                        <div>
-                            <div style="font-weight:800; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px;">
-                                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;"></span>
-                                Target Vault Path: <span style="font-family:monospace; background:#dcfce7; padding:2px 8px; border-radius:4px;"><?= htmlspecialchars($activeVaultBase) ?></span>
-                            </div>
-                            <div style="font-size:12px; color:#15803d; margin-top:4px;">
-                                Mode: <strong><?= $vaultMetrics['is_f_mounted'] ? 'Direct Local Hard Drive (F:\BFS)' : 'Fallback Local Uploads' ?></strong> • Status: <strong>Online &amp; Auto-Provisioning Active</strong>
-                            </div>
+                    <!-- 3. COLLAPSIBLE DRIVE RELOCATION DRAWER (Hidden by default, opens on click) -->
+                    <div id="drive-relocation-drawer" style="display:none; margin-top:16px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:10px; padding:18px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                            <h4 style="margin:0; font-size:14px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                ⚙️ Switch Storage Drive / Folder Location
+                            </h4>
+                            <button type="button" onclick="toggleDriveRelocationDrawer()" style="background:none; border:none; color:#64748b; font-size:18px; cursor:pointer; line-height:1;">&times;</button>
                         </div>
-                        <span style="background:#166534; color:#fff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; text-transform:uppercase;">
-                            Storage Engine 10x Active
-                        </span>
-                    </div>
+                        <p style="font-size:12px; color:#64748b; margin:0 0 12px 0;">
+                            Select any detected machine drive or enter a custom folder path. Existing files will be copied automatically without breaking links.
+                        </p>
 
-                    <!-- VPS CLOUD AUTO-SYNC & DAEMON CONTROL -->
-                    <div style="margin-top:16px; background:#09090b; border:1px solid #27272a; border-radius:12px; padding:20px; color:#ffffff; box-shadow:0 8px 24px rgba(0,0,0,0.25);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; border-bottom:1px solid #27272a; padding-bottom:14px; margin-bottom:16px;">
-                            <div style="display:flex; align-items:center; gap:12px;">
-                                <div style="width:40px; height:40px; border-radius:8px; background:#0284c7; display:flex; align-items:center; justify-content:center; box-shadow:0 4px 12px rgba(2,132,199,0.3);">
-                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5"><path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"></path></svg>
-                                </div>
-                                <div>
-                                    <h3 style="margin:0; font-size:15px; font-weight:800; color:#ffffff; font-family:'Outfit',sans-serif;">Cloud VPS Live Auto-Sync &amp; Zero-Storage Offloader</h3>
-                                    <div style="font-size:11.5px; color:#a1a1aa; margin-top:2px;">
-                                        Production VPS: <code style="color:#38bdf8; font-weight:700;">https://crm.bfsfin.cloud</code> • Purges uploaded files from cloud to keep 0 MB server load
-                                    </div>
-                                </div>
-                            </div>
-                            <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-                                <button type="button" onclick="testVpsBridgeConnection()" id="btn-test-vps" class="btn" style="background:#27272a; color:#38bdf8; border:1px solid #0284c7; padding:7px 14px; border-radius:6px; font-weight:700; font-size:11.5px; cursor:pointer;">
-                                    📡 Test VPS Ping
+                        <!-- Quick select drive letter pills -->
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px;">
+                            <?php foreach ($systemDrives as $drv): ?>
+                                <button type="button" onclick="selectVaultDrive('<?= addslashes($drv['letter']) ?>\\BFS\\Vault_Leads')" class="btn-black-outline" style="font-size:11px; padding:5px 10px; cursor:pointer; background:#f8fafc; border-color:#cbd5e1; display:inline-flex; align-items:center; gap:5px;">
+                                    <strong><?= $drv['letter'] ?></strong> (<?= $drv['free_gb'] ?> GB Free)
                                 </button>
-                                <button type="button" onclick="runLegacyMigration()" class="btn" style="background:#047857; color:#ffffff; border:none; padding:7px 14px; border-radius:6px; font-weight:800; font-size:11.5px; cursor:pointer; box-shadow:0 2px 8px rgba(4,120,87,0.3);">
-                                    ⚡ Run Sync Now
-                                </button>
-                            </div>
+                            <?php endforeach; ?>
                         </div>
 
-                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; font-size:12px;">
-                            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px;">
-                                <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">Sync Engine Automation</div>
-                                <div style="color:#10b981; font-weight:800; margin-top:4px; font-size:13px;">● Running via START_CRM.bat</div>
-                                <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Background worker runs every 60s</div>
-                            </div>
-                            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px;">
-                                <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">VPS Transit Purge Buffer</div>
-                                <div style="color:#38bdf8; font-weight:800; margin-top:4px; font-size:13px;">0 MB Cached / Auto-Purge ON</div>
-                                <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Files unlinked immediately after transfer</div>
-                            </div>
-                            <div style="background:#18181b; border:1px solid #27272a; border-radius:8px; padding:12px 14px;">
-                                <div style="color:#a1a1aa; font-size:10.5px; text-transform:uppercase; font-weight:700;">Security Handshake</div>
-                                <div style="color:#f59e0b; font-weight:800; margin-top:4px; font-size:13px;">SHA-256 Salt Bridge Key</div>
-                                <div style="color:#71717a; font-size:10.5px; margin-top:2px;">Mutual cryptographic auth</div>
-                            </div>
+                        <!-- Target folder input -->
+                        <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;">
+                            <input type="text" id="new_vault_path_input" class="ctrl-input" value="<?= htmlspecialchars($activeVaultBase) ?>" placeholder="e.g. D:\BFS\Vault_Leads" style="padding:8px 12px; font-size:12.5px; font-family:monospace; width:100%; box-sizing:border-box;">
+                            <button type="button" onclick="submitVaultPathChange()" id="btn-save-vault-path" class="btn-black-solid" style="padding:9px 16px; font-size:12px; font-weight:800; white-space:nowrap; cursor:pointer;">
+                                🚀 Validate &amp; Switch
+                            </button>
+                        </div>
+
+                        <div style="display:flex; align-items:center; gap:8px; margin-top:8px; font-size:11.5px; color:#475569;">
+                            <input type="checkbox" id="chk_migrate_vault_files" checked style="width:15px; height:15px; cursor:pointer;">
+                            <label for="chk_migrate_vault_files" style="cursor:pointer;">
+                                Automatically copy existing lead files (<?= $vaultMetrics['total_files_in_vault'] ?> files) to the new drive &amp; update CRM links
+                            </label>
                         </div>
                     </div>
 
-                    <!-- STORAGE DRIVE RELOCATION DESK -->
-                    <div style="margin-top:16px; background:#ffffff; border:1.5px solid #cbd5e1; border-radius:12px; padding:20px; box-shadow:0 2px 10px rgba(0,0,0,0.03);">
-                        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:14px; border-bottom:1px solid #f1f5f9; padding-bottom:12px;">
+                    <!-- 4. MAIN HERO: ACTIVE PHYSICAL LEAD FOLDERS TABLE -->
+                    <div style="margin-top:22px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px;">
                             <div>
                                 <h3 style="margin:0; font-size:15px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:8px;">
-                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#047857" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-                                    Local Storage Location &amp; Drive Relocation Wizard
+                                    Active Customer Vault Directories
+                                    <span style="background:#e0f2fe; color:#0369a1; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px;">
+                                        <?= count($vaultLeadFolders) ?> Leads
+                                    </span>
                                 </h3>
-                                <div style="font-size:12px; color:#64748b; margin-top:3px;">
-                                    Change your local hard drive folder anytime (e.g. switch to D:, E:, G: or an external USB hard disk) with 1-click automatic data migration.
-                                </div>
+                                <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Individual categorized folders provisioned on office local storage.</div>
                             </div>
-                            <span style="font-size:11.5px; background:#f1f5f9; border:1px solid #e2e8f0; padding:4px 10px; border-radius:6px; color:#475569;">
-                                Active Storage: <strong style="color:#0f172a; font-family:monospace;"><?= htmlspecialchars($activeVaultBase) ?></strong>
-                            </span>
-                        </div>
-
-                        <!-- Detected Available Drives Quick Select -->
-                        <div style="margin-bottom:14px;">
-                            <label style="font-size:11.5px; font-weight:700; color:#475569; text-transform:uppercase; display:block; margin-bottom:6px;">
-                                ⚡ Click Drive Letter to Auto-Fill:
-                            </label>
-                            <div style="display:flex; gap:8px; flex-wrap:wrap;">
-                                <?php foreach ($systemDrives as $drv): ?>
-                                    <button type="button" onclick="selectVaultDrive('<?= addslashes($drv['letter']) ?>\\BFS\\Vault_Leads')" class="btn-black-outline" style="font-size:11.5px; padding:6px 12px; cursor:pointer; background:#f8fafc; border-color:#cbd5e1; display:inline-flex; align-items:center; gap:6px;">
-                                        <strong><?= $drv['letter'] ?></strong> (<?= $drv['free_gb'] ?> GB Free)
-                                    </button>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                        <!-- Path Input & Action -->
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:14px;">
-                            <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:end;">
-                                <div>
-                                    <label for="new_vault_path_input" style="font-size:12px; font-weight:700; color:#0f172a; display:block; margin-bottom:4px;">
-                                        Target Folder Path on Local Machine:
-                                    </label>
-                                    <input type="text" id="new_vault_path_input" class="ctrl-input" value="<?= htmlspecialchars($activeVaultBase) ?>" placeholder="e.g. D:\BFS\Vault_Leads" style="padding:9px 12px; font-size:13px; font-family:monospace; width:100%; box-sizing:border-box;">
-                                </div>
-                                <button type="button" onclick="submitVaultPathChange()" id="btn-save-vault-path" class="btn-black-solid" style="padding:10px 18px; font-size:12.5px; font-weight:800; white-space:nowrap; cursor:pointer;">
-                                    🚀 Validate &amp; Switch Storage Location
-                                </button>
-                            </div>
-
-                            <div style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:12px; color:#334155;">
-                                <input type="checkbox" id="chk_migrate_vault_files" checked style="width:16px; height:16px; cursor:pointer;">
-                                <label for="chk_migrate_vault_files" style="cursor:pointer; font-weight:600;">
-                                    Automatically copy all existing lead folders (<?= count($vaultLeadFolders) ?> leads / <?= $vaultMetrics['total_files_in_vault'] ?> files) to the new location &amp; update CRM database links
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- DIRECTORY SUBFOLDERS STANDARD -->
-                    <div style="margin-top:20px;">
-                        <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">Standardized Vault Folder Hierarchy</h4>
-                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
-                                <strong style="color:#0f172a;">📁 01_KYC_Documents</strong>
-                                <div style="color:#64748b; font-size:11px; margin-top:2px;">PAN, Aadhaar, Voter, Photos</div>
-                            </div>
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
-                                <strong style="color:#0f172a;">📁 02_Income_Banking</strong>
-                                <div style="color:#64748b; font-size:11px; margin-top:2px;">Salary Slips, Bank Statements, ITR</div>
-                            </div>
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
-                                <strong style="color:#0f172a;">📁 03_Property_Legal</strong>
-                                <div style="color:#64748b; font-size:11px; margin-top:2px;">Registry, Map, Mutation, Deeds</div>
-                            </div>
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
-                                <strong style="color:#0f172a;">📁 04_Business_Financials</strong>
-                                <div style="color:#64748b; font-size:11px; margin-top:2px;">GST, Balance Sheet, Audit Report</div>
-                            </div>
-                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
-                                <strong style="color:#0f172a;">📁 05_Bank_Dockets</strong>
-                                <div style="color:#64748b; font-size:11px; margin-top:2px;">Compiled Bank Dossiers &amp; ZIPs</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- LEAD VAULT ROSTER TABLE -->
-                    <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
-                            <div>
-                                <h4 style="margin:0; font-size:14px; font-weight:800; color:#0f172a;">Active Physical Folders on F:\BFS (<?= count($vaultLeadFolders) ?>)</h4>
-                                <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Folders are automatically provisioned when documents are uploaded or leads are created.</div>
-                            </div>
-                            <input type="text" id="vault-settings-filter" placeholder="🔍 Search folder..." onkeyup="filterSettingsVaultTable()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:220px;">
+                            <input type="text" id="vault-settings-filter" placeholder="🔍 Search customer or folder..." onkeyup="filterSettingsVaultTable()" style="padding:7px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:240px;">
                         </div>
 
                         <div class="table-responsive">
@@ -2196,6 +2112,51 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                     showNotification(data.message || 'Sync completed successfully!', 'success');
                 } else {
                     alert(data.message || 'Sync completed!');
+                }
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                alert(data.error || 'Sync failed');
+            }
+        } catch (e) {
+            alert('Server error occurred during sync');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+    }
+
+    function toggleDriveRelocationDrawer() {
+        const drawer = document.getElementById('drive-relocation-drawer');
+        const btn = document.getElementById('btn-toggle-drawer');
+        if (!drawer) return;
+        if (drawer.style.display === 'none' || drawer.style.display === '') {
+            drawer.style.display = 'block';
+            if (btn) btn.innerHTML = '⚙️ Change Drive ▴';
+        } else {
+            drawer.style.display = 'none';
+            if (btn) btn.innerHTML = '⚙️ Change Drive ▾';
+        }
+    }
+
+    async function syncWithVpsBridge() {
+        const btn = document.getElementById('btn-sync-vps-action');
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⚡ Syncing...';
+        }
+        if (typeof showNotification === 'function') showNotification('⚡ Syncing with Cloud VPS & local drive...', 'info');
+
+        try {
+            const res = await fetch('vault_sync_bridge.php?action=pull_to_vault');
+            const data = await res.json();
+            if (data.success) {
+                if (typeof showNotification === 'function') {
+                    showNotification(data.message || 'Sync completed successfully! 0 MB VPS Load.', 'success');
+                } else {
+                    alert(data.message || 'Sync completed successfully!');
                 }
                 setTimeout(() => location.reload(), 1200);
             } else {
