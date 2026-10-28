@@ -240,6 +240,16 @@ if (isset($db)) {
             filter: none;
         }
 
+        .menu-item-has-children.open > a,
+        .menu-item-has-children.active-parent > a {
+            color: #ffffff !important;
+            background: rgba(255, 255, 255, 0.05);
+        }
+        #tools-dropdown-list .menu-item a {
+            padding: 7px 10px !important;
+            font-size: 12.5px !important;
+        }
+
         /* Minimalist Clean Section Headers */
         .sidebar-section-header {
             font-size: 10px;
@@ -2751,6 +2761,32 @@ if (isset($db)) {
             }
         }
 
+        // Collapsible Tool Section Dropdown (WhatsApp CRM, Listmonk Mailer, Postiz Social Hub)
+        function toggleToolsMenu(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            const dropdown = document.getElementById('tools-dropdown-list');
+            const chevron = document.getElementById('tools-chevron');
+            const parent = document.getElementById('nav-tools-item');
+            if (!dropdown) return;
+
+            const isOpen = dropdown.style.display === 'block';
+            if (!isOpen) {
+                dropdown.style.display = 'block';
+                if (chevron) chevron.style.transform = 'rotate(-180deg)';
+                if (parent) parent.classList.add('open');
+                sessionStorage.setItem('bfs_tools_menu_open', 'true');
+            } else {
+                dropdown.style.display = 'none';
+                if (chevron) chevron.style.transform = 'rotate(0deg)';
+                if (parent) parent.classList.remove('open');
+                sessionStorage.setItem('bfs_tools_menu_open', 'false');
+            }
+            if (window.lucide) lucide.createIcons();
+        }
+
         // Mobile Off-Canvas Drawer Toggle
         function toggleMobileSidebar(open) {
             const sidebar = document.getElementById('appSidebar') || document.querySelector('aside');
@@ -2777,6 +2813,20 @@ if (isset($db)) {
                     }
                 });
             });
+
+            // Restore Tool Section open state if on tool page or user opened it
+            try {
+                const toolsDropdown = document.getElementById('tools-dropdown-list');
+                const toolsChevron = document.getElementById('tools-chevron');
+                const toolsParent = document.getElementById('nav-tools-item');
+                const isToolsActive = toolsDropdown && toolsDropdown.querySelector('.menu-item.active') !== null;
+                const isToolsSavedOpen = sessionStorage.getItem('bfs_tools_menu_open') === 'true';
+                if (toolsDropdown && (isToolsActive || isToolsSavedOpen)) {
+                    toolsDropdown.style.display = 'block';
+                    if (toolsChevron) toolsChevron.style.transform = 'rotate(-180deg)';
+                    if (toolsParent) toolsParent.classList.add('open');
+                }
+            } catch(err) {}
         });
 
         // Spotlight Omni-Search Command Desk (Ctrl+K)
@@ -3365,27 +3415,6 @@ if (isset($db)) {
                     <?php endif; ?>
                 </a>
             </li>
-            <li class="menu-item <?php echo ($active_page === 'whatsapp_crm.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>whatsapp_crm.php" title="WhatsApp CRM & Live Hub">
-                    <i data-lucide="message-circle" style="color:#25d366;"></i>
-                    <span class="menu-text">WhatsApp CRM</span>
-                    <span class="nav-badge" style="background:#22c55e; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
-                </a>
-            </li>
-            <li class="menu-item <?php echo ($active_page === 'marketing.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>marketing.php" title="Listmonk Mailer & Campaign Hub">
-                    <i data-lucide="mail" style="color:#10b981;"></i>
-                    <span class="menu-text">Listmonk Mailer</span>
-                    <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
-                </a>
-            </li>
-            <li class="menu-item <?php echo ($active_page === 'postiz.php') ? 'active' : ''; ?>">
-                <a href="<?php echo $base_path; ?>postiz.php" title="Postiz Social Media Scheduler & Marketing Hub">
-                    <i data-lucide="share-2" style="color:#6366f1;"></i>
-                    <span class="menu-text">Postiz Social Hub</span>
-                    <span class="nav-badge" style="background:#6366f1; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
-                </a>
-            </li>
             <li class="menu-item <?php echo ($active_page === 'appointments.php') ? 'active' : ''; ?>">
                 <a href="<?php echo $base_path; ?>appointments.php" title="Website Appointments Desk">
                     <i data-lucide="calendar"></i>
@@ -3474,7 +3503,46 @@ if (isset($db)) {
                 </a>
             </li>
 
-            <!-- 4. HRMS & ADMINISTRATION -->
+            <!-- 4. TOOLS SECTION (COLLAPSIBLE DROPDOWN) -->
+            <div class="sidebar-section-header"><span>Tools</span></div>
+            <?php $is_tools_active = in_array($active_page, ['whatsapp_crm.php', 'marketing.php', 'postiz.php']); ?>
+            <li class="menu-item menu-item-has-children <?php echo $is_tools_active ? 'active-parent' : ''; ?>" id="nav-tools-item">
+                <a href="javascript:void(0)" onclick="toggleToolsMenu(event)" title="Click to open Tool Section (WhatsApp, Listmonk, Postiz)" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <i data-lucide="wrench" style="color:#38bdf8;"></i>
+                        <span class="menu-text" style="font-weight:600;">Tool Section</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span class="nav-badge" style="background:rgba(56,189,248,0.18); color:#38bdf8; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">3 LIVE</span>
+                        <i data-lucide="chevron-down" id="tools-chevron" style="width:13px; height:13px; transition:transform 0.2s; <?php echo $is_tools_active ? 'transform:rotate(-180deg);' : ''; ?>"></i>
+                    </div>
+                </a>
+                <ul id="tools-dropdown-list" style="list-style:none; padding:4px 0 6px 12px; margin:0; border-left:1px dashed rgba(255,255,255,0.15); margin-left:18px; margin-top:2px; display: <?php echo $is_tools_active ? 'block' : 'none'; ?>;">
+                    <li class="menu-item <?php echo ($active_page === 'whatsapp_crm.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
+                        <a href="<?php echo $base_path; ?>whatsapp_crm.php" title="WhatsApp CRM & Live Hub" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="message-circle" style="color:#25d366; width:15px; height:15px;"></i>
+                            <span class="menu-text">WhatsApp CRM</span>
+                            <span class="nav-badge" style="background:#22c55e; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        </a>
+                    </li>
+                    <li class="menu-item <?php echo ($active_page === 'marketing.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
+                        <a href="<?php echo $base_path; ?>marketing.php" title="Listmonk Mailer & Campaign Hub" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="mail" style="color:#10b981; width:15px; height:15px;"></i>
+                            <span class="menu-text">Listmonk Mailer</span>
+                            <span class="nav-badge" style="background:#10b981; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        </a>
+                    </li>
+                    <li class="menu-item <?php echo ($active_page === 'postiz.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
+                        <a href="<?php echo $base_path; ?>postiz.php" title="Postiz Social Media Scheduler & Marketing Hub" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="share-2" style="color:#6366f1; width:15px; height:15px;"></i>
+                            <span class="menu-text">Postiz Social Hub</span>
+                            <span class="nav-badge" style="background:#6366f1; color:#ffffff; font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <!-- 5. HRMS & ADMINISTRATION -->
             <div class="sidebar-section-header"><span>Management & HR</span></div>
             <li class="menu-item <?php echo ($active_page === 'employees_list.php' || $active_page === 'add_employee.php' || $active_page === 'view_employee.php' || $active_page === 'edit_employee.php') ? 'active' : ''; ?>">
                 <a href="<?php echo $base_path; ?>employees_list.php" title="Staff & HRMS">
