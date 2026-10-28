@@ -279,6 +279,158 @@ $att_today_count = (int)$db->query("SELECT COUNT(*) FROM employee_attendance WHE
     border-color: var(--bw-black);
     color: var(--bw-black);
 }
+
+/* Executive 3-Column HRMS Staff Grid */
+.staff-grid {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 20px !important;
+    margin-bottom: 30px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+@media (max-width: 1200px) {
+    .staff-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 16px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .staff-grid {
+        grid-template-columns: 1fr !important;
+        gap: 16px !important;
+    }
+}
+
+/* Luxury Staff Card (BFS Circle Executive Edition) */
+.staff-card {
+    background: #ffffff !important;
+    border: 1px solid var(--bw-border) !important;
+    border-radius: 14px !important;
+    padding: 20px !important;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04) !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+    transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    position: relative !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+}
+
+.staff-card:hover {
+    border-color: var(--bw-black) !important;
+    box-shadow: 0 12px 28px rgba(15, 23, 42, 0.09) !important;
+    transform: translateY(-3px) !important;
+}
+
+.staff-avatar-img {
+    width: 76px !important;
+    height: 76px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    border: 2px solid var(--bw-black) !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12) !important;
+    display: block !important;
+    margin: 0 auto !important;
+}
+
+.staff-avatar-placeholder {
+    width: 76px !important;
+    height: 76px !important;
+    border-radius: 50% !important;
+    background: var(--bw-black) !important;
+    color: #ffffff !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 26px !important;
+    font-weight: 800 !important;
+    font-family: 'Outfit', sans-serif !important;
+    border: 2px solid var(--bw-black) !important;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12) !important;
+    margin: 0 auto !important;
+    user-select: none !important;
+}
+
+.staff-code-tag {
+    display: inline-flex;
+    align-items: center;
+    background: var(--bw-light);
+    border: 1px solid var(--bw-border-dark);
+    border-radius: 6px;
+    overflow: hidden;
+    font-family: 'Outfit', sans-serif;
+    font-size: 11px;
+}
+
+.staff-code-brand {
+    background: var(--bw-black);
+    color: #ffffff;
+    font-weight: 800;
+    font-size: 9px;
+    letter-spacing: 0.6px;
+    padding: 3px 7px;
+    text-transform: uppercase;
+}
+
+.staff-code-num {
+    padding: 2px 8px;
+    font-weight: 700;
+    color: var(--bw-black);
+}
+
+.staff-status-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bw-black);
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.5px;
+    padding: 3px 9px;
+    border-radius: 20px;
+}
+
+.staff-status-inactive {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--bw-light);
+    color: var(--bw-muted);
+    border: 1px solid var(--bw-border-dark);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    padding: 2px 9px;
+    border-radius: 20px;
+}
+
+.staff-pulse-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+}
+
+.staff-info-box {
+    background: var(--bw-light);
+    border: 1px solid var(--bw-border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 14px 0 16px 0;
+    font-size: 12px;
+}
+
+.staff-action-grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+}
 </style>
 
 <div class="view-container">
@@ -379,13 +531,13 @@ $att_today_count = (int)$db->query("SELECT COUNT(*) FROM employee_attendance WHE
         </div>
     </div>
 
-    <!-- GRID CARDS VIEW -->
+    <!-- GRID CARDS VIEW (3 CARDS PER ROW EXECUTIVE MONOCHROME) -->
     <div class="staff-grid" id="staffGrid">
         <?php if (empty($employees)): ?>
-            <div style="grid-column:1/-1; text-align:center; padding:60px 20px; background:#ffffff; border-radius:12px; border:1px solid var(--bw-border); color:var(--bw-muted);">
+            <div style="grid-column:1/-1; text-align:center; padding:60px 20px; background:#ffffff; border-radius:14px; border:1px solid var(--bw-border); color:var(--bw-muted);">
                 <i data-lucide="users" style="width:42px; height:42px; margin-bottom:12px; color:var(--bw-black);"></i>
-                <h3 style="color:var(--bw-black); margin:0 0 6px 0; font-weight:800;">No Staff Officers Registered Yet</h3>
-                <p style="margin:0; font-size:13px;">Click "+ Add New Employee" above to build your HRMS directory.</p>
+                <h3 style="color:var(--bw-black); margin:0 0 6px 0; font-weight:800; font-family:'Outfit',sans-serif;">No Staff Officers Registered Yet</h3>
+                <p style="margin:0; font-size:13px;">Click "+ Add New Employee" above to build your BFS Circle HRMS directory.</p>
             </div>
         <?php else: ?>
             <?php foreach ($employees as $emp): 
@@ -398,16 +550,22 @@ $att_today_count = (int)$db->query("SELECT COUNT(*) FROM employee_attendance WHE
                 $comm = (float)($emp['commission_rate'] ?: 1.0);
             ?>
                 <div class="staff-card staff-row-item" data-department="<?= htmlspecialchars($dept) ?>" data-status="<?= $isAct ? 'Active' : 'Inactive' ?>" data-search="<?= strtolower(htmlspecialchars($dispName . ' ' . $code . ' ' . $emp['username'] . ' ' . $emp['mobile'] . ' ' . $dept)) ?>">
+                    
+                    <!-- Card Top Header with BFS Branding & Status -->
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-                        <span class="badge" style="background:var(--bw-light); color:var(--bw-black); border:1px solid var(--bw-border-dark); font-weight:800; font-size:11px; font-family:'Outfit',sans-serif;"><?= htmlspecialchars($code) ?></span>
+                        <div class="staff-code-tag" title="BFS Circle Staff Identification">
+                            <span class="staff-code-brand">BFS CIRCLE</span>
+                            <span class="staff-code-num"><?= htmlspecialchars($code) ?></span>
+                        </div>
                         <?php if ($isAct): ?>
-                            <span class="badge" style="background:var(--bw-black); color:#ffffff; font-weight:700; font-size:10.5px;">ACTIVE</span>
+                            <span class="staff-status-active"><span class="staff-pulse-dot"></span>ACTIVE</span>
                         <?php else: ?>
-                            <span class="badge" style="background:var(--bw-light); color:var(--bw-muted); border:1px solid var(--bw-border-dark); font-weight:700; font-size:10.5px;">INACTIVE</span>
+                            <span class="staff-status-inactive">INACTIVE</span>
                         <?php endif; ?>
                     </div>
 
-                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:16px;">
+                    <!-- Staff Avatar & Identity Center -->
+                    <div style="display:flex; flex-direction:column; align-items:center; text-align:center; margin-bottom:14px;">
                         <?php if(!empty($emp['photo_path']) && file_exists(__DIR__ . '/' . $emp['photo_path'])): ?>
                             <img src="<?php echo htmlspecialchars($emp['photo_path']); ?>" alt="Profile" class="staff-avatar-img">
                         <?php else: ?>
@@ -416,38 +574,50 @@ $att_today_count = (int)$db->query("SELECT COUNT(*) FROM employee_attendance WHE
                             </div>
                         <?php endif; ?>
 
-                        <h3 style="font-size:16.5px; font-weight:800; color:var(--bw-black); margin:10px 0 2px 0;"><?= htmlspecialchars($dispName) ?></h3>
-                        <div style="font-size:13px; font-weight:700; color:var(--bw-dark);"><?= htmlspecialchars($role) ?></div>
-                        <div style="margin-top:6px;"><span class="badge" style="background:var(--bw-light); color:var(--bw-mid); border:1px solid var(--bw-border); font-size:11px; font-weight:600;"><?= htmlspecialchars($dept) ?></span></div>
-                    </div>
-
-                    <div style="background:var(--bw-light); border-radius:8px; border:1px solid var(--bw-border); padding:12px; margin-bottom:16px; font-size:12.5px;">
-                        <div style="display:flex; align-items:center; gap:8px; color:var(--bw-dark); margin-bottom:6px;">
-                            <i data-lucide="phone" style="width:13px; color:var(--bw-black);"></i>
-                            <span><?= htmlspecialchars($emp['mobile']) ?></span>
-                        </div>
-                        <div style="display:flex; align-items:center; gap:8px; color:var(--bw-dark); margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                            <i data-lucide="mail" style="width:13px; color:var(--bw-black);"></i>
-                            <span><?= htmlspecialchars($emp['official_email']) ?></span>
-                        </div>
-                        <div style="display:flex; justify-content:space-between; margin-top:8px; pt-8px; border-top:1px dashed var(--bw-border); font-size:11.5px;">
-                            <div>Base Salary: <strong style="color:var(--bw-black);">₹<?= number_format($salary) ?></strong></div>
-                            <div>Commission: <strong style="color:var(--bw-black);"><?= $comm ?>%</strong></div>
+                        <h3 style="font-size:16px; font-weight:800; color:var(--bw-black); margin:12px 0 2px 0; font-family:'Outfit',sans-serif; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:100%;" title="<?= htmlspecialchars($dispName) ?>"><?= htmlspecialchars($dispName) ?></h3>
+                        <div style="font-size:12.5px; font-weight:700; color:var(--bw-dark); text-overflow:ellipsis; overflow:hidden; white-space:nowrap; max-width:100%;"><?= htmlspecialchars($role) ?></div>
+                        <div style="margin-top:6px;">
+                            <span class="badge" style="background:#ffffff; color:var(--bw-dark); border:1px solid var(--bw-border-dark); font-size:10.5px; font-weight:700; padding:3px 10px; border-radius:20px; display:inline-flex; align-items:center; gap:4px;">
+                                <i data-lucide="building" style="width:11px; height:11px;"></i> <?= htmlspecialchars($dept) ?>
+                            </span>
                         </div>
                     </div>
 
+                    <!-- Contact & Compensation Dossier Box -->
+                    <div class="staff-info-box">
+                        <div style="display:flex; align-items:center; gap:8px; color:var(--bw-dark); margin-bottom:6px; font-size:12px;">
+                            <i data-lucide="phone" style="width:13px; height:13px; color:var(--bw-black); flex-shrink:0;"></i>
+                            <a href="tel:<?= htmlspecialchars($emp['mobile']) ?>" style="font-weight:600; color:var(--bw-black); text-decoration:none;"><?= htmlspecialchars($emp['mobile']) ?></a>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:8px; color:var(--bw-dark); margin-bottom:8px; font-size:12px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= htmlspecialchars($emp['official_email']) ?>">
+                            <i data-lucide="mail" style="width:13px; height:13px; color:var(--bw-black); flex-shrink:0;"></i>
+                            <a href="mailto:<?= htmlspecialchars($emp['official_email']) ?>" style="font-weight:500; color:var(--bw-mid); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"><?= htmlspecialchars($emp['official_email']) ?></a>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; align-items:center; pt-8px; margin-top:8px; border-top:1px dashed var(--bw-border-dark); font-size:11.5px;">
+                            <div>
+                                <span style="font-size:10px; font-weight:700; color:var(--bw-muted); text-transform:uppercase; letter-spacing:0.5px; display:block;">Base Salary</span>
+                                <strong style="color:var(--bw-black); font-size:13.5px; font-family:'Outfit',sans-serif;">₹<?= number_format($salary) ?></strong>
+                            </div>
+                            <div style="text-align:right;">
+                                <span style="font-size:10px; font-weight:700; color:var(--bw-muted); text-transform:uppercase; letter-spacing:0.5px; display:block;">Commission</span>
+                                <strong style="color:var(--bw-black); font-size:13.5px; font-family:'Outfit',sans-serif;"><?= $comm ?>%</strong>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Suite -->
                     <div style="display:flex; flex-direction:column; gap:6px; margin-top:auto;">
-                        <a href="view_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-primary" style="justify-content:center; padding:8px 12px;">
-                            <i data-lucide="eye" style="width:13px;"></i> View 360° Profile
+                        <a href="view_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-primary" style="justify-content:center; padding:9px 12px; font-size:12.5px; border-radius:8px;">
+                            <i data-lucide="eye" style="width:14px; height:14px;"></i> View 360° Profile
                         </a>
-                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px;">
-                            <button onclick="openQuickAttendanceModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>')" class="btn-mono-outline" title="Log Attendance Today"><i data-lucide="calendar" style="width:12px;"></i> Attendance</button>
-                            <button onclick="openQuickSalaryModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>', <?= $salary ?>)" class="btn-mono-outline" title="Record Payout"><i data-lucide="banknote" style="width:12px;"></i> Payout</button>
+                        <div class="staff-action-grid-2">
+                            <button onclick="openQuickAttendanceModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>')" class="btn-mono-outline" style="border-radius:7px; padding:7px 10px; font-size:11.5px;" title="Log Attendance Today"><i data-lucide="calendar" style="width:12px; height:12px;"></i> Attendance</button>
+                            <button onclick="openQuickSalaryModal(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>', '<?= htmlspecialchars($emp['username']) ?>', <?= $salary ?>)" class="btn-mono-outline" style="border-radius:7px; padding:7px 10px; font-size:11.5px;" title="Record Payout"><i data-lucide="banknote" style="width:12px; height:12px;"></i> Payout</button>
                         </div>
                         <?php if ($is_admin): ?>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:6px; margin-top:2px;">
-                                <a href="edit_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-subtle" style="text-align:center;"><i data-lucide="edit-3" style="width:12px;"></i> Edit</a>
-                                <button onclick="deleteEmployee(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>')" class="btn-mono-subtle" style="color:var(--bw-black);"><i data-lucide="trash-2" style="width:12px;"></i> Delete</button>
+                            <div class="staff-action-grid-2" style="margin-top:2px;">
+                                <a href="edit_employee.php?id=<?= $emp['id'] ?>" class="btn-mono-subtle" style="border-radius:7px; padding:6px 10px; font-size:11.5px; text-align:center;"><i data-lucide="edit-3" style="width:12px; height:12px;"></i> Edit</a>
+                                <button onclick="deleteEmployee(<?= $emp['id'] ?>, '<?= htmlspecialchars(addslashes($dispName)) ?>')" class="btn-mono-subtle" style="border-radius:7px; padding:6px 10px; font-size:11.5px; color:var(--bw-black);"><i data-lucide="trash-2" style="width:12px; height:12px;"></i> Delete</button>
                             </div>
                         <?php endif; ?>
                     </div>
