@@ -2,8 +2,158 @@
 require_once __DIR__ . '/config.php';
 require_role(['Admin', 'RM', 'Staff']);
 
+// Helper to generate Rich Google Calendar URL with Attendees & Executive Briefing
+if (!function_exists('get_google_calendar_url')) {
+    function get_google_calendar_url($app, $assigned_officer = null) {
+        $title = urlencode("BFS Consultation: " . $app['name'] . " (" . ($app['sub_type'] ?: 'Loan Advisory') . ")");
+        
+        // Parse Date and Time
+        $date_str = $app['slot_date'] ?: date('Y-m-d');
+        $time_str = $app['slot_time'] ?: '11:00 AM';
+        
+        $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+        if ($start_ts === false || $start_ts < 0) {
+            $start_ts = strtotime('+1 day 11:00 AM');
+        }
+        $end_ts = $start_ts + (60 * 60); // 1 hour duration
+        
+        $dates = gmdate('Ymd\THis\Z', $start_ts) . '/' . gmdate('Ymd\THis\Z', $end_ts);
+        $location = urlencode(($app['city'] ?: 'Agra') . ', India');
+
+        $rm_name = $assigned_officer['display_name'] ?? ($app['assigned_to'] ?: 'Unassigned');
+        $rm_email = $assigned_officer['official_email'] ?? '';
+        $rm_phone = $assigned_officer['mobile'] ?? '';
+
+        $details_lines = [
+            "🏢 BHARDWAJ FINANCIAL SERVICES (BFS CIRCLE)",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "👤 APPLICANT DETAILS:",
+            "• Name: " . $app['name'],
+            "• Phone: " . $app['phone'],
+            "• Email: " . ($app['email'] ?: 'N/A'),
+            "• City: " . ($app['city'] ?: 'Agra'),
+            "",
+            "💼 REQUIREMENT & PRODUCT:",
+            "• Product: " . ($app['product_type'] ?: 'Finance') . " - " . ($app['sub_type'] ?: 'Consultation'),
+            "• Notes: " . ($app['message'] ?: 'Direct booking from website'),
+            "",
+            "👔 ASSIGNED IN-OFFICE RM:",
+            "• Officer: " . $rm_name,
+            (!empty($rm_phone) ? "• RM Mobile: " . $rm_phone : ""),
+            (!empty($rm_email) ? "• RM Email: " . $rm_email : ""),
+            "",
+            "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━",
+            "🚀 Verified by BFS Circle CRM Appointment System"
+        ];
+        $details = urlencode(implode("\n", array_filter($details_lines)));
+
+        // Automatically invite Applicant & Assigned RM as Calendar Attendees
+        $attendees = [];
+        if (!empty($app['email']) && filter_var($app['email'], FILTER_VALIDATE_EMAIL) && !str_contains($app['email'], 'no-email')) {
+            $attendees[] = $app['email'];
+        }
+        if (!empty($rm_email) && filter_var($rm_email, FILTER_VALIDATE_EMAIL)) {
+            $attendees[] = $rm_email;
+        }
+        $add_param = !empty($attendees) ? "&add=" . urlencode(implode(',', $attendees)) : "";
+
+        return "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$title}&dates={$dates}&details={$details}&location={$location}{$add_param}";
+    }
+}
+
+// 1. Single Appointment .ICS File Download Action
+if (isset($_GET['action']) && $_GET['action'] === 'download_ics') {
+    $appt_id = (int)($_GET['id'] ?? 0);
+    $stmt = $db->prepare("SELECT * FROM website_appointments WHERE id = ?");
+    $stmt->execute([$appt_id]);
+    $app = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($app) {
+        $date_str = $app['slot_date'] ?: date('Y-m-d');
+        $time_str = $app['slot_time'] ?: '11:00 AM';
+        $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+        if ($start_ts === false || $start_ts < 0) $start_ts = strtotime('+1 day 11:00 AM');
+        $end_ts = $start_ts + 3600;
+
+        $dtstart = gmdate('Ymd\THis\Z', $start_ts);
+        $dtend = gmdate('Ymd\THis\Z', $end_ts);
+        $dtstamp = gmdate('Ymd\THis\Z');
+        $uid = 'bfs-appt-' . $app['id'] . '-' . $start_ts . '@bfsfinancialservices.com';
+        $summary = "BFS Consultation: " . str_replace(["\r", "\n"], ' ', $app['name']) . " (" . ($app['sub_type'] ?: 'Loan Advisory') . ")";
+        $location = str_replace(["\r", "\n"], ' ', ($app['city'] ?: 'Agra') . ', India');
+        $desc = "Applicant: {$app['name']}\\nPhone: {$app['phone']}\\nEmail: {$app['email']}\\nProduct: {$app['product_type']} - {$app['sub_type']}\\nAssigned RM: {$app['assigned_to']}\\nNotes: {$app['message']}";
+
+        header('Content-Type: text/calendar; charset=utf-8');
+        header('Content-Disposition: attachment; filename="BFS_Appointment_' . $app['id'] . '.ics"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        echo "BEGIN:VCALENDAR\r\n";
+        echo "VERSION:2.0\r\n";
+        echo "PRODID:-//BFS Financial Services//Appointment System//EN\r\n";
+        echo "CALSCALE:GREGORIAN\r\n";
+        echo "METHOD:PUBLISH\r\n";
+        echo "BEGIN:VEVENT\r\n";
+        echo "UID:{$uid}\r\n";
+        echo "DTSTAMP:{$dtstamp}\r\n";
+        echo "DTSTART:{$dtstart}\r\n";
+        echo "DTEND:{$dtend}\r\n";
+        echo "SUMMARY:{$summary}\r\n";
+        echo "DESCRIPTION:{$desc}\r\n";
+        echo "LOCATION:{$location}\r\n";
+        echo "STATUS:CONFIRMED\r\n";
+        echo "END:VEVENT\r\n";
+        echo "END:VCALENDAR\r\n";
+        exit;
+    }
+}
+
+// 2. Master .ICS Calendar Feed / Export for All Active Appointments
+if (isset($_GET['action']) && ($_GET['action'] === 'download_all_ics' || $_GET['action'] === 'calendar_feed')) {
+    $stmt = $db->query("SELECT * FROM website_appointments WHERE status IN ('Scheduled', 'Confirmed') ORDER BY id DESC LIMIT 200");
+    $appts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    header('Content-Type: text/calendar; charset=utf-8');
+    if ($_GET['action'] === 'download_all_ics') {
+        header('Content-Disposition: attachment; filename="BFS_All_Active_Appointments.ics"');
+    }
+    header('Cache-Control: no-cache, no-store, must-revalidate');
+    echo "BEGIN:VCALENDAR\r\n";
+    echo "VERSION:2.0\r\n";
+    echo "PRODID:-//BFS Financial Services//Master Appointments Feed//EN\r\n";
+    echo "CALSCALE:GREGORIAN\r\n";
+    echo "X-WR-CALNAME:BFS Active Appointments\r\n";
+    echo "X-WR-TIMEZONE:Asia/Kolkata\r\n";
+    echo "METHOD:PUBLISH\r\n";
+    foreach ($appts as $app) {
+        $date_str = $app['slot_date'] ?: date('Y-m-d');
+        $time_str = $app['slot_time'] ?: '11:00 AM';
+        $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+        if ($start_ts === false || $start_ts < 0) $start_ts = strtotime('+1 day 11:00 AM');
+        $end_ts = $start_ts + 3600;
+
+        $dtstart = gmdate('Ymd\THis\Z', $start_ts);
+        $dtend = gmdate('Ymd\THis\Z', $end_ts);
+        $dtstamp = gmdate('Ymd\THis\Z');
+        $uid = 'bfs-appt-' . $app['id'] . '-' . $start_ts . '@bfsfinancialservices.com';
+        $summary = "BFS: " . str_replace(["\r", "\n"], ' ', $app['name']) . " (" . ($app['sub_type'] ?: 'Consultation') . ")";
+        $location = str_replace(["\r", "\n"], ' ', ($app['city'] ?: 'Agra') . ', India');
+        $desc = "Client: {$app['name']}\\nPhone: {$app['phone']}\\nProduct: {$app['product_type']}\\nAssigned RM: {$app['assigned_to']}";
+
+        echo "BEGIN:VEVENT\r\n";
+        echo "UID:{$uid}\r\n";
+        echo "DTSTAMP:{$dtstamp}\r\n";
+        echo "DTSTART:{$dtstart}\r\n";
+        echo "DTEND:{$dtend}\r\n";
+        echo "SUMMARY:{$summary}\r\n";
+        echo "DESCRIPTION:{$desc}\r\n";
+        echo "LOCATION:{$location}\r\n";
+        echo "STATUS:CONFIRMED\r\n";
+        echo "END:VEVENT\r\n";
+    }
+    echo "END:VCALENDAR\r\n";
+    exit;
+}
+
 // Handle AJAX Status / Assignment updates FIRST before any HTML output
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
     $action = $_POST['action'];
     
@@ -36,18 +186,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $appt_id = (int)($_POST['id'] ?? 0);
         $rm = trim($_POST['assigned_to'] ?? '');
         if ($appt_id > 0) {
+            $officer_info = null;
             // Strictly enforce: only legitimate in-office RM / Staff / Admin can be assigned
             if (!empty($rm)) {
-                $chk_rm = $db->prepare("SELECT id FROM users WHERE username = ? AND is_active = 1 AND role IN ('RM', 'Staff', 'Admin') AND role NOT IN ('Partner', 'Agent', 'Builder', 'CA', 'DSA')");
+                $chk_rm = $db->prepare("
+                    SELECT u.id, u.username, 
+                           COALESCE(NULLIF(e.full_name, ''), NULLIF(u.full_name, ''), u.name, u.username) AS display_name, 
+                           u.role, 
+                           COALESCE(e.designation, u.role) AS designation,
+                           COALESCE(e.official_email, u.email, '') AS official_email,
+                           COALESCE(e.mobile, u.mobile, '') AS mobile
+                    FROM users u 
+                    LEFT JOIN employees e ON (e.user_id = u.id OR e.official_email = u.username)
+                    WHERE u.username = ? AND u.is_active = 1 AND u.role IN ('RM', 'Staff', 'Admin') 
+                      AND u.role NOT IN ('Partner', 'Agent', 'Builder', 'CA', 'DSA')
+                ");
                 $chk_rm->execute([$rm]);
-                if (!$chk_rm->fetch()) {
+                $officer_info = $chk_rm->fetch(PDO::FETCH_ASSOC);
+                if (!$officer_info) {
                     echo json_encode(['success' => false, 'error' => 'Only authorized In-Office Relationship Managers can be assigned.']);
                     exit;
                 }
             }
             $stmt = $db->prepare("UPDATE website_appointments SET assigned_to = ?, updated_at = datetime('now', 'localtime') WHERE id = ?");
             $stmt->execute([$rm, $appt_id]);
-            echo json_encode(['success' => true]);
+
+            // Re-fetch updated appointment to generate updated Google Calendar link
+            $chk_app = $db->prepare("SELECT * FROM website_appointments WHERE id = ?");
+            $chk_app->execute([$appt_id]);
+            $updated_app = $chk_app->fetch(PDO::FETCH_ASSOC);
+            $new_gcal = get_google_calendar_url($updated_app, $officer_info);
+
+            echo json_encode([
+                'success' => true,
+                'assigned_to' => $rm,
+                'display_name' => $officer_info ? $officer_info['display_name'] : 'Unassigned',
+                'role' => $officer_info ? ($officer_info['role'] === 'RM' ? 'In-Office RM' : $officer_info['role']) : '',
+                'avatar' => $officer_info ? strtoupper(substr($officer_info['display_name'], 0, 1)) : '',
+                'new_gcal_url' => $new_gcal
+            ]);
             exit;
         }
     }
@@ -61,12 +238,18 @@ $page_subtitle = "Doorstep visits, phone consultations & meeting slots booked fr
 $hide_main_header = true;
 require_once __DIR__ . '/header.php';
 
-// Fetch ONLY legitimate In-Office Relationship Managers & Staff for assignment
+// Fetch ONLY legitimate In-Office Relationship Managers & Staff for assignment (with rich officer dossiers)
 $staff_list = $db->query("
     SELECT u.id, u.username, 
            COALESCE(NULLIF(e.full_name, ''), NULLIF(u.full_name, ''), u.name, u.username) AS display_name, 
            u.role, 
-           COALESCE(e.designation, u.role) AS designation
+           COALESCE(e.designation, u.role) AS designation,
+           COALESCE(e.department, 'In-Office Operations') AS department,
+           COALESCE(e.emp_id, '') AS emp_id,
+           COALESCE(e.photo_path, '') AS photo_path,
+           COALESCE(e.official_email, u.email, '') AS official_email,
+           COALESCE(e.mobile, u.mobile, '') AS mobile,
+           (SELECT COUNT(*) FROM website_appointments wa WHERE wa.assigned_to = u.username AND wa.status IN ('Scheduled', 'Confirmed')) AS active_workload
     FROM users u
     LEFT JOIN employees e ON (e.user_id = u.id OR e.official_email = u.username)
     WHERE u.is_active = 1
@@ -76,6 +259,12 @@ $staff_list = $db->query("
       AND u.username NOT LIKE 'BFS-FAM-%'
     ORDER BY (CASE WHEN u.role = 'RM' THEN 1 WHEN u.role = 'Staff' THEN 2 ELSE 3 END), display_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
+
+// Map for fast O(1) lookups by username
+$staff_map = [];
+foreach ($staff_list as $st) {
+    $staff_map[$st['username']] = $st;
+}
 
 // Pagination & Filter Parameters
 $page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
@@ -175,28 +364,6 @@ $total_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments")->fet
 $scheduled_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status IN ('Scheduled', 'Confirmed')")->fetchColumn();
 $today_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')")->fetchColumn();
 $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status = 'Completed'")->fetchColumn();
-
-// Helper to generate Google Calendar Link
-function get_google_calendar_url($app) {
-    $title = urlencode("BFS Consultation: " . $app['name'] . " (" . ($app['sub_type'] ?: 'Loan Advisory') . ")");
-    
-    // Parse Date and Time
-    $date_str = $app['slot_date'] ?: date('Y-m-d');
-    $time_str = $app['slot_time'] ?: '11:00 AM';
-    
-    // Attempt parse
-    $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
-    if ($start_ts === false || $start_ts < 0) {
-        $start_ts = strtotime('+1 day 11:00 AM');
-    }
-    $end_ts = $start_ts + (60 * 60); // 1 hour duration
-    
-    $dates = gmdate('Ymd\THis\Z', $start_ts) . '/' . gmdate('Ymd\THis\Z', $end_ts);
-    $location = urlencode(($app['city'] ?: 'Agra') . ', India');
-    $details = urlencode("Applicant: " . $app['name'] . "\nPhone: " . $app['phone'] . "\nEmail: " . $app['email'] . "\nProduct: " . $app['product_type'] . " - " . $app['sub_type'] . "\nCity: " . $app['city'] . "\nNotes: " . $app['message']);
-    
-    return "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$title}&dates={$dates}&details={$details}&location={$location}";
-}
 
 if (!function_exists('getApptPageUrl')) {
     function getApptPageUrl($p) {
@@ -589,6 +756,360 @@ if (!function_exists('getApptPageUrl')) {
     border-color: var(--appt-black);
 }
 
+/* SEARCHABLE IN-OFFICE RM PICKER BUTTONS */
+.btn-rm-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: #ffffff;
+    border: 1px solid var(--appt-border);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    text-align: left;
+    width: 100%;
+    max-width: 220px;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.btn-rm-badge:hover {
+    border-color: var(--appt-black);
+    background: #f8fafc;
+    box-shadow: 0 3px 8px rgba(15, 23, 42, 0.08);
+    transform: translateY(-1px);
+}
+.rm-badge-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--appt-black);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    flex-shrink: 0;
+}
+.rm-badge-meta {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+    flex: 1;
+}
+.rm-badge-name {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--appt-black);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1.2;
+}
+.rm-badge-role {
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--appt-muted);
+    line-height: 1.2;
+}
+.btn-rm-unassigned {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 12px;
+    background: #f8fafc;
+    border: 1px dashed var(--appt-border-dark);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    color: var(--appt-muted);
+    font-size: 12px;
+    font-weight: 700;
+    width: 100%;
+    max-width: 175px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.btn-rm-unassigned:hover {
+    border-color: var(--appt-black);
+    color: var(--appt-black);
+    background: #ffffff;
+    box-shadow: 0 2px 6px rgba(15, 23, 42, 0.06);
+}
+
+/* TOP GOOGLE CALENDAR HUB BUTTON */
+.btn-gcal-sync-hub {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 14px;
+    background: #ffffff;
+    border: 1px solid var(--appt-black);
+    border-radius: 8px;
+    color: var(--appt-black);
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-decoration: none;
+}
+.btn-gcal-sync-hub:hover {
+    background: var(--appt-black);
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+}
+
+/* EXECUTIVE BFS MODAL (BLACK & WHITE THEME) */
+.bfs-modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+}
+.bfs-modal-container {
+    background: #ffffff;
+    border-radius: 14px;
+    width: 100%;
+    max-width: 580px;
+    box-shadow: 0 25px 60px -15px rgba(15, 23, 42, 0.3);
+    border: 1px solid var(--appt-border);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 90vh;
+}
+.bfs-modal-header {
+    padding: 16px 20px;
+    background: #ffffff;
+    border-bottom: 1px solid var(--appt-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.bfs-modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    color: var(--appt-muted);
+    cursor: pointer;
+    line-height: 1;
+    padding: 4px;
+    transition: color 0.15s;
+}
+.bfs-modal-close:hover {
+    color: var(--appt-black);
+}
+.rm-search-box {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: #ffffff;
+    border: 1px solid var(--appt-border-dark);
+    border-radius: 8px;
+    padding: 0 12px;
+    height: 38px;
+    margin-bottom: 10px;
+}
+.rm-search-box input {
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: var(--appt-black);
+    width: 100%;
+    font-family: inherit;
+}
+.rm-filter-tabs {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+}
+.rm-tab-btn {
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    border-radius: 6px;
+    border: 1px solid var(--appt-border-dark);
+    background: #ffffff;
+    color: var(--appt-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+    white-space: nowrap;
+}
+.rm-tab-btn:hover {
+    color: var(--appt-black);
+    border-color: var(--appt-black);
+}
+.rm-tab-btn.active {
+    background: var(--appt-black) !important;
+    color: #ffffff !important;
+    border-color: var(--appt-black) !important;
+}
+.btn-rm-unassign-act {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    background: #ffffff;
+    border: 1px solid var(--appt-border-dark);
+    color: #dc2626;
+    font-size: 11.5px;
+    font-weight: 700;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+.btn-rm-unassign-act:hover {
+    background: #fee2e2;
+    border-color: #ef4444;
+}
+.rm-officers-deck {
+    overflow-y: auto;
+    max-height: 380px;
+    padding: 8px 12px;
+}
+.rm-officer-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    border: 1px solid transparent;
+    margin-bottom: 4px;
+}
+.rm-officer-row:hover {
+    background: #f8fafc;
+    border-color: var(--appt-border-dark);
+}
+.rm-officer-row.is-current {
+    background: #f1f5f9;
+    border-color: var(--appt-black);
+}
+.rm-row-avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--appt-black);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 800;
+    font-family: 'Outfit', sans-serif;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+.rm-row-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.rm-row-content {
+    flex: 1;
+    min-width: 0;
+}
+.rm-row-name-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+.rm-row-name {
+    font-size: 13.5px;
+    font-weight: 800;
+    color: var(--appt-black);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.badge-role-pill {
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+.badge-role-pill.rm {
+    background: var(--appt-black);
+    color: #ffffff;
+}
+.badge-role-pill.staff {
+    background: #ffffff;
+    color: var(--appt-black);
+    border: 1px solid var(--appt-border-dark);
+}
+.badge-role-pill.admin {
+    background: #0f172a;
+    color: #ffffff;
+}
+.rm-row-empid {
+    font-size: 10px;
+    color: var(--appt-muted);
+    font-family: 'Outfit', sans-serif;
+    font-weight: 700;
+    background: #f1f5f9;
+    padding: 1px 6px;
+    border-radius: 4px;
+}
+.rm-row-subline {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    color: var(--appt-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rm-assign-pill {
+    padding: 5px 12px;
+    font-size: 11px;
+    font-weight: 800;
+    background: var(--appt-black);
+    color: #ffffff;
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: all 0.15s;
+}
+.rm-officer-row:hover .rm-assign-pill {
+    background: #1e293b;
+    transform: translateX(2px);
+}
+.bfs-modal-footer {
+    padding: 12px 20px;
+    background: #f8fafc;
+    border-top: 1px solid var(--appt-border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.btn-modal-cancel {
+    padding: 6px 14px;
+    border: 1px solid var(--appt-border-dark);
+    background: #ffffff;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--appt-black);
+    cursor: pointer;
+}
+
 /* ACTION BUTTONS - MONOCHROME INVERT ON HOVER */
 .appt-actions-bar {
     display: flex;
@@ -845,27 +1366,34 @@ if (!function_exists('getApptPageUrl')) {
         </div>
     </div>
 
-    <!-- 3. QUICK STATUS TABS (BLACK & WHITE) -->
-    <div class="appt-quick-tabs">
-        <a href="appointments.php" class="appt-tab-btn <?php echo ($filter_status === 'all' && $filter_date === 'all') ? 'active' : ''; ?>">
-            <span>All Bookings</span>
-            <span class="appt-tab-badge"><?php echo $total_count; ?></span>
-        </a>
-        <a href="appointments.php?date_range=today" class="appt-tab-btn <?php echo ($filter_date === 'today') ? 'active' : ''; ?>">
-            <span>Today's</span>
-            <span class="appt-tab-badge"><?php echo $today_count; ?></span>
-        </a>
-        <a href="appointments.php?date_range=tomorrow" class="appt-tab-btn <?php echo ($filter_date === 'tomorrow') ? 'active' : ''; ?>">
-            <span>Tomorrow</span>
-        </a>
-        <a href="appointments.php?date_range=upcoming" class="appt-tab-btn <?php echo ($filter_date === 'upcoming') ? 'active' : ''; ?>">
-            <span>Active / Pending</span>
-            <span class="appt-tab-badge"><?php echo $scheduled_count; ?></span>
-        </a>
-        <a href="appointments.php?status=Completed" class="appt-tab-btn <?php echo ($filter_status === 'Completed') ? 'active' : ''; ?>">
-            <span>Completed</span>
-            <span class="appt-tab-badge"><?php echo $completed_count; ?></span>
-        </a>
+    <!-- 3. QUICK STATUS TABS & GOOGLE CALENDAR SYNC HUB -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+        <div class="appt-quick-tabs" style="margin-bottom:0;">
+            <a href="appointments.php" class="appt-tab-btn <?php echo ($filter_status === 'all' && $filter_date === 'all') ? 'active' : ''; ?>">
+                <span>All Bookings</span>
+                <span class="appt-tab-badge"><?php echo $total_count; ?></span>
+            </a>
+            <a href="appointments.php?date_range=today" class="appt-tab-btn <?php echo ($filter_date === 'today') ? 'active' : ''; ?>">
+                <span>Today's</span>
+                <span class="appt-tab-badge"><?php echo $today_count; ?></span>
+            </a>
+            <a href="appointments.php?date_range=tomorrow" class="appt-tab-btn <?php echo ($filter_date === 'tomorrow') ? 'active' : ''; ?>">
+                <span>Tomorrow</span>
+            </a>
+            <a href="appointments.php?date_range=upcoming" class="appt-tab-btn <?php echo ($filter_date === 'upcoming') ? 'active' : ''; ?>">
+                <span>Active / Pending</span>
+                <span class="appt-tab-badge"><?php echo $scheduled_count; ?></span>
+            </a>
+            <a href="appointments.php?status=Completed" class="appt-tab-btn <?php echo ($filter_status === 'Completed') ? 'active' : ''; ?>">
+                <span>Completed</span>
+                <span class="appt-tab-badge"><?php echo $completed_count; ?></span>
+            </a>
+        </div>
+
+        <button type="button" onclick="openGCalMasterModal()" class="btn-gcal-sync-hub" title="Google Calendar Sync, Bulk .ICS Export & Live Feed">
+            <i data-lucide="calendar" style="width:14px; height:14px;"></i>
+            <span>Google Calendar Sync Hub</span>
+        </button>
     </div>
 
     <!-- 4. PERFECT IN-LINE FILTER BAR (BLACK & WHITE) -->
@@ -957,9 +1485,10 @@ if (!function_exists('getApptPageUrl')) {
                 <tbody>
                     <?php foreach ($appointments as $app): 
                         $raw_phone = preg_replace('/[^0-9]/', '', $app['phone']);
-                        $wa_msg = urlencode("Hi " . $app['name'] . ", this is regarding your consultation appointment with Bhardwaj Financial Services scheduled for " . ($app['slot_date'] ?: 'your booking') . " (" . ($app['slot_time'] ?: '') . "). Please let us know if this time works for you!");
+                        $assigned_st = !empty($app['assigned_to']) ? ($staff_map[$app['assigned_to']] ?? null) : null;
+                        $gcal_url = get_google_calendar_url($app, $assigned_st);
+                        $wa_msg = urlencode("Hi " . $app['name'] . ", this is regarding your consultation appointment with Bhardwaj Financial Services scheduled for " . ($app['slot_date'] ?: 'your booking') . " (" . ($app['slot_time'] ?: '') . ").\n\n📅 Save to Google Calendar: " . $gcal_url . "\n\nPlease let us know if this time works for you!");
                         $is_home_visit = (stripos($app['source'] ?? '', 'Home Visit') !== false || stripos($app['message'] ?? '', 'Doorstep') !== false);
-                        $gcal_url = get_google_calendar_url($app);
                     ?>
                     <tr>
                         <!-- Slot & Date -->
@@ -1027,44 +1556,59 @@ if (!function_exists('getApptPageUrl')) {
                             </select>
                         </td>
 
-                        <!-- Assigned RM (Strictly In-Office Staff Only) -->
+                        <!-- Assigned RM (Searchable Officer Picker for Fast Filtering) -->
                         <td>
-                            <select onchange="assignApptRM(<?php echo $app['id']; ?>, this.value)" class="appt-rm-select">
-                                <option value="">Unassigned</option>
-                                <?php foreach ($staff_list as $st): ?>
-                                <option value="<?php echo htmlspecialchars($st['username']); ?>" <?php echo $app['assigned_to'] === $st['username'] ? 'selected' : ''; ?>>
-                                    <?php echo htmlspecialchars($st['display_name'] . ($st['role'] === 'RM' ? ' (In-Office RM)' : ' (' . $st['role'] . ')')); ?>
-                                </option>
-                                <?php endforeach; ?>
-                                <?php if (!empty($app['assigned_to']) && !in_array($app['assigned_to'], array_column($staff_list, 'username'))): ?>
-                                <option value="<?php echo htmlspecialchars($app['assigned_to']); ?>" selected>
-                                    <?php echo htmlspecialchars($app['assigned_to']); ?>
-                                </option>
+                            <div id="rm-cell-wrap-<?php echo $app['id']; ?>">
+                                <?php if (!empty($app['assigned_to'])): 
+                                    $assigned_st = $staff_map[$app['assigned_to']] ?? null;
+                                    $disp_name = $assigned_st ? $assigned_st['display_name'] : $app['assigned_to'];
+                                    $disp_role = $assigned_st ? ($assigned_st['role'] === 'RM' ? 'In-Office RM' : $assigned_st['role']) : 'Staff';
+                                    $initial = strtoupper(substr($disp_name, 0, 1));
+                                ?>
+                                    <button type="button" class="btn-rm-badge" onclick="openRMPickerModal(<?php echo $app['id']; ?>, '<?php echo htmlspecialchars(addslashes($app['name'])); ?>', '<?php echo htmlspecialchars(addslashes($app['assigned_to'])); ?>')" title="Click to change or reassign Relationship Manager">
+                                        <span class="rm-badge-avatar"><?php echo $initial; ?></span>
+                                        <span class="rm-badge-meta">
+                                            <span class="rm-badge-name"><?php echo htmlspecialchars($disp_name); ?></span>
+                                            <span class="rm-badge-role"><?php echo htmlspecialchars($disp_role); ?></span>
+                                        </span>
+                                        <i data-lucide="chevron-down" style="width:12px; height:12px; margin-left:auto; color:var(--appt-muted);"></i>
+                                    </button>
+                                <?php else: ?>
+                                    <button type="button" class="btn-rm-unassigned" onclick="openRMPickerModal(<?php echo $app['id']; ?>, '<?php echo htmlspecialchars(addslashes($app['name'])); ?>', '')" title="Click to search and assign In-Office RM">
+                                        <i data-lucide="user-plus" style="width:13px; height:13px;"></i>
+                                        <span>+ Assign RM</span>
+                                        <i data-lucide="chevron-down" style="width:12px; height:12px; margin-left:auto; opacity:0.6;"></i>
+                                    </button>
                                 <?php endif; ?>
-                            </select>
+                            </div>
                         </td>
 
                         <!-- Quick Actions (Monochrome Invert on Hover) -->
                         <td style="text-align:right;">
                             <div class="appt-actions-bar">
-                                <!-- 1. Add to Google Calendar -->
-                                <a href="<?php echo $gcal_url; ?>" target="_blank" class="btn-appt-tool" title="Sync / Add to Google Calendar">
+                                <!-- 1. Add to Google Calendar (1-Click Direct Sync) -->
+                                <a href="<?php echo $gcal_url; ?>" target="_blank" class="btn-appt-tool" title="1-Click Sync / Add to Google Calendar" id="gcal-link-<?php echo $app['id']; ?>">
                                     <i data-lucide="calendar-plus" style="width:14px; height:14px;"></i>
                                 </a>
 
+                                <!-- 2. Download .ICS Event (Google / Apple / Outlook) -->
+                                <a href="appointments.php?action=download_ics&id=<?php echo $app['id']; ?>" class="btn-appt-tool" title="Download .ICS Event (Google / Apple / Outlook Calendar)">
+                                    <i data-lucide="calendar" style="width:13px; height:13px;"></i>
+                                </a>
+
                                 <?php if (!empty($raw_phone)): ?>
-                                <!-- 2. Direct Call -->
+                                <!-- 3. Direct Call -->
                                 <a href="tel:<?php echo $raw_phone; ?>" class="btn-appt-tool" title="Call Applicant">
                                     <i data-lucide="phone" style="width:13px; height:13px;"></i>
                                 </a>
-                                <!-- 3. Direct WhatsApp -->
-                                <a href="https://wa.me/91<?php echo substr($raw_phone, -10); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="btn-appt-tool" title="WhatsApp Appointment Confirmation">
+                                <!-- 4. Direct WhatsApp -->
+                                <a href="https://wa.me/91<?php echo substr($raw_phone, -10); ?>?text=<?php echo $wa_msg; ?>" target="_blank" class="btn-appt-tool" title="WhatsApp Appointment Confirmation with Google Calendar Link">
                                     <i data-lucide="message-circle" style="width:14px; height:14px;"></i>
                                 </a>
                                 <?php endif; ?>
 
                                 <?php if (!empty($app['lead_id'])): ?>
-                                <!-- 4. CRM Lead Profile -->
+                                <!-- 5. CRM Lead Profile -->
                                 <a href="leads.php?edit_lead=<?php echo (int)$app['lead_id']; ?>" class="btn-appt-tool" title="Open Full Lead File">
                                     <i data-lucide="external-link" style="width:13px; height:13px;"></i>
                                 </a>
@@ -1164,6 +1708,171 @@ if (!function_exists('getApptPageUrl')) {
     </div>
 </div>
 
+<!-- SEARCHABLE IN-OFFICE RM PICKER MODAL (INSTANT SEARCH FOR 100+ OFFICERS) -->
+<div id="rmPickerModal" class="bfs-modal-backdrop" style="display:none;">
+    <div class="bfs-modal-container">
+        <!-- Modal Header -->
+        <div class="bfs-modal-header">
+            <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="background:var(--appt-black); color:#ffffff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; font-family:'Outfit',sans-serif;">BFS CIRCLE</span>
+                    <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--appt-black); font-family:'Outfit',sans-serif;">Assign Relationship Manager</h3>
+                </div>
+                <div id="rmPickerSubtitle" style="font-size:12px; color:var(--appt-muted); margin-top:3px;">
+                    Select an authorized In-Office RM or Staff Officer for this appointment.
+                </div>
+            </div>
+            <button type="button" onclick="closeRMPickerModal()" class="bfs-modal-close">&times;</button>
+        </div>
+
+        <!-- Live Instant Search Bar -->
+        <div style="padding:14px 20px; background:#f8fafc; border-bottom:1px solid var(--appt-border);">
+            <div class="rm-search-box">
+                <i data-lucide="search" style="width:16px; height:16px; color:var(--appt-muted);"></i>
+                <input type="text" id="rmSearchInput" placeholder="Search officer by name, designation, department, ID, mobile..." oninput="filterOfficersList()">
+                <button type="button" id="rmSearchClearBtn" onclick="clearOfficerSearch()" style="display:none; background:none; border:none; color:var(--appt-muted); cursor:pointer; font-size:14px;">✕</button>
+            </div>
+            
+            <!-- Quick Role Category Filter Tabs -->
+            <div class="rm-filter-tabs">
+                <button type="button" class="rm-tab-btn active" data-tab="all" onclick="setOfficerTab('all', this)">All Officers (<?= count($staff_list) ?>)</button>
+                <button type="button" class="rm-tab-btn" data-tab="RM" onclick="setOfficerTab('RM', this)">In-Office RMs (<?= count(array_filter($staff_list, fn($s) => $s['role'] === 'RM')) ?>)</button>
+                <button type="button" class="rm-tab-btn" data-tab="Staff" onclick="setOfficerTab('Staff', this)">Staff Officers (<?= count(array_filter($staff_list, fn($s) => $s['role'] === 'Staff')) ?>)</button>
+                <button type="button" class="rm-tab-btn" data-tab="Admin" onclick="setOfficerTab('Admin', this)">Admins (<?= count(array_filter($staff_list, fn($s) => $s['role'] === 'Admin')) ?>)</button>
+            </div>
+        </div>
+
+        <!-- Currently Assigned Officer & Unassign Action Banner -->
+        <div id="rmCurrentBanner" style="display:none; padding:10px 20px; background:#f1f5f9; border-bottom:1px dashed var(--appt-border); align-items:center; justify-content:space-between;">
+            <div style="font-size:12px; color:var(--appt-black);">
+                <strong>Currently Assigned:</strong> <span id="rmCurrentName">-</span>
+            </div>
+            <button type="button" onclick="confirmUnassignRM()" class="btn-rm-unassign-act">
+                <i data-lucide="user-x" style="width:12px; height:12px;"></i> Mark as Unassigned
+            </button>
+        </div>
+
+        <!-- Officers List (Scrollable, High-Density) -->
+        <div class="rm-officers-deck" id="rmOfficersDeck">
+            <?php foreach ($staff_list as $st): 
+                $initial = strtoupper(substr($st['display_name'], 0, 1));
+                $search_str = strtolower($st['display_name'] . ' ' . $st['username'] . ' ' . $st['role'] . ' ' . $st['designation'] . ' ' . $st['department'] . ' ' . ($st['emp_id'] ?? '') . ' ' . ($st['mobile'] ?? '') . ' ' . ($st['official_email'] ?? ''));
+                $workload = (int)($st['active_workload'] ?? 0);
+            ?>
+            <div class="rm-officer-row" 
+                 data-username="<?= htmlspecialchars($st['username']) ?>"
+                 data-name="<?= htmlspecialchars($st['display_name']) ?>"
+                 data-role="<?= htmlspecialchars($st['role']) ?>"
+                 data-role-label="<?= $st['role'] === 'RM' ? 'In-Office RM' : $st['role'] ?>"
+                 data-avatar="<?= $initial ?>"
+                 data-search="<?= htmlspecialchars($search_str) ?>"
+                 onclick="assignOfficerToActiveAppt('<?= htmlspecialchars(addslashes($st['username'])) ?>', '<?= htmlspecialchars(addslashes($st['display_name'])) ?>', '<?= $st['role'] === 'RM' ? 'In-Office RM' : $st['role'] ?>', '<?= $initial ?>')">
+                
+                <div class="rm-row-avatar">
+                    <?php if (!empty($st['photo_path']) && file_exists(__DIR__ . '/' . $st['photo_path'])): ?>
+                        <img src="<?= htmlspecialchars($st['photo_path']) ?>" alt="Avatar">
+                    <?php else: ?>
+                        <?= $initial ?>
+                    <?php endif; ?>
+                </div>
+
+                <div class="rm-row-content">
+                    <div class="rm-row-name-line">
+                        <span class="rm-row-name"><?= htmlspecialchars($st['display_name']) ?></span>
+                        <span class="badge-role-pill <?= strtolower($st['role']) ?>"><?= $st['role'] === 'RM' ? 'In-Office RM' : $st['role'] ?></span>
+                        <?php if (!empty($st['emp_id'])): ?>
+                            <span class="rm-row-empid"><?= htmlspecialchars($st['emp_id']) ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="rm-row-subline">
+                        <span><i data-lucide="building" style="width:11px; height:11px;"></i> <?= htmlspecialchars($st['department']) ?></span>
+                        <span>•</span>
+                        <span><i data-lucide="briefcase" style="width:11px; height:11px;"></i> <?= $workload ?> Active <?= $workload === 1 ? 'Booking' : 'Bookings' ?></span>
+                        <?php if (!empty($st['mobile'])): ?>
+                            <span>•</span>
+                            <span>📞 <?= htmlspecialchars($st['mobile']) ?></span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+                <div class="rm-row-select-btn">
+                    <span class="rm-assign-pill">Assign &rarr;</span>
+                </div>
+            </div>
+            <?php endforeach; ?>
+
+            <div id="rmNoResults" style="display:none; padding:35px 20px; text-align:center; color:var(--appt-muted);">
+                <i data-lucide="user-x" style="width:32px; height:32px; margin-bottom:8px; opacity:0.4;"></i>
+                <div style="font-weight:700; color:var(--appt-black);">No Officers Found</div>
+                <div style="font-size:12px; margin-top:2px;">Try searching with another name, department, or employee code.</div>
+            </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="bfs-modal-footer">
+            <span style="font-size:11.5px; color:var(--appt-muted);">
+                Verified internal team • Click any officer to immediately assign & sync Google Calendar
+            </span>
+            <button type="button" onclick="closeRMPickerModal()" class="btn-modal-cancel">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- GOOGLE CALENDAR & MASTER SYNC HUB MODAL -->
+<div id="gcalMasterModal" class="bfs-modal-backdrop" style="display:none;">
+    <div class="bfs-modal-container" style="max-width:540px;">
+        <div class="bfs-modal-header">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span style="background:var(--appt-black); color:#ffffff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:4px; font-family:'Outfit',sans-serif;">GOOGLE CALENDAR</span>
+                <h3 style="margin:0; font-size:16px; font-weight:800; color:var(--appt-black); font-family:'Outfit',sans-serif;">Meeting & Calendar Sync Hub</h3>
+            </div>
+            <button type="button" onclick="closeGCalMasterModal()" class="bfs-modal-close">&times;</button>
+        </div>
+
+        <div style="padding:20px;">
+            <!-- Card 1: 1-Click Master .ICS Download -->
+            <div style="background:#f8fafc; border:1px solid var(--appt-border); border-radius:10px; padding:16px; margin-bottom:16px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                    <i data-lucide="calendar-check" style="width:20px; height:20px; color:var(--appt-black);"></i>
+                    <div style="font-weight:800; font-size:14px; color:var(--appt-black);">Bulk Export Upcoming Appointments</div>
+                </div>
+                <div style="font-size:12px; color:var(--appt-muted); line-height:1.4; margin-bottom:12px;">
+                    Download an industry-standard <code>.ICS</code> file containing all active scheduled appointments. Double-click to import into Google Calendar, Apple Calendar, or Microsoft Outlook.
+                </div>
+                <a href="appointments.php?action=download_all_ics" class="btn-gcal-sync-hub" style="width:100%; justify-content:center; box-sizing:border-box;">
+                    <i data-lucide="download" style="width:14px; height:14px;"></i> Download All Active Appointments (.ICS)
+                </a>
+            </div>
+
+            <!-- Card 2: Live Google Calendar Subscription Feed -->
+            <div style="background:#f8fafc; border:1px solid var(--appt-border); border-radius:10px; padding:16px;">
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:6px;">
+                    <i data-lucide="refresh-cw" style="width:20px; height:20px; color:var(--appt-black);"></i>
+                    <div style="font-weight:800; font-size:14px; color:var(--appt-black);">Live Google Calendar Subscription Feed</div>
+                </div>
+                <div style="font-size:12px; color:var(--appt-muted); line-height:1.4; margin-bottom:10px;">
+                    Add this live URL to your Google Calendar to automatically receive real-time schedule updates on your phone and laptop without manual exporting.
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <input type="text" id="gcalFeedInput" readonly value="<?php echo (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost:8000') . dirname($_SERVER['SCRIPT_NAME']) . '/appointments.php?action=calendar_feed'; ?>" style="flex:1; background:#ffffff; border:1px solid var(--appt-border-dark); border-radius:6px; padding:6px 10px; font-size:11.5px; color:var(--appt-black); outline:none;">
+                    <button type="button" onclick="copyCalendarFeedUrl()" class="btn-gcal-sync-hub" style="padding:6px 12px; font-size:11.5px; flex-shrink:0;">
+                        <i data-lucide="copy" style="width:12px; height:12px;"></i> Copy URL
+                    </button>
+                </div>
+                <div style="font-size:11px; color:var(--appt-muted); margin-top:8px;">
+                    💡 <em>In Google Calendar: Click "+" beside "Other calendars" &rarr; "From URL" &rarr; Paste this link.</em>
+                </div>
+            </div>
+        </div>
+
+        <div class="bfs-modal-footer">
+            <span style="font-size:11.5px; color:var(--appt-muted);">Syncs directly with Google Calendar, Android &amp; iOS</span>
+            <button type="button" onclick="closeGCalMasterModal()" class="btn-modal-cancel">Close</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
 function updateApptStatus(id, status) {
     const formData = new FormData();
@@ -1185,21 +1894,223 @@ function updateApptStatus(id, status) {
         }).catch(() => alert('Network error.'));
 }
 
-function assignApptRM(id, rm) {
+// --- SEARCHABLE RM PICKER & GOOGLE CALENDAR CONTROLLERS ---
+let activeApptId = null;
+let activeApptName = '';
+let activeCurrentRm = '';
+let currentRoleTab = 'all';
+
+function openRMPickerModal(apptId, applicantName, currentRm) {
+    activeApptId = apptId;
+    activeApptName = applicantName;
+    activeCurrentRm = currentRm || '';
+
+    document.getElementById('rmPickerSubtitle').innerHTML = 'Select an authorized In-Office RM or Staff Officer for <strong>' + escapeHtml(applicantName) + '</strong>';
+
+    const banner = document.getElementById('rmCurrentBanner');
+    const nameSpan = document.getElementById('rmCurrentName');
+    if (activeCurrentRm) {
+        banner.style.display = 'flex';
+        nameSpan.innerText = activeCurrentRm;
+    } else {
+        banner.style.display = 'none';
+    }
+
+    // Highlight currently assigned officer
+    document.querySelectorAll('.rm-officer-row').forEach(row => {
+        if (row.getAttribute('data-username') === activeCurrentRm) {
+            row.classList.add('is-current');
+        } else {
+            row.classList.remove('is-current');
+        }
+    });
+
+    // Reset Search & Tab
+    document.getElementById('rmSearchInput').value = '';
+    currentRoleTab = 'all';
+    document.querySelectorAll('.rm-tab-btn').forEach(b => b.classList.toggle('active', b.getAttribute('data-tab') === 'all'));
+    filterOfficersList();
+
+    document.getElementById('rmPickerModal').style.display = 'flex';
+    document.getElementById('rmSearchInput').focus();
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeRMPickerModal() {
+    document.getElementById('rmPickerModal').style.display = 'none';
+    activeApptId = null;
+}
+
+function setOfficerTab(tab, btn) {
+    currentRoleTab = tab;
+    document.querySelectorAll('.rm-tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterOfficersList();
+}
+
+function clearOfficerSearch() {
+    document.getElementById('rmSearchInput').value = '';
+    filterOfficersList();
+    document.getElementById('rmSearchInput').focus();
+}
+
+function filterOfficersList() {
+    const q = (document.getElementById('rmSearchInput').value || '').toLowerCase().trim();
+    document.getElementById('rmSearchClearBtn').style.display = q ? 'inline-block' : 'none';
+
+    const rows = document.querySelectorAll('.rm-officer-row');
+    let visibleCount = 0;
+
+    rows.forEach(row => {
+        const searchStr = row.getAttribute('data-search') || '';
+        const role = row.getAttribute('data-role') || '';
+
+        let matchQuery = !q || searchStr.includes(q);
+        let matchTab = (currentRoleTab === 'all') || (role === currentRoleTab);
+
+        if (matchQuery && matchTab) {
+            row.style.display = 'flex';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+
+    document.getElementById('rmNoResults').style.display = visibleCount === 0 ? 'block' : 'none';
+}
+
+function assignOfficerToActiveAppt(rmUsername, rmDisplayName, rmRoleLabel, rmInitial) {
+    if (!activeApptId) return;
+
     const formData = new FormData();
     formData.append('action', 'assign_rm');
-    formData.append('id', id);
-    formData.append('assigned_to', rm);
+    formData.append('id', activeApptId);
+    formData.append('assigned_to', rmUsername);
 
     fetch('appointments.php', { method: 'POST', body: formData })
         .then(r => r.json())
         .then(data => {
             if (data.success) {
-                location.reload();
+                updateApptRMCell(activeApptId, activeApptName, rmUsername, rmDisplayName, rmRoleLabel, rmInitial);
+                
+                // Update Google Calendar URL on this row
+                if (data.new_gcal_url) {
+                    const gcalLink = document.getElementById('gcal-link-' + activeApptId);
+                    if (gcalLink) gcalLink.href = data.new_gcal_url;
+                }
+
+                closeRMPickerModal();
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: 'Relationship Manager Assigned',
+                        html: '<strong>' + escapeHtml(rmDisplayName) + '</strong> (' + escapeHtml(rmRoleLabel) + ') assigned to appointment.<br><span style="font-size:12px; color:#64748b;">Google Calendar invite details updated.</span>',
+                        timer: 2400,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
             } else {
                 alert('Failed to assign RM: ' + (data.error || 'Unknown error'));
             }
-        }).catch(() => alert('Network error.'));
+        }).catch(() => alert('Network error occurred.'));
+}
+
+function confirmUnassignRM() {
+    if (!activeApptId) return;
+
+    const formData = new FormData();
+    formData.append('action', 'assign_rm');
+    formData.append('id', activeApptId);
+    formData.append('assigned_to', '');
+
+    fetch('appointments.php', { method: 'POST', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                updateApptRMCell(activeApptId, activeApptName, '', '', '', '');
+                closeRMPickerModal();
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'info',
+                        title: 'Appointment Unassigned',
+                        text: 'This booking has been marked as Unassigned.',
+                        timer: 2000,
+                        showConfirmButton: false,
+                        toast: true,
+                        position: 'top-end'
+                    });
+                }
+            } else {
+                alert('Failed to unassign RM: ' + (data.error || 'Unknown error'));
+            }
+        }).catch(() => alert('Network error occurred.'));
+}
+
+function updateApptRMCell(apptId, applicantName, username, displayName, roleLabel, initial) {
+    const wrap = document.getElementById('rm-cell-wrap-' + apptId);
+    if (!wrap) return;
+
+    if (username) {
+        wrap.innerHTML = `
+            <button type="button" class="btn-rm-badge" onclick="openRMPickerModal(${apptId}, '${escapeHtml(applicantName)}', '${escapeHtml(username)}')" title="Click to change or reassign Relationship Manager">
+                <span class="rm-badge-avatar">${escapeHtml(initial)}</span>
+                <span class="rm-badge-meta">
+                    <span class="rm-badge-name">${escapeHtml(displayName)}</span>
+                    <span class="rm-badge-role">${escapeHtml(roleLabel)}</span>
+                </span>
+                <i data-lucide="chevron-down" style="width:12px; height:12px; margin-left:auto; color:var(--appt-muted);"></i>
+            </button>
+        `;
+    } else {
+        wrap.innerHTML = `
+            <button type="button" class="btn-rm-unassigned" onclick="openRMPickerModal(${apptId}, '${escapeHtml(applicantName)}', '')" title="Click to search and assign In-Office RM">
+                <i data-lucide="user-plus" style="width:13px; height:13px;"></i>
+                <span>+ Assign RM</span>
+                <i data-lucide="chevron-down" style="width:12px; height:12px; margin-left:auto; opacity:0.6;"></i>
+            </button>
+        `;
+    }
+    if (window.lucide) lucide.createIcons();
+}
+
+function openGCalMasterModal() {
+    document.getElementById('gcalMasterModal').style.display = 'flex';
+    if (window.lucide) lucide.createIcons();
+}
+
+function closeGCalMasterModal() {
+    document.getElementById('gcalMasterModal').style.display = 'none';
+}
+
+function copyCalendarFeedUrl() {
+    const input = document.getElementById('gcalFeedInput');
+    input.select();
+    navigator.clipboard.writeText(input.value).then(() => {
+        if (typeof Swal !== 'undefined') {
+            Swal.fire({
+                icon: 'success',
+                title: 'URL Copied to Clipboard!',
+                text: 'Paste into Google Calendar -> Add other calendar -> From URL.',
+                timer: 2500,
+                showConfirmButton: false,
+                toast: true,
+                position: 'top-end'
+            });
+        } else {
+            alert('Calendar Feed URL copied to clipboard!');
+        }
+    });
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, function(m) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m];
+    });
 }
 
 function changeApptPerPage(val) {
