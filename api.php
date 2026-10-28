@@ -8,6 +8,7 @@ error_reporting(E_ALL & ~E_NOTICE & ~E_WARNING & ~E_DEPRECATED);
 // api.php - BFS Financial Services backend API endpoints dispatcher
 require_once __DIR__ . '/config.php';
 require_once __DIR__ . '/bfs_vault_engine.php';
+require_once __DIR__ . '/bfs_vault_boundations.php';
 
 if (!isset($_GET['api'])) {
     return_json(['error' => 'API command not specified.'], 400);
@@ -8286,10 +8287,11 @@ try {
             $total_files = count($files_to_process);
 
             foreach ($files_to_process as $idx => $f) {
-                $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-                if (!in_array($ext, ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx'])) {
-                    continue;
+                $boundRes = BfsVaultBoundations::validateUploadFile($f, $category, $base_name);
+                if (!$boundRes['valid']) {
+                    return_json(['error' => $boundRes['error']], 400);
                 }
+                $ext = $boundRes['ext'];
 
                 // Build clean display name when uploading multiple files at once
                 $doc_display_name = $base_name;
@@ -8328,6 +8330,13 @@ try {
             }
 
             return_json(['error' => 'Failed to save files. Please check file permissions or format.'], 500);
+            break;
+
+        case 'get_document_boundations':
+            $b_app_id = (int)($_GET['id'] ?? ($_POST['id'] ?? 0));
+            if ($b_app_id <= 0) return_json(['error' => 'Missing ID'], 400);
+            $b_res = BfsVaultBoundations::evaluatePhase3Gatekeeper($db, $b_app_id);
+            return_json(['success' => true, 'boundations' => $b_res]);
             break;
 
         case 'get_vault_metrics':
