@@ -282,25 +282,25 @@ $att_today_count = (int)$db->query("SELECT COUNT(*) FROM employee_attendance WHE
 
 /* Executive 3-Column HRMS Staff Grid */
 .staff-grid {
-    display: grid !important;
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
-    gap: 20px !important;
-    margin-bottom: 30px !important;
-    width: 100% !important;
-    box-sizing: border-box !important;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 @media (max-width: 1200px) {
     .staff-grid {
-        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-        gap: 16px !important;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
     }
 }
 
 @media (max-width: 768px) {
     .staff-grid {
-        grid-template-columns: 1fr !important;
-        gap: 16px !important;
+        grid-template-columns: 1fr;
+        gap: 16px;
     }
 }
 
@@ -833,13 +833,13 @@ function switchViewMode(mode) {
     const btnTable = document.getElementById('btn-view-table');
 
     if (mode === 'grid') {
-        grid.style.display = 'grid';
-        table.style.display = 'none';
+        grid.style.setProperty('display', 'grid', 'important');
+        table.style.setProperty('display', 'none', 'important');
         btnGrid.classList.add('active');
         btnTable.classList.remove('active');
     } else {
-        grid.style.display = 'none';
-        table.style.display = 'block';
+        grid.style.setProperty('display', 'none', 'important');
+        table.style.setProperty('display', 'block', 'important');
         btnGrid.classList.remove('active');
         btnTable.classList.add('active');
     }
