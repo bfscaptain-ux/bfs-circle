@@ -1238,6 +1238,8 @@ require_once 'header.php';
                 const isAllUploaded = uploadedCount === groupItems.length;
                 const catIcon = getCategoryIcon(catName);
 
+                const safeCatName = encodeURIComponent(catName);
+
                 accordionHtml += `
                     <div style="background:#ffffff; border:1px solid ${isAllUploaded ? '#cbd5e1' : '#cbd5e1'}; border-radius:10px; overflow:hidden; margin-bottom:4px; box-shadow:0 1px 3px rgba(15,23,42,0.03); transition:all 0.2s ease;">
                         <div onclick="toggleCatGroup(${groupIdx})" style="padding:12px 16px; background:${isAllUploaded ? '#f8fafc' : '#ffffff'}; font-weight:700; font-size:13.5px; color:#0f172a; cursor:pointer; display:flex; justify-content:space-between; align-items:center; user-select:none; border-bottom:1px solid #f1f5f9; transition:background 0.15s ease;" onmouseover="this.style.background='#f1f5f9'" onmouseout="this.style.background='${isAllUploaded ? '#f8fafc' : '#ffffff'}'">
@@ -1251,7 +1253,7 @@ require_once 'header.php';
                                 </div>
                             </div>
                             <div style="display:flex; align-items:center; gap:8px;">
-                                <button type="button" onclick="event.stopPropagation(); openAddCustomDocModal('${catName.replace(/'/g, "\\'")}')" style="background:#ffffff; color:#0f172a; border:1px solid #cbd5e1; font-size:11px; font-weight:700; padding:3px 9px; border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Add new custom document requirement to ${catName}">
+                                <button type="button" onclick="event.stopPropagation(); openAddCustomDocModal('${safeCatName}')" style="background:#ffffff; color:#0f172a; border:1px solid #cbd5e1; font-size:11px; font-weight:700; padding:3px 9px; border-radius:5px; cursor:pointer; display:inline-flex; align-items:center; gap:4px; box-shadow:0 1px 2px rgba(0,0,0,0.05);" title="Add new custom document requirement to ${catName}">
                                     <i data-lucide="plus" style="width:12px; height:12px; color:#059669;"></i> Add Doc
                                 </button>
                                 <span style="font-size:11px; font-weight:700; padding:4px 10px; border-radius:20px; ${isAllUploaded ? 'background:#dcfce7; color:#15803d; border:1px solid #86efac;' : 'background:#f1f5f9; color:#475569; border:1px solid #cbd5e1;'}">
@@ -1270,6 +1272,11 @@ require_once 'header.php';
                     const matchCount = matchedDocs.length;
                     const isUploaded = item.uploaded || matchCount > 0;
                     const hasVault = !isUploaded && item.vault_match;
+                    
+                    const safeDocName = encodeURIComponent(item.doc_name || '').replace(/'/g, "%27");
+                    const safeHint = encodeURIComponent(item.hint || '').replace(/'/g, "%27");
+                    const safeCat = encodeURIComponent(item.category || '').replace(/'/g, "%27");
+                    const safeOrigName = encodeURIComponent(item.original_doc_name || item.doc_name || '').replace(/'/g, "%27");
                     
                     let statusBadge = '';
                     if (matchCount > 1) {
@@ -1313,7 +1320,7 @@ require_once 'header.php';
                                         <span style="font-weight:700; color:#0f172a; font-size:13px; line-height:1.3;">
                                             ${item.doc_name} ${item.is_mandatory ? '<span style="color:#ef4444; font-weight:bold;" title="Mandatory">*</span>' : ''}
                                         </span>
-                                        <button type="button" onclick="event.stopPropagation(); openEditDocNameModal('${encodeURIComponent(item.doc_name)}', '${encodeURIComponent(item.hint || '')}', '${encodeURIComponent(item.category)}', ${item.is_mandatory ? 1 : 0}, '${encodeURIComponent(item.original_doc_name || item.doc_name)}')" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px; border-radius:3px; display:inline-flex; align-items:center; transition:color 0.15s ease;" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#94a3b8'" title="Rename / Edit Document Title">
+                                        <button type="button" onclick="event.stopPropagation(); openEditDocNameModal('${safeDocName}', '${safeHint}', '${safeCat}', ${item.is_mandatory ? 1 : 0}, '${safeOrigName}')" style="background:none; border:none; color:#94a3b8; cursor:pointer; padding:2px; border-radius:3px; display:inline-flex; align-items:center; transition:color 0.15s ease;" onmouseover="this.style.color='#0f172a'" onmouseout="this.style.color='#94a3b8'" title="Rename / Edit Document Title">
                                             <i data-lucide="edit-2" style="width:11px; height:11px;"></i>
                                         </button>
                                     </div>
@@ -2396,7 +2403,8 @@ require_once 'header.php';
 </script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdn.asprise.com/scannerjs/scanner.js">
+<script src="https://cdn.asprise.com/scannerjs/scanner.js"></script>
+<script>
     // ===== BFS 10X VAULT & BANK DOCKET SCRIPTS =====
     async function openWindowsVaultFolder(appId) {
         try {
@@ -2494,10 +2502,11 @@ require_once 'header.php';
 
     // ===== CHECKLIST CUSTOMIZATION & RENAMING SCRIPTS =====
     function openEditDocNameModal(docNameEnc, hintEnc, catEnc, isMandatory, origNameEnc) {
-        const docName = decodeURIComponent(docNameEnc);
-        const hint = decodeURIComponent(hintEnc || '');
-        const cat = decodeURIComponent(catEnc || '');
-        const origName = decodeURIComponent(origNameEnc || docName);
+        let docName = docNameEnc, hint = hintEnc || '', cat = catEnc || '', origName = origNameEnc || docNameEnc;
+        try { docName = decodeURIComponent(docNameEnc); } catch(e){}
+        try { hint = decodeURIComponent(hintEnc || ''); } catch(e){}
+        try { cat = decodeURIComponent(catEnc || ''); } catch(e){}
+        try { origName = decodeURIComponent(origNameEnc || docName); } catch(e){}
 
         document.getElementById('edit-orig-doc-name').value = origName;
         document.getElementById('edit-doc-category').value = cat;
@@ -2583,6 +2592,7 @@ require_once 'header.php';
     }
 
     function openAddCustomDocModal(category = '') {
+        try { if (category) category = decodeURIComponent(category); } catch(e){}
         if (category) {
             const sel = document.getElementById('custom-doc-category');
             if (sel) {
