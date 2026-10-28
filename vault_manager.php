@@ -99,6 +99,9 @@ if (is_dir($activeBase)) {
 
             <!-- Header Quick Action Group -->
             <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
+                <a href="settings.php?tab=vault" class="btn" style="background: #27272a; color: #e4e4e7; border: 1px solid #3f3f46; padding: 9px 16px; border-radius: 7px; font-weight: 700; font-size: 12.5px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+                    ⚙️ CRM Settings
+                </a>
                 <button type="button" onclick="openRootVaultFolder()" class="btn" style="background: #ffffff; color: #000000; border: none; padding: 9px 16px; border-radius: 7px; font-weight: 800; font-size: 12.5px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(255,255,255,0.2);">
                     <i data-lucide="folder" style="width: 14px; height: 14px; color: #000000;"></i> 📂 Open F:\BFS in Explorer
                 </button>

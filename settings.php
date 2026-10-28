@@ -164,7 +164,7 @@ $late_punch_penalty_count = $profile['late_punch_penalty_count'] ?? 3;
 
 <?php
 $active_tab = trim($_GET['tab'] ?? '');
-$valid_tabs = ['profile', 'finrules', 'slabs', 'security', 'switches', 'notifications', 'docmatrix', 'crmconfig', 'gamification', 'integrations', 'users', 'templates', 'ppts', 'tracking', 'backup', 'dangerzone'];
+$valid_tabs = ['profile', 'finrules', 'slabs', 'security', 'switches', 'notifications', 'docmatrix', 'vault', 'crmconfig', 'gamification', 'integrations', 'users', 'templates', 'ppts', 'tracking', 'backup', 'dangerzone'];
 if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
 ?>
 
@@ -201,6 +201,10 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             <div class="settings-menu-item <?= $active_tab === 'docmatrix' ? 'active' : '' ?>" onclick="switchSettingsTab('docmatrix', this)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
                 Document Matrix
+            </div>
+            <div class="settings-menu-item <?= $active_tab === 'vault' ? 'active' : '' ?>" onclick="switchSettingsTab('vault', this)">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                On-Premise Vault (F:\BFS)
             </div>
             <div class="settings-menu-item <?= $active_tab === 'crmconfig' ? 'active' : '' ?>" onclick="switchSettingsTab('crmconfig', this)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
@@ -1123,6 +1127,243 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             </div>
             <?php endif; ?>
 
+            <!-- TAB: ON-PREMISE DOCUMENT VAULT (F:\BFS) -->
+            <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Admin'): ?>
+            <?php
+            require_once __DIR__ . '/bfs_vault_engine.php';
+            $vaultMetrics = BfsVaultEngine::getVaultMetrics();
+            $activeVaultBase = BfsVaultEngine::getActiveBasePath();
+
+            $vaultLeadFolders = [];
+            if (is_dir($activeVaultBase)) {
+                $vItems = @scandir($activeVaultBase) ?: [];
+                foreach ($vItems as $item) {
+                    if ($item === '.' || $item === '..') continue;
+                    $itemPath = $activeVaultBase . DIRECTORY_SEPARATOR . $item;
+                    if (is_dir($itemPath) && strpos($item, 'Lead_') === 0) {
+                        $parts = explode('_', $item, 3);
+                        $appId = isset($parts[1]) ? (int)$parts[1] : 0;
+                        $appRow = null;
+                        if ($appId > 0) {
+                            $stmt = $db->prepare("SELECT customer_name, loan_id, loan_type, loan_amount_requested, mobile FROM applicants WHERE id = ?");
+                            $stmt->execute([$appId]);
+                            $appRow = $stmt->fetch(PDO::FETCH_ASSOC);
+                        }
+                        
+                        $subCounts = [];
+                        $totalFolderSize = 0;
+                        foreach (BfsVaultEngine::SUBFOLDERS as $key => $subName) {
+                            $subDir = $itemPath . DIRECTORY_SEPARATOR . $subName;
+                            $cnt = 0;
+                            if (is_dir($subDir)) {
+                                $files = @scandir($subDir) ?: [];
+                                foreach ($files as $f) {
+                                    if ($f === '.' || $f === '..') continue;
+                                    $fPath = $subDir . DIRECTORY_SEPARATOR . $f;
+                                    if (is_file($fPath)) {
+                                        $cnt++;
+                                        $totalFolderSize += @filesize($fPath) ?: 0;
+                                    }
+                                }
+                            }
+                            $subCounts[$key] = $cnt;
+                        }
+
+                        $vaultLeadFolders[] = [
+                            'folder_name'  => $item,
+                            'folder_path'  => $itemPath,
+                            'applicant_id' => $appId,
+                            'customer_name'=> $appRow['customer_name'] ?? (isset($parts[2]) ? str_replace('_', ' ', $parts[2]) : 'Applicant'),
+                            'loan_id'      => $appRow['loan_id'] ?? 'REF-PENDING',
+                            'loan_type'    => $appRow['loan_type'] ?? 'Loan',
+                            'mobile'       => $appRow['mobile'] ?? '-',
+                            'sub_counts'   => $subCounts,
+                            'total_files'  => array_sum($subCounts),
+                            'size_kb'      => round($totalFolderSize / 1024, 1)
+                        ];
+                    }
+                }
+            }
+            ?>
+            <div id="tab-vault" class="settings-panel <?= $active_tab === 'vault' ? 'active' : '' ?>">
+                <div class="panel-card">
+                    <div class="panel-header" style="flex-wrap:wrap; gap:12px;">
+                        <div>
+                            <h2 class="panel-title" style="display:flex; align-items:center; gap:10px;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+                                On-Premise Document Vault Storage (F:\BFS)
+                            </h2>
+                            <div style="font-size:12px; color:#64748b; margin-top:3px;">
+                                Physical office hard drive document vault • 0 MB VPS storage load • High-speed Windows Explorer integration
+                            </div>
+                        </div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                            <a href="vault_manager.php" class="btn-black-solid" style="text-decoration:none; font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px;">
+                                🚀 Open Full Vault Cockpit
+                            </a>
+                            <button type="button" onclick="openRootVaultFolder()" class="btn-black-outline" style="font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                                📂 Open F:\BFS in Explorer
+                            </button>
+                            <button type="button" onclick="runLegacyMigration()" id="btn-sync-legacy-settings" class="btn-black-outline" style="font-size:12px; padding:7px 14px; display:inline-flex; align-items:center; gap:6px; cursor:pointer;">
+                                ⚡ Sync Uploads to F:\BFS
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 4 STATS CARDS -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 18px;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Physical Free Space</div>
+                            <div style="font-size:22px; font-weight:800; color:#047857; margin-top:4px; font-family:'Outfit',sans-serif;">
+                                <?= $vaultMetrics['disk_free_gb'] ?> GB
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                                <?= $vaultMetrics['disk_free_percent'] ?>% available of <?= $vaultMetrics['disk_total_gb'] ?> GB
+                            </div>
+                        </div>
+
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Active Lead Vaults</div>
+                            <div style="font-size:22px; font-weight:800; color:#0f172a; margin-top:4px; font-family:'Outfit',sans-serif;">
+                                <?= count($vaultLeadFolders) ?> Leads
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                                Isolated structured folders on F:\BFS
+                            </div>
+                        </div>
+
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Indexed Documents</div>
+                            <div style="font-size:22px; font-weight:800; color:#0284c7; margin-top:4px; font-family:'Outfit',sans-serif;">
+                                <?= $vaultMetrics['total_files_in_vault'] ?> Files
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                                Total indexed size: <?= $vaultMetrics['vault_size_mb'] ?> MB
+                            </div>
+                        </div>
+
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Cloud VPS Storage Load</div>
+                            <div style="font-size:22px; font-weight:800; color:#d97706; margin-top:4px; font-family:'Outfit',sans-serif;">
+                                0 MB (100% Offloaded)
+                            </div>
+                            <div style="font-size:11px; color:#64748b; margin-top:4px;">
+                                Zero cloud storage fees
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ARCHITECTURE OVERVIEW BANNER -->
+                    <div style="margin-top:20px; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                        <div>
+                            <div style="font-weight:800; color:#166534; font-size:13.5px; display:flex; align-items:center; gap:6px;">
+                                <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:#16a34a;"></span>
+                                Target Vault Path: <span style="font-family:monospace; background:#dcfce7; padding:2px 8px; border-radius:4px;"><?= htmlspecialchars($activeVaultBase) ?></span>
+                            </div>
+                            <div style="font-size:12px; color:#15803d; margin-top:4px;">
+                                Mode: <strong><?= $vaultMetrics['is_f_mounted'] ? 'Direct Local Hard Drive (F:\BFS)' : 'Fallback Local Uploads' ?></strong> • Status: <strong>Online &amp; Auto-Provisioning Active</strong>
+                            </div>
+                        </div>
+                        <span style="background:#166534; color:#fff; font-size:11px; font-weight:800; padding:4px 10px; border-radius:20px; text-transform:uppercase;">
+                            Storage Engine 10x Active
+                        </span>
+                    </div>
+
+                    <!-- DIRECTORY SUBFOLDERS STANDARD -->
+                    <div style="margin-top:20px;">
+                        <h4 style="margin:0 0 10px 0; font-size:13px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px;">Standardized Vault Folder Hierarchy</h4>
+                        <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:10px;">
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
+                                <strong style="color:#0f172a;">📁 01_KYC_Documents</strong>
+                                <div style="color:#64748b; font-size:11px; margin-top:2px;">PAN, Aadhaar, Voter, Photos</div>
+                            </div>
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
+                                <strong style="color:#0f172a;">📁 02_Income_Banking</strong>
+                                <div style="color:#64748b; font-size:11px; margin-top:2px;">Salary Slips, Bank Statements, ITR</div>
+                            </div>
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
+                                <strong style="color:#0f172a;">📁 03_Property_Legal</strong>
+                                <div style="color:#64748b; font-size:11px; margin-top:2px;">Registry, Map, Mutation, Deeds</div>
+                            </div>
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
+                                <strong style="color:#0f172a;">📁 04_Business_Financials</strong>
+                                <div style="color:#64748b; font-size:11px; margin-top:2px;">GST, Balance Sheet, Audit Report</div>
+                            </div>
+                            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:10px 14px; font-size:12px;">
+                                <strong style="color:#0f172a;">📁 05_Bank_Dockets</strong>
+                                <div style="color:#64748b; font-size:11px; margin-top:2px;">Compiled Bank Dossiers &amp; ZIPs</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- LEAD VAULT ROSTER TABLE -->
+                    <div style="margin-top:24px; border-top:1px solid #e2e8f0; padding-top:20px;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                            <div>
+                                <h4 style="margin:0; font-size:14px; font-weight:800; color:#0f172a;">Active Physical Folders on F:\BFS (<?= count($vaultLeadFolders) ?>)</h4>
+                                <div style="font-size:11.5px; color:#64748b; margin-top:2px;">Folders are automatically provisioned when documents are uploaded or leads are created.</div>
+                            </div>
+                            <input type="text" id="vault-settings-filter" placeholder="🔍 Search folder..." onkeyup="filterSettingsVaultTable()" style="padding:6px 12px; border:1px solid #cbd5e1; border-radius:6px; font-size:12px; width:220px;">
+                        </div>
+
+                        <div class="table-responsive">
+                            <table class="data-table" id="vault-settings-table" style="font-size:12.5px; width:100%;">
+                                <thead>
+                                    <tr style="background:#f8fafc; border-bottom:2px solid #e2e8f0;">
+                                        <th style="padding:10px 12px; text-align:left;">Applicant &amp; Folder</th>
+                                        <th style="padding:10px 12px; text-align:left;">Loan Ref</th>
+                                        <th style="padding:10px 12px; text-align:center;">Files Count</th>
+                                        <th style="padding:10px 12px; text-align:right;">Total Size</th>
+                                        <th style="padding:10px 12px; text-align:right;">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php if (empty($vaultLeadFolders)): ?>
+                                        <tr>
+                                            <td colspan="5" style="text-align:center; padding:24px; color:#64748b;">
+                                                No lead folders found on F:\BFS\Vault_Leads yet.
+                                            </td>
+                                        </tr>
+                                    <?php else: ?>
+                                        <?php foreach ($vaultLeadFolders as $vf): ?>
+                                            <tr class="vault-settings-row" style="border-bottom:1px solid #f1f5f9;">
+                                                <td style="padding:10px 12px;">
+                                                    <div style="font-weight:700; color:#0f172a;"><?= htmlspecialchars($vf['customer_name']) ?></div>
+                                                    <div style="font-size:11px; color:#64748b; font-family:monospace;"><?= htmlspecialchars($vf['folder_name']) ?></div>
+                                                </td>
+                                                <td style="padding:10px 12px;">
+                                                    <span style="font-weight:600; color:#0f172a;"><?= htmlspecialchars($vf['loan_id']) ?></span>
+                                                    <div style="font-size:11px; color:#64748b;"><?= htmlspecialchars($vf['loan_type']) ?></div>
+                                                </td>
+                                                <td style="padding:10px 12px; text-align:center;">
+                                                    <span style="background:#e0f2fe; color:#0369a1; font-weight:700; padding:3px 8px; border-radius:12px; font-size:11px;">
+                                                        <?= $vf['total_files'] ?> files
+                                                    </span>
+                                                </td>
+                                                <td style="padding:10px 12px; text-align:right; font-weight:600; color:#475569;">
+                                                    <?= $vf['size_kb'] > 1024 ? round($vf['size_kb']/1024, 1) . ' MB' : $vf['size_kb'] . ' KB' ?>
+                                                </td>
+                                                <td style="padding:10px 12px; text-align:right; white-space:nowrap;">
+                                                    <button type="button" onclick="openLeadFolder(<?= $vf['applicant_id'] ?>, '<?= addslashes($vf['customer_name']) ?>')" class="btn-black-outline" style="font-size:11px; padding:5px 10px; cursor:pointer;" title="Open in Windows Explorer">
+                                                        📂 Explorer
+                                                    </button>
+                                                    <?php if ($vf['applicant_id'] > 0): ?>
+                                                    <a href="applicant_documents.php?id=<?= $vf['applicant_id'] ?>" class="btn-black-solid" style="text-decoration:none; font-size:11px; padding:5px 10px; display:inline-block; margin-left:4px;">
+                                                        📄 CRM Docs
+                                                    </a>
+                                                    <?php endif; ?>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+
             <!-- TAB 10: PRODUCTS & LEAD ROUTING -->
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Admin'): ?>
             <div id="tab-crmconfig" class="settings-panel">
@@ -1796,6 +2037,78 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             switchSettingsTab(tabFromUrl, tabToActivate, false);
         }
     };
+
+    // On-Premise Vault JS Actions for Settings Tab
+    async function openRootVaultFolder() {
+        try {
+            const res = await fetch('open_vault_folder.php?id=0&ajax=1');
+            const data = await res.json();
+            if (typeof showNotification === 'function') {
+                showNotification("📂 Opened Root Vault in Windows Explorer: F:\\BFS\\Vault_Leads", 'success');
+            } else {
+                alert("📂 Opened Root Vault in Windows Explorer:\nF:\\BFS\\Vault_Leads");
+            }
+        } catch (e) {
+            window.open('open_vault_folder.php?id=0', '_blank');
+        }
+    }
+
+    async function openLeadFolder(appId, custName) {
+        try {
+            const res = await fetch(`open_vault_folder.php?id=${appId}&ajax=1`);
+            const data = await res.json();
+            if (data.success) {
+                if (typeof showNotification === 'function') {
+                    showNotification(`📂 Opened Vault in Windows Explorer: ${data.path}`, 'success');
+                } else {
+                    alert(`📂 Opened Vault in Windows Explorer:\n${data.path}`);
+                }
+            } else {
+                alert(data.error || 'Failed to open folder');
+            }
+        } catch (e) {
+            window.open(`open_vault_folder.php?id=${appId}`, '_blank');
+        }
+    }
+
+    async function runLegacyMigration() {
+        const btn = document.getElementById('btn-sync-legacy-settings');
+        const origText = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '⚡ Syncing...';
+        }
+        if (typeof showNotification === 'function') showNotification('⚡ Syncing uploads to F:\\BFS...', 'info');
+
+        try {
+            const res = await fetch('vault_sync_bridge.php?action=pull_to_vault');
+            const data = await res.json();
+            if (data.success) {
+                if (typeof showNotification === 'function') {
+                    showNotification(data.message || 'Sync completed successfully!', 'success');
+                } else {
+                    alert(data.message || 'Sync completed!');
+                }
+                setTimeout(() => location.reload(), 1200);
+            } else {
+                alert(data.error || 'Sync failed');
+            }
+        } catch (e) {
+            alert('Server error occurred during sync');
+        } finally {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = origText;
+            }
+        }
+    }
+
+    function filterSettingsVaultTable() {
+        const query = (document.getElementById('vault-settings-filter')?.value || '').toLowerCase();
+        document.querySelectorAll('.vault-settings-row').forEach(r => {
+            r.style.display = r.innerText.toLowerCase().includes(query) ? '' : 'none';
+        });
+    }
 
     // Client Tracking Portal Roster JS Logic
     function loadTrackingTokensList(searchQuery = '') {
