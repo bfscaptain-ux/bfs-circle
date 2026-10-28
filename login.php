@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/bfs_client_security.php';
+bfs_start_output_sanitizer();
 require_once 'config.php';
 
 // If user already has an active session, send them to their dashboard
@@ -37,6 +39,7 @@ try {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <?php bfs_render_anti_inspect_shield(); ?>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BFS Financial Services - Secure Login</title>
     
