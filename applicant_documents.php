@@ -20,19 +20,14 @@ $co_stmt = $db->prepare("SELECT id, full_name, relationship FROM co_applicants W
 $co_stmt->execute([$id]);
 $co_applicants = $co_stmt->fetchAll();
 
-// Fetch all registered banks from system database (Bankers Directory)
-$registered_banks = [];
-try {
-    $banks_stmt = $db->query("SELECT DISTINCT bank_name FROM bankers WHERE bank_name IS NOT NULL AND TRIM(bank_name) != '' ORDER BY bank_name ASC");
-    if ($banks_stmt) {
-        $registered_banks = $banks_stmt->fetchAll(PDO::FETCH_COLUMN);
-    }
-} catch (Exception $e) {}
+// Smart Lender Eligibility Filter: Compute eligible banks for THIS specific applicant
+$eligibility_result = getEligibleBanksForApplicant($applicant, $db);
+$eligible_banks = $eligibility_result['banks'];
+$eligible_bank_details = $eligibility_result['details'];
+$ineligible_bankers_count = $eligibility_result['ineligible_count'];
 
-$standard_banks = ['HDFC Bank', 'State Bank of India (SBI)', 'ICICI Bank', 'Axis Bank', 'Bank of Baroda', 'Bajaj Finserv', 'Kotak Mahindra Bank', 'Punjab National Bank (PNB)', 'Canara Bank', 'IndusInd Bank', 'IDFC FIRST Bank', 'Tata Capital', 'L&T Finance', 'Cholamandalam', 'Piramal Finance', 'Godrej Capital', 'Shriram Finance', 'Hero Fincorp'];
-
-$all_banks_list = array_unique(array_merge($registered_banks, $standard_banks));
-sort($all_banks_list);
+// Single source of truth for bank dropdowns on this applicant page
+$all_banks_list = $eligible_banks;
 
 $page_title = 'Applicant Documents';
 $page_subtitle = 'Phase 2: Upload KYC & Loan Specific Documents';
@@ -262,18 +257,21 @@ require_once 'header.php';
                     </h3>
                     
                     <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <!-- Target Bank Filter Pill -->
+                        <!-- Target Bank Filter Pill (Eligible Banks Only) -->
                         <div style="display: flex; align-items: center; gap: 8px; background: #ffffff; padding: 3px 8px; border-radius: 6px; border: 1px solid #cbd5e1; height: 34px; box-sizing: border-box; box-shadow: 0 1px 2px rgba(15,23,42,0.04);">
                             <i data-lucide="landmark" style="width: 14px; height: 14px; color: #0f172a; flex-shrink: 0;"></i>
                             <span style="font-size: 11.5px; font-weight: 700; color: #475569; white-space: nowrap;">Target Bank Filter:</span>
                             <select id="target-bank-filter" onchange="setTargetBankFilter(this.value)" style="border: 1px solid #cbd5e1; background: #ffffff; font-size: 11.5px; font-weight: 700; color: #0f172a; cursor: pointer; outline: none; padding: 3px 8px; border-radius: 5px; font-family: 'Outfit', sans-serif; height: 26px; transition: all 0.15s ease;" onfocus="this.style.borderColor='#0f172a'" onblur="this.style.borderColor='#cbd5e1'">
-                                <option value="ALL" style="padding: 6px 10px; font-weight: 700; color: #0f172a; background: #ffffff;">All Partner Banks</option>
-                                <?php foreach ($all_banks_list as $b_name): ?>
+                                <option value="ALL" style="padding: 6px 10px; font-weight: 700; color: #0f172a; background: #ffffff;">All Eligible Banks (<?php echo count($eligible_banks); ?>)</option>
+                                <?php foreach ($eligible_banks as $b_name): ?>
                                     <option value="<?php echo htmlspecialchars($b_name); ?>" style="padding: 6px 10px; font-weight: 600; color: #0f172a; background: #ffffff;">
                                         <?php echo htmlspecialchars($b_name); ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                            <span style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-size:11px; font-weight:700; padding:2px 8px; border-radius:12px; display:inline-flex; align-items:center; gap:4px;" title="Filtered for <?php echo htmlspecialchars($applicant['loan_type'] ?? 'Loan'); ?><?php echo !empty($applicant['loan_amount_requested']) ? ' • ₹' . number_format($applicant['loan_amount_requested']) : ''; ?> (<?php echo $ineligible_bankers_count; ?> non-matching lenders excluded)">
+                                <i data-lucide="shield-check" style="width:12px; height:12px;"></i> <?php echo count($eligible_banks); ?> Eligible
+                            </span>
                         </div>
 
                         <!-- Collapse Toggle Button -->
@@ -1089,7 +1087,7 @@ require_once 'header.php';
 
     function setTargetBankFilter(bankVal) {
         window.currentTargetBankFilter = bankVal;
-        showNotification(bankVal === 'ALL' ? 'Showing checklist for All Partner Banks' : `Target Bank Filter: ${bankVal}`, 'info');
+        showNotification(bankVal === 'ALL' ? 'Showing checklist for All Eligible Banks' : `Target Bank Filter: ${bankVal} (Eligible Lender)`, 'info');
         if (window.currentDocAppData) {
             renderChecklistGrid(window.currentDocAppData);
         }

@@ -6920,6 +6920,12 @@ try {
             $stmt = $db->prepare("SELECT pd.*, u.name as payee_name FROM payout_distributions pd LEFT JOIN users u ON pd.payee_user_id = u.id WHERE pd.applicant_id = ?");
             $stmt->execute([$id]);
             $app['payouts'] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Smart Eligible Banks for this applicant
+            $eligibility_data = getEligibleBanksForApplicant($app, $db);
+            $app['eligible_banks'] = $eligibility_data['banks'];
+            $app['eligible_bank_details'] = $eligibility_data['details'];
+            $app['ineligible_bankers_count'] = $eligibility_data['ineligible_count'];
             
             return_json($app);
             break;

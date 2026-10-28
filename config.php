@@ -2061,6 +2061,148 @@ function getLoanDocumentSuggestions($loan_type, $loan_sub_type = '', $employment
     return $suggestions;
 }
 
+/**
+ * Smart Lender Eligibility Engine
+ * Evaluates an applicant's loan product, sub-type, and ticket size against the Bankers Directory.
+ *
+ * @param array|int $applicant Applicant record array or applicant ID
+ * @param PDO|null $db_instance Database connection
+ * @return array ['banks' => string[], 'details' => array, 'total_matched' => int, 'ineligible_count' => int]
+ */
+function getEligibleBanksForApplicant($applicant, $db_instance = null) {
+    global $db;
+    $conn = $db_instance ?: $db;
+
+    if (is_numeric($applicant)) {
+        $stmt = $conn->prepare("SELECT * FROM applicants WHERE id = ?");
+        $stmt->execute([(int)$applicant]);
+        $applicant = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+
+    if (empty($applicant) || !is_array($applicant)) {
+        return ['banks' => [], 'details' => [], 'total_matched' => 0, 'ineligible_count' => 0];
+    }
+
+    $loan_type = trim($applicant['loan_type'] ?? 'Home Loan');
+    $loan_sub_type = trim($applicant['loan_sub_type'] ?? '');
+    $loan_amount = (float)($applicant['loan_amount_requested'] ?? 0);
+    $needle = strtolower($loan_type);
+
+    $all_bankers_rows = [];
+    try {
+        $bq = $conn->query("SELECT * FROM bankers WHERE (status IS NULL OR status = '' OR status = 'Active') ORDER BY bank_name ASC");
+        if ($bq) {
+            $all_bankers_rows = $bq->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (Exception $e) {}
+
+    $eligible_banks = [];
+    $eligible_details = [];
+    $ineligible_count = 0;
+
+    foreach ($all_bankers_rows as $b) {
+        $bank_name = trim($b['bank_name'] ?? '');
+        if (empty($bank_name)) continue;
+
+        $raw_cats = strtolower($b['loan_category'] ?? '');
+        $cats = array_map('trim', explode(',', $raw_cats));
+        $matches_category = false;
+
+        foreach ($cats as $c) {
+            if (empty($c)) continue;
+            // Direct substring
+            if (strpos($c, $needle) !== false || strpos($needle, $c) !== false) {
+                $matches_category = true;
+                break;
+            }
+            // Smart product synonym mapping
+            if (preg_match('/(home|housing)/i', $needle) && preg_match('/(home|housing|mortgage)/i', $c)) {
+                $matches_category = true;
+                break;
+            }
+            if (preg_match('/(lap|property|mortgage)/i', $needle) && preg_match('/(lap|property|mortgage)/i', $c)) {
+                $matches_category = true;
+                break;
+            }
+            if (preg_match('/(business|commercial|msme|machinery)/i', $needle) && preg_match('/(business|commercial|msme|machinery)/i', $c)) {
+                $matches_category = true;
+                break;
+            }
+            if (preg_match('/(personal|salaried|pl)/i', $needle) && preg_match('/(personal|salaried|pl)/i', $c)) {
+                $matches_category = true;
+                break;
+            }
+            if (preg_match('/(vehicle|car|auto)/i', $needle) && preg_match('/(vehicle|car|auto)/i', $c)) {
+                $matches_category = true;
+                break;
+            }
+            if (strpos($needle, 'education') !== false && strpos($c, 'education') !== false) {
+                $matches_category = true;
+                break;
+            }
+            if (strpos($needle, 'gold') !== false && strpos($c, 'gold') !== false) {
+                $matches_category = true;
+                break;
+            }
+        }
+
+        if (!$matches_category) {
+            $ineligible_count++;
+            continue;
+        }
+
+        // Ticket size validation
+        $min = (float)($b['min_loan_limit'] ?? 0);
+        $max = (float)($b['max_loan_limit'] ?? 0);
+        $matches_amount = true;
+        if ($loan_amount > 0) {
+            if ($min > 0 && $loan_amount < $min) $matches_amount = false;
+            if ($max > 0 && $loan_amount > $max) $matches_amount = false;
+        }
+
+        if ($matches_category && $matches_amount) {
+            if (!in_array($bank_name, $eligible_banks)) {
+                $eligible_banks[] = $bank_name;
+                $eligible_details[$bank_name] = [
+                    'bank_name'   => $bank_name,
+                    'full_name'   => $b['full_name'] ?? '',
+                    'designation' => $b['designation'] ?? '',
+                    'email'       => $b['official_email'] ?? '',
+                    'contact'     => $b['contact_number'] ?? '',
+                    'min_limit'   => $min,
+                    'max_limit'   => $max,
+                    'min_roi'     => (float)($b['min_roi'] ?? 0),
+                    'max_roi'     => (float)($b['max_roi'] ?? 0),
+                    'city'        => $b['city'] ?? '',
+                    'state'       => $b['state'] ?? ''
+                ];
+            }
+        } else {
+            $ineligible_count++;
+        }
+    }
+
+    // Fallback: If amount exceeded limits for all lenders, fallback to lenders matching product
+    if (empty($eligible_banks)) {
+        foreach ($all_bankers_rows as $b) {
+            $bank_name = trim($b['bank_name'] ?? '');
+            if (empty($bank_name)) continue;
+            $raw_cats = strtolower($b['loan_category'] ?? '');
+            if (strpos($raw_cats, $needle) !== false && !in_array($bank_name, $eligible_banks)) {
+                $eligible_banks[] = $bank_name;
+            }
+        }
+    }
+
+    sort($eligible_banks);
+    return [
+        'banks' => $eligible_banks,
+        'details' => $eligible_details,
+        'total_matched' => count($eligible_banks),
+        'ineligible_count' => $ineligible_count
+    ];
+}
+
 // Universal Customer Loan Lifecycle Email Engine
 function sendCustomerLoanEmail($applicant_id, $stage_type, $custom_data = []) {
     global $db;
