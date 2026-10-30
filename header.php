@@ -68,10 +68,10 @@ if (isset($db)) {
     <link rel="manifest" href="<?php echo $base_path; ?>manifest.json">
     <meta name="theme-color" content="#0f172a">
     <!-- Official BFS Circle Monochrome Favicon & Branding -->
-    <link rel="icon" type="image/png" sizes="64x64" href="<?php echo $base_path; ?>favicon.png?v=3">
-    <link rel="icon" type="image/x-icon" href="<?php echo $base_path; ?>favicon.ico?v=3">
-    <link rel="shortcut icon" href="<?php echo $base_path; ?>favicon.ico?v=3">
-    <link rel="apple-touch-icon" href="<?php echo $base_path; ?>favicon.png?v=3">
+    <link rel="icon" type="image/png" sizes="64x64" href="<?php echo $base_path; ?>favicon.png?v=4">
+    <link rel="icon" type="image/x-icon" href="<?php echo $base_path; ?>favicon.ico?v=4">
+    <link rel="shortcut icon" href="<?php echo $base_path; ?>favicon.ico?v=4">
+    <link rel="apple-touch-icon" href="<?php echo $base_path; ?>favicon.png?v=4">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">

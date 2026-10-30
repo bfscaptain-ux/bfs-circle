@@ -5,13 +5,16 @@ require_role(['Admin', 'RM', 'Staff']);
 // Helper to generate Rich Google Calendar URL with Attendees & Executive Briefing
 if (!function_exists('get_google_calendar_url')) {
     function get_google_calendar_url($app, $assigned_officer = null) {
+        try {
         $title = urlencode("BFS Consultation: " . $app['name'] . " (" . ($app['sub_type'] ?: 'Loan Advisory') . ")");
         
         // Parse Date and Time
         $date_str = $app['slot_date'] ?: date('Y-m-d');
         $time_str = $app['slot_time'] ?: '11:00 AM';
         
-        $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+        $time_parts = preg_split('/[-–]/u', (string)$time_str);
+        $clean_time = trim($time_parts[0] ?? '11:00 AM');
+        $start_ts = strtotime($date_str . ' ' . $clean_time);
         if ($start_ts === false || $start_ts < 0) {
             $start_ts = strtotime('+1 day 11:00 AM');
         }
@@ -58,6 +61,9 @@ if (!function_exists('get_google_calendar_url')) {
         $add_param = !empty($attendees) ? "&add=" . urlencode(implode(',', $attendees)) : "";
 
         return "https://calendar.google.com/calendar/render?action=TEMPLATE&text={$title}&dates={$dates}&details={$details}&location={$location}{$add_param}";
+        } catch (Throwable $e) {
+            return '#';
+        }
     }
 }
 
@@ -70,7 +76,9 @@ if (isset($_GET['action']) && $_GET['action'] === 'download_ics') {
     if ($app) {
         $date_str = $app['slot_date'] ?: date('Y-m-d');
         $time_str = $app['slot_time'] ?: '11:00 AM';
-        $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+        $time_parts = preg_split('/[-–]/u', (string)$time_str);
+        $clean_time = trim($time_parts[0] ?? '11:00 AM');
+        $start_ts = strtotime($date_str . ' ' . $clean_time);
         if ($start_ts === false || $start_ts < 0) $start_ts = strtotime('+1 day 11:00 AM');
         $end_ts = $start_ts + 3600;
 
@@ -125,7 +133,9 @@ if (isset($_GET['action']) && ($_GET['action'] === 'download_all_ics' || $_GET['
     foreach ($appts as $app) {
         $date_str = $app['slot_date'] ?: date('Y-m-d');
         $time_str = $app['slot_time'] ?: '11:00 AM';
-        $start_ts = strtotime($date_str . ' ' . explode('–', explode('-', $time_str)[0])[0]);
+        $time_parts = preg_split('/[-–]/u', (string)$time_str);
+        $clean_time = trim($time_parts[0] ?? '11:00 AM');
+        $start_ts = strtotime($date_str . ' ' . $clean_time);
         if ($start_ts === false || $start_ts < 0) $start_ts = strtotime('+1 day 11:00 AM');
         $end_ts = $start_ts + 3600;
 
@@ -239,7 +249,8 @@ $hide_main_header = true;
 require_once __DIR__ . '/header.php';
 
 // Fetch ONLY legitimate In-Office Relationship Managers & Staff for assignment (with rich officer dossiers)
-$staff_list = $db->query("
+try {
+    $staff_list = $db->query("
     SELECT u.id, u.username, 
            COALESCE(NULLIF(e.full_name, ''), NULLIF(u.full_name, ''), u.name, u.username) AS display_name, 
            u.role, 
@@ -259,6 +270,9 @@ $staff_list = $db->query("
       AND u.username NOT LIKE 'BFS-FAM-%'
     ORDER BY (CASE WHEN u.role = 'RM' THEN 1 WHEN u.role = 'Staff' THEN 2 ELSE 3 END), display_name ASC
 ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $staff_list = [];
+}
 
 // Map for fast O(1) lookups by username
 $staff_map = [];
@@ -328,9 +342,13 @@ if (!empty($search)) {
 }
 
 // Count total matching items
-$count_stmt = $db->prepare("SELECT COUNT(*) FROM website_appointments WHERE 1=1" . $where_sql);
-$count_stmt->execute($params);
-$total_items = (int)$count_stmt->fetchColumn();
+try {
+    $count_stmt = $db->prepare("SELECT COUNT(*) FROM website_appointments WHERE 1=1" . $where_sql);
+    $count_stmt->execute($params);
+    $total_items = (int)$count_stmt->fetchColumn();
+} catch (Throwable $e) {
+    $total_items = 0;
+}
 
 // Pagination Calculation
 if ($per_page_param === 'all') {
@@ -360,10 +378,17 @@ $stmt->execute($params);
 $appointments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Metrics
-$total_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments")->fetchColumn();
-$scheduled_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status IN ('Scheduled', 'Confirmed')")->fetchColumn();
-$today_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')")->fetchColumn();
-$completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status = 'Completed'")->fetchColumn();
+try {
+    $total_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments")->fetchColumn();
+    $scheduled_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status IN ('Scheduled', 'Confirmed')")->fetchColumn();
+    $today_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE (slot_date = date('now', 'localtime') OR slot_date LIKE '%" . date('Y-m-d') . "%' OR slot_date LIKE '%" . date('d M') . "%')")->fetchColumn();
+    $completed_count = (int)$db->query("SELECT COUNT(*) FROM website_appointments WHERE status = 'Completed'")->fetchColumn();
+} catch (Throwable $e) {
+    $total_count = 0;
+    $scheduled_count = 0;
+    $today_count = 0;
+    $completed_count = 0;
+}
 
 if (!function_exists('getApptPageUrl')) {
     function getApptPageUrl($p) {

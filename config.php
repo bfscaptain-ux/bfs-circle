@@ -278,6 +278,45 @@ try {
     $db->exec("PRAGMA journal_mode = WAL;");
     
     // Core database schema initialization
+    // Website Appointments Desk Table
+    $db->exec("CREATE TABLE IF NOT EXISTS website_appointments (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        product_type TEXT,
+        sub_type TEXT,
+        slot_date TEXT,
+        slot_time TEXT,
+        city TEXT,
+        status TEXT DEFAULT 'Scheduled',
+        message TEXT,
+        lead_id INTEGER,
+        assigned_to TEXT,
+        source TEXT DEFAULT 'Website Appointment',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    // Website Partner & DSA Requests Table
+    $db->exec("CREATE TABLE IF NOT EXISTS partner_requests (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        profession TEXT,
+        experience TEXT,
+        monthly_volume TEXT,
+        city TEXT,
+        state TEXT,
+        message TEXT,
+        status TEXT DEFAULT 'Pending Review',
+        dsa_code TEXT,
+        assigned_rm TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
     $db->exec("CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,

@@ -79,8 +79,13 @@ $page_subtitle = ' Manage external referral partners, DSAs, and sub-agents';
 $hide_main_header = true;
 require_once 'header.php';
 
-$pending_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Pending Review'")->fetchColumn();
-$total_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests")->fetchColumn();
+try {
+    $pending_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests WHERE status = 'Pending Review'")->fetchColumn();
+    $total_inquiries_cnt = (int)$db->query("SELECT COUNT(*) FROM partner_requests")->fetchColumn();
+} catch (Throwable $e) {
+    $pending_inquiries_cnt = 0;
+    $total_inquiries_cnt = 0;
+}
 
 
 // Pagination and Filter Setup
@@ -162,16 +167,25 @@ foreach ($all_referrals as $ref) {
 $inactive_count = $total_registered_partners - $active_count;
 
 // Quick overall high-signal metrics
-$overall_leads_cnt = (int)$db->query("SELECT COUNT(*) FROM leads WHERE added_by IS NOT NULL AND added_by != ''")->fetchColumn();
-$overall_apps_cnt = (int)$db->query("SELECT COUNT(*) FROM applicants WHERE referral_id IS NOT NULL AND referral_id != ''")->fetchColumn();
-$total_all_leads = $overall_leads_cnt + $overall_apps_cnt;
+try {
+    $overall_leads_cnt = (int)$db->query("SELECT COUNT(*) FROM leads WHERE added_by IS NOT NULL AND added_by != ''")->fetchColumn();
+    $overall_apps_cnt = (int)$db->query("SELECT COUNT(*) FROM applicants WHERE referral_id IS NOT NULL AND referral_id != ''")->fetchColumn();
+    $total_all_leads = $overall_leads_cnt + $overall_apps_cnt;
 
-$overall_disb_leads = $db->query("SELECT COUNT(*) as cnt, SUM(COALESCE(loan_amount, 0)) as vol FROM leads WHERE added_by IS NOT NULL AND added_by != '' AND LOWER(stage) IN ('converted','disbursed','completed')")->fetch(PDO::FETCH_ASSOC);
-$overall_disb_apps = $db->query("SELECT COUNT(*) as cnt, SUM(COALESCE(loan_amount_requested, 0)) as vol FROM applicants WHERE referral_id IS NOT NULL AND referral_id != '' AND LOWER(overall_status) IN ('converted','disbursed','completed','phase 4','phase 5')")->fetch(PDO::FETCH_ASSOC);
+    $overall_disb_leads = $db->query("SELECT COUNT(*) as cnt, SUM(COALESCE(loan_amount, 0)) as vol FROM leads WHERE added_by IS NOT NULL AND added_by != '' AND LOWER(stage) IN ('converted','disbursed','completed')")->fetch(PDO::FETCH_ASSOC);
+    $overall_disb_apps = $db->query("SELECT COUNT(*) as cnt, SUM(COALESCE(loan_amount_requested, 0)) as vol FROM applicants WHERE referral_id IS NOT NULL AND referral_id != '' AND LOWER(overall_status) IN ('converted','disbursed','completed','phase 4','phase 5')")->fetch(PDO::FETCH_ASSOC);
 
-$total_all_disbursed = (int)($overall_disb_leads['cnt'] ?? 0) + (int)($overall_disb_apps['cnt'] ?? 0);
-$total_all_volume = (float)($overall_disb_leads['vol'] ?? 0) + (float)($overall_disb_apps['vol'] ?? 0);
-$total_all_paid = (float)$db->query("SELECT SUM(COALESCE(amount, net_payable, 0)) FROM payout_distributions WHERE referral_id IS NOT NULL AND referral_id != ''")->fetchColumn();
+    $total_all_disbursed = (int)($overall_disb_leads['cnt'] ?? 0) + (int)($overall_disb_apps['cnt'] ?? 0);
+    $total_all_volume = (float)($overall_disb_leads['vol'] ?? 0) + (float)($overall_disb_apps['vol'] ?? 0);
+    $total_all_paid = (float)$db->query("SELECT SUM(COALESCE(amount, net_payable, 0)) FROM payout_distributions WHERE referral_id IS NOT NULL AND referral_id != ''")->fetchColumn();
+} catch (Throwable $e) {
+    $overall_leads_cnt = 0;
+    $overall_apps_cnt = 0;
+    $total_all_leads = 0;
+    $total_all_disbursed = 0;
+    $total_all_volume = 0.0;
+    $total_all_paid = 0.0;
+}
 
 // Pagination Calculation
 $total_items = count($filtered_referrals);
