@@ -2076,6 +2076,11 @@ function printInvoiceDoc() {
     printWin.document.write(`
         <html>
         <head>
+    <!-- Official BFS Circle Monochrome Favicon & Branding -->
+    <link rel="icon" type="image/png" sizes="64x64" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.png?v=3">
+    <link rel="icon" type="image/x-icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.ico?v=3">
+    <link rel="shortcut icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.ico?v=3">
+    <link rel="apple-touch-icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.png?v=3">
             <title>Tax Invoice - ${customerName} (${loanId})</title>
             <style>
                 @page { margin: 10mm; size: A4 portrait; }

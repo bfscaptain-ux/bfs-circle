@@ -1991,7 +1991,12 @@ require_once 'header.php';
         const element = window.masterPdfRenderElement || document.getElementById('master-pdf-render-area');
         if (!element) return;
         const win = window.open('', '_blank');
-        win.document.write(`<html><head><title>Print Master PDF Dossier</title><style>body{font-family:sans-serif;}</style></head><body>${element.outerHTML}</body></html>`);
+        win.document.write(`<html><head>
+    <!-- Official BFS Circle Monochrome Favicon & Branding -->
+    <link rel="icon" type="image/png" sizes="64x64" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.png?v=3">
+    <link rel="icon" type="image/x-icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.ico?v=3">
+    <link rel="shortcut icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.ico?v=3">
+    <link rel="apple-touch-icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.png?v=3"><title>Print Master PDF Dossier</title><style>body{font-family:sans-serif;}</style></head><body>${element.outerHTML}</body></html>`);
         win.document.close();
         win.print();
     }

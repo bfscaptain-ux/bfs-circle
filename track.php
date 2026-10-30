@@ -24,7 +24,12 @@ if (file_exists($log_file)) {
 }
 
 if ($attempts > 10) {
-    die("<!DOCTYPE html><html><head><title>Too Many Requests</title><meta name='viewport' content='width=device-width, initial-scale=1'></head><body style='font-family:sans-serif; text-align:center; padding:50px;'><h2>Rate limit exceeded. Try again later.</h2></body></html>");
+    die("<!DOCTYPE html><html><head>
+    <!-- Official BFS Circle Monochrome Favicon & Branding -->
+    <link rel="icon" type="image/png" sizes="64x64" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.png?v=3">
+    <link rel="icon" type="image/x-icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.ico?v=3">
+    <link rel="shortcut icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.ico?v=3">
+    <link rel="apple-touch-icon" href="<?php echo isset($base_path) ? $base_path : ""; ?>favicon.png?v=3"><title>Too Many Requests</title><meta name='viewport' content='width=device-width, initial-scale=1'></head><body style='font-family:sans-serif; text-align:center; padding:50px;'><h2>Rate limit exceeded. Try again later.</h2></body></html>");
 }
 
 if(strlen($token) !== 32) {

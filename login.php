@@ -43,6 +43,12 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BFS Financial Services - Secure Login</title>
     
+    <!-- Official BFS Circle Monochrome Favicon & Branding -->
+    <link rel="icon" type="image/png" sizes="64x64" href="favicon.png?v=3">
+    <link rel="icon" type="image/x-icon" href="favicon.ico?v=3">
+    <link rel="shortcut icon" href="favicon.ico?v=3">
+    <link rel="apple-touch-icon" href="favicon.png?v=3">
+    
     <!-- Instant Image Preloads with High Fetch Priority -->
     <link rel="preload" as="image" href="login.webp" type="image/webp" fetchpriority="high">
     <link rel="preload" as="image" href="logo.png" type="image/png" fetchpriority="high">
