@@ -7,7 +7,7 @@ import { Check, Minus } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // Root: primary token when checked or indeterminate (responds to the active
-// color theme), input border when unchecked. Mirrors switch.tsx conventions.
+// color theme), clear high-contrast border when unchecked so it is unmistakable.
 function Checkbox({
   className,
   ...props
@@ -16,7 +16,8 @@ function Checkbox({
     <CheckboxPrimitive.Root
       data-slot="checkbox"
       className={cn(
-        "peer size-4 shrink-0 cursor-pointer rounded-[4px] border border-input bg-card shadow-sm transition-colors",
+        "peer inline-flex items-center justify-center size-5 min-w-[20px] min-h-[20px] shrink-0 cursor-pointer rounded-[5px] border-2 border-primary/60 dark:border-primary/70 bg-card shadow-xs transition-all",
+        "hover:border-primary hover:scale-105 hover:bg-primary/5",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "data-[checked]:border-primary data-[checked]:bg-primary data-[checked]:text-primary-foreground",
@@ -30,9 +31,9 @@ function Checkbox({
         className="flex items-center justify-center text-current"
       >
         {props.indeterminate ? (
-          <Minus className="size-3.5" />
+          <Minus className="size-3.5 stroke-[3]" />
         ) : (
-          <Check className="size-3.5" />
+          <Check className="size-3.5 stroke-[3]" />
         )}
       </CheckboxPrimitive.Indicator>
     </CheckboxPrimitive.Root>
