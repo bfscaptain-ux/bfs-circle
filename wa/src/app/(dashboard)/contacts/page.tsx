@@ -93,6 +93,9 @@ export default function ContactsPage() {
   // Bulk selection (page-scoped — only the loaded rows are selectable)
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [deleteAllOpen, setDeleteAllOpen] = useState(false);
+  const [deletingAll, setDeletingAll] = useState(false);
+  const [deleteAllConfirmText, setDeleteAllConfirmText] = useState('');
 
   // All tags for display
   const [tagsMap, setTagsMap] = useState<Record<string, Tag>>({});
@@ -314,6 +317,30 @@ export default function ContactsPage() {
     setBulkDeleteOpen(false);
   }
 
+  async function handleDeleteAll() {
+    setDeletingAll(true);
+    try {
+      const res = await fetch('/api/contacts/delete-all', {
+        method: 'POST',
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to delete all contacts');
+      }
+      toast.success(data.message || `All ${data.count} contacts deleted successfully`);
+      setSelected(new Set());
+      setPage(0);
+      setDeleteAllOpen(false);
+      setDeleteAllConfirmText('');
+      fetchContacts();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to delete contacts';
+      toast.error(msg);
+    } finally {
+      setDeletingAll(false);
+    }
+  }
+
   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
   const hasNext = page < totalPages - 1;
   const hasPrev = page > 0;
@@ -370,6 +397,19 @@ export default function ContactsPage() {
             <Upload className="size-4" />
             {t('importBtn')}
           </GatedButton>
+          {canEdit && totalCount > 0 && (
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteAllConfirmText('');
+                setDeleteAllOpen(true);
+              }}
+              className="border-red-200 dark:border-red-900/40 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 hover:text-red-700"
+            >
+              <Trash2 className="size-4" />
+              Delete All ({totalCount})
+            </Button>
+          )}
           <GatedButton
             canAct={canEdit}
             gateReason="add or import contacts"
@@ -521,8 +561,22 @@ export default function ContactsPage() {
               onClick={() => setBulkDeleteOpen(true)}
             >
               <Trash2 className="size-4" />
-              {t('deleteSelected')}
+              {t('deleteSelected')} ({selected.size})
             </GatedButton>
+            {totalCount > 1 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setDeleteAllConfirmText('');
+                  setDeleteAllOpen(true);
+                }}
+                className="border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+              >
+                <Trash2 className="size-3.5 mr-1" />
+                Delete All ({totalCount})
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -823,6 +877,82 @@ export default function ContactsPage() {
             >
               {deleting && <Loader2 className="size-4 animate-spin" />}
               {t('deleteBtn')}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete ALL Confirmation Dialog */}
+      <Dialog
+        open={deleteAllOpen}
+        onOpenChange={(open) => {
+          if (!deletingAll) {
+            setDeleteAllOpen(open);
+            if (!open) setDeleteAllConfirmText('');
+          }
+        }}
+      >
+        <DialogContent className="bg-popover border-border text-popover-foreground sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="size-10 rounded-full bg-red-100 dark:bg-red-950/50 flex items-center justify-center text-red-600 dark:text-red-400 shrink-0">
+                <Trash2 className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold text-foreground">
+                  Delete All {totalCount} Contacts?
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                  Permanent action — cannot be undone
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="rounded-lg border border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20 p-3.5 text-xs text-red-800 dark:text-red-300 space-y-1">
+              <p className="font-semibold text-red-900 dark:text-red-200">
+                Are you sure you want to permanently delete all {totalCount} contacts?
+              </p>
+              <p className="leading-relaxed">
+                This will wipe all contact names, phone numbers, custom fields, and conversation tags associated with these contacts for Bhardwaj Financial Services.
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-foreground">
+                To confirm, type <span className="font-bold text-red-600 dark:text-red-400">DELETE</span> below:
+              </label>
+              <Input
+                value={deleteAllConfirmText}
+                onChange={(e) => setDeleteAllConfirmText(e.target.value)}
+                placeholder="Type DELETE to confirm"
+                className="h-9 border-border bg-background text-sm"
+                autoFocus
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="bg-popover border-border gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDeleteAllOpen(false);
+                setDeleteAllConfirmText('');
+              }}
+              disabled={deletingAll}
+              className="border-border text-muted-foreground hover:bg-muted"
+            >
+              {t('cancel')}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteAll}
+              disabled={deletingAll || deleteAllConfirmText.trim().toUpperCase() !== 'DELETE'}
+              className="bg-red-600 hover:bg-red-700 text-white font-medium"
+            >
+              {deletingAll && <Loader2 className="size-4 animate-spin mr-1.5" />}
+              {deletingAll ? 'Deleting All...' : `Permanently Delete All (${totalCount})`}
             </Button>
           </DialogFooter>
         </DialogContent>

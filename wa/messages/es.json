@@ -358,7 +358,11 @@
       "toastFailedDelete": "Error al eliminar el contacto",
       "toastDeleted": "Contacto eliminado",
       "toastBulkFailedDelete": "Error al eliminar los contactos",
-      "toastBulkDeleted": "{count} contactos eliminados"
+      "toastBulkDeleted": "{count} contactos eliminados",
+      "deleteAllBtn": "Delete All ({count})",
+      "deleteAllTitle": "Delete All Contacts",
+      "deleteAllDesc": "Are you sure you want to delete all {count} contacts? This action cannot be undone.",
+      "toastAllDeleted": "All {count} contacts deleted successfully"
     },
     "form": {
       "addTitle": "Agregar contacto",
