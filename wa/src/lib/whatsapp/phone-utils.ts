@@ -5,7 +5,9 @@
  */
 export function sanitizePhoneForMeta(phone: string): string {
   if (!phone) return ''
-  return phone.replace(/\D/g, '')
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length === 10 && /^[6-9]/.test(digits)) { digits = '91' + digits; }
+  return digits;
 }
 
 /**
@@ -14,7 +16,9 @@ export function sanitizePhoneForMeta(phone: string): string {
  */
 export function normalizePhone(phone: string): string {
   if (!phone) return ''
-  return phone.replace(/\D/g, '')
+  let digits = phone.replace(/\D/g, '');
+  if (digits.length === 10 && /^[6-9]/.test(digits)) { digits = '91' + digits; }
+  return digits;
 }
 
 /**
