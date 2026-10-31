@@ -14,6 +14,13 @@ import {
   AlertTriangle,
   RotateCcw,
   QrCode,
+  Sparkles,
+  Smartphone,
+  Check,
+  Search,
+  Building2,
+  Key,
+  RefreshCw,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useAuth } from '@/hooks/use-auth';
@@ -107,6 +114,32 @@ export function WhatsAppConfig() {
   const [verifyToken, setVerifyToken] = useState('');
   const [pin, setPin] = useState('');
   const [tokenEdited, setTokenEdited] = useState(false);
+
+  // Smart Auto-Discovery State (Meta Cloud API v21+)
+  const [discoverToken, setDiscoverToken] = useState('');
+  const [discoverWabaId, setDiscoverWabaId] = useState('');
+  const [discovering, setDiscovering] = useState(false);
+  const [discoveredData, setDiscoveredData] = useState<{
+    isValidToken: boolean;
+    appId?: string;
+    scopes: string[];
+    missingScopes: string[];
+    hasRequiredScopes: boolean;
+    wabas: Array<{
+      id: string;
+      name?: string;
+      phoneNumbers: Array<{
+        id: string;
+        display_phone_number: string;
+        verified_name?: string;
+        quality_rating?: string;
+        code_verification_status?: string;
+      }>;
+    }>;
+    totalPhoneNumbers: number;
+    errorHint?: string | null;
+  } | null>(null);
+  const [discoveryError, setDiscoveryError] = useState<string | null>(null);
 
   // Inbound-media mirror (issue #466). Unlike everything else on this
   // page it is NOT part of handleSave: that path insists on re-entering
@@ -239,6 +272,57 @@ export function WhatsAppConfig() {
     loadedAccountIdRef.current = accountId;
     fetchConfig(accountId);
   }, [authLoading, profileLoading, user?.id, accountId, fetchConfig]);
+
+  async function handleDiscoverAccounts() {
+    const tokenToUse = discoverToken.trim() || (accessToken !== MASKED_TOKEN ? accessToken.trim() : '');
+    if (!tokenToUse) {
+      toast.error('Please enter a Permanent Access Token to discover accounts');
+      return;
+    }
+    setDiscovering(true);
+    setDiscoveryError(null);
+    setDiscoveredData(null);
+    try {
+      const res = await fetch('/api/whatsapp/discover', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: tokenToUse,
+          wabaId: discoverWabaId.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Failed to discover WhatsApp credentials');
+      }
+      setDiscoveredData(data);
+      if (data.totalPhoneNumbers === 0) {
+        setDiscoveryError(
+          data.errorHint ||
+          'Meta did not return any phone numbers for this token. Make sure your Meta System User has WhatsApp Business Account assets and permissions (whatsapp_business_messaging, whatsapp_business_management) assigned in Meta Business Manager.'
+        );
+      } else {
+        toast.success(`Discovered ${data.totalPhoneNumbers} WhatsApp number(s) from Meta!`);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Discovery failed';
+      setDiscoveryError(msg);
+      toast.error(msg);
+    } finally {
+      setDiscovering(false);
+    }
+  }
+
+  function handleSelectDiscoveredNumber(wabaIdVal: string, phone: { id: string; display_phone_number: string; verified_name?: string }) {
+    setWabaId(wabaIdVal);
+    setPhoneNumberId(phone.id);
+    const tokenToUse = discoverToken.trim() || (accessToken !== MASKED_TOKEN ? accessToken.trim() : '');
+    if (tokenToUse) {
+      setAccessToken(tokenToUse);
+      setTokenEdited(true);
+    }
+    toast.success(`Selected ${phone.verified_name || phone.display_phone_number} (ID: ${phone.id})`);
+  }
 
   async function handleToggleMirrorMedia(next: boolean) {
     if (!config || !accountId || savingMirror) return;
@@ -756,6 +840,181 @@ export function WhatsAppConfig() {
             )}
           </Alert>
         )}
+
+        {/* Smart 1-Click Auto-Discovery Card (Meta Cloud API v21+) */}
+        <Card className="border-emerald-600/40 bg-gradient-to-b from-card via-card to-emerald-950/10 shadow-md">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-500">
+                  <Sparkles className="size-4" />
+                </div>
+                <div>
+                  <CardTitle className="text-foreground text-base flex items-center gap-2">
+                    Smart WhatsApp Auto-Discovery
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      New v21+
+                    </span>
+                  </CardTitle>
+                  <CardDescription className="text-muted-foreground text-xs mt-0.5">
+                    Sirf Access Token paste karein — Meta se aapke WhatsApp Account aur Phone Number IDs automatically fetch ho jayenge!
+                  </CardDescription>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4 pt-1">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-foreground flex items-center justify-between">
+                <span>Meta Permanent Access Token</span>
+                {accessToken && accessToken !== MASKED_TOKEN && (
+                  <button
+                    type="button"
+                    onClick={() => setDiscoverToken(accessToken)}
+                    className="text-[11px] text-emerald-500 hover:underline"
+                  >
+                    Use Token from Form
+                  </button>
+                )}
+              </Label>
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    type="password"
+                    placeholder="EAA... (Paste your Meta System User Permanent Token)"
+                    value={discoverToken}
+                    onChange={(e) => setDiscoverToken(e.target.value)}
+                    className="bg-muted/80 border-border font-mono text-xs text-foreground placeholder:text-muted-foreground/60"
+                  />
+                </div>
+                <Button
+                  type="button"
+                  onClick={handleDiscoverAccounts}
+                  disabled={discovering}
+                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shrink-0"
+                >
+                  {discovering ? (
+                    <>
+                      <Loader2 className="size-3.5 mr-1.5 animate-spin" />
+                      Discovering...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="size-3.5 mr-1.5" />
+                      Auto-Discover
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            {/* Optional WABA ID fallback hint */}
+            <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>Optional:</span>
+              <Input
+                type="text"
+                placeholder="WABA ID (optional fallback if restricted token)"
+                value={discoverWabaId}
+                onChange={(e) => setDiscoverWabaId(e.target.value)}
+                className="h-7 text-[11px] bg-muted/60 border-border w-64"
+              />
+            </div>
+
+            {/* Discovery Error Banner */}
+            {discoveryError && (
+              <Alert className="bg-red-950/30 border-red-700/50 py-2.5">
+                <div className="flex items-start gap-2">
+                  <XCircle className="size-4 text-red-400 mt-0.5 shrink-0" />
+                  <div className="text-xs text-red-200">
+                    <p className="font-semibold mb-0.5">Discovery Failed:</p>
+                    <p className="text-red-300/90 leading-relaxed">{discoveryError}</p>
+                  </div>
+                </div>
+              </Alert>
+            )}
+
+            {/* Discovered Results */}
+            {discoveredData && discoveredData.totalPhoneNumbers > 0 && (
+              <div className="mt-3 pt-3 border-t border-border/80 space-y-3">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-foreground flex items-center gap-1.5">
+                    <CheckCircle2 className="size-3.5 text-emerald-400" />
+                    Found {discoveredData.totalPhoneNumbers} Verified Number(s):
+                  </span>
+                  <span className="text-[11px] text-emerald-400 font-medium">
+                    Select a number to auto-populate form
+                  </span>
+                </div>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {discoveredData.wabas.map((waba) =>
+                    waba.phoneNumbers.map((p) => {
+                      const isSelected = phoneNumberId === p.id;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => handleSelectDiscoveredNumber(waba.id, p)}
+                          className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'bg-emerald-950/40 border-emerald-500 shadow-sm'
+                              : 'bg-muted/40 border-border hover:bg-muted/70 hover:border-emerald-600/50'
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div
+                              className={`size-8 rounded-lg flex items-center justify-center shrink-0 ${
+                                isSelected
+                                  ? 'bg-emerald-500 text-white'
+                                  : 'bg-muted border border-border text-muted-foreground'
+                              }`}
+                            >
+                              <Smartphone className="size-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-bold text-xs text-foreground truncate">
+                                  {p.verified_name || 'WhatsApp Business'}
+                                </span>
+                                {p.quality_rating && (
+                                  <span className="text-[9.5px] uppercase font-bold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300">
+                                    {p.quality_rating}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-mono text-emerald-400 mt-0.5">
+                                {p.display_phone_number}
+                              </div>
+                              <div className="text-[10px] text-muted-foreground font-mono">
+                                ID: {p.id} · WABA: {waba.id}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isSelected ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-400 bg-emerald-500/20 px-2.5 py-1 rounded-lg border border-emerald-500/40">
+                                <Check className="size-3" /> Mapped
+                              </span>
+                            ) : (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-xs border-border hover:bg-emerald-600 hover:text-white"
+                              >
+                                Select
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* API Credentials */}
         <Card>
