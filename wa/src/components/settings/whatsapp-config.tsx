@@ -314,7 +314,13 @@ export function WhatsAppConfig() {
   }
 
   function handleSelectDiscoveredNumber(wabaIdVal: string, phone: { id: string; display_phone_number: string; verified_name?: string }) {
-    setWabaId(wabaIdVal);
+    if (wabaIdVal && wabaIdVal !== 'Unknown' && /^\d+$/.test(wabaIdVal)) {
+      setWabaId(wabaIdVal);
+    } else if (discoverWabaId && /^\d+$/.test(discoverWabaId.trim())) {
+      setWabaId(discoverWabaId.trim());
+    } else {
+      setWabaId('');
+    }
     setPhoneNumberId(phone.id);
     const tokenToUse = discoverToken.trim() || (accessToken !== MASKED_TOKEN ? accessToken.trim() : '');
     if (tokenToUse) {

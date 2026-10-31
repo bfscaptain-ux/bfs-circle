@@ -41,84 +41,79 @@ export async function POST(request: Request) {
       );
     }
 
-    // 1. Inspect the token with Meta debug_token
-    let appId = '';
-    let granularScopes: Array<{ scope: string; target_ids?: string[] }> = [];
-    let scopes: string[] = [];
-    let isValid = false;
-
-    try {
-      const debugRes = await fetch(
-        `${META_API_BASE}/debug_token?input_token=${encodeURIComponent(rawToken)}&access_token=${encodeURIComponent(rawToken)}`
-      );
-      if (debugRes.ok) {
-        const debugData = await debugRes.json();
-        const info = debugData?.data;
-        if (info) {
-          isValid = Boolean(info.is_valid);
-          appId = info.app_id || '';
-          scopes = info.scopes || [];
-          granularScopes = info.granular_scopes || [];
-        }
-      }
-    } catch (e) {
-      console.warn('[whatsapp/discover] debug_token inspect error:', e);
-    }
-
-    // Check for necessary permissions
-    const requiredScopes = ['whatsapp_business_messaging', 'whatsapp_business_management'];
-    const missingScopes = requiredScopes.filter((s) => !scopes.includes(s));
-
-    // 2. Collect potential WABA IDs from:
-    // a) granular_scopes target_ids
-    // b) fallbackWabaId supplied by user
-    // c) /me/whatsapp_business_accounts
-    // d) /me/businesses
     const candidateWabaIds = new Set<string>();
+    let systemUserId = '';
+    let systemUserName = '';
+
+    // If user provided a WABA ID, prioritize it
     if (fallbackWabaId && /^\d+$/.test(fallbackWabaId)) {
       candidateWabaIds.add(fallbackWabaId);
     }
 
-    for (const gs of granularScopes) {
-      if (gs.target_ids && Array.isArray(gs.target_ids)) {
-        for (const tid of gs.target_ids) {
-          if (/^\d+$/.test(tid)) {
-            candidateWabaIds.add(tid);
-          }
-        }
-      }
-    }
-
-    // Try fetching /me/whatsapp_business_accounts
+    // 1. Identify token owner via /me
     try {
-      const wabaRes = await fetch(
-        `${META_API_BASE}/me/whatsapp_business_accounts?fields=id,name&limit=50`,
-        { headers: { Authorization: `Bearer ${rawToken}` } }
-      );
-      if (wabaRes.ok) {
-        const wabaData = await wabaRes.json();
-        for (const item of wabaData?.data || []) {
-          if (item?.id) candidateWabaIds.add(item.id);
-        }
+      const meRes = await fetch(`${META_API_BASE}/me?fields=id,name`, {
+        headers: { Authorization: `Bearer ${rawToken}` },
+      });
+      if (meRes.ok) {
+        const meData = await meRes.json();
+        systemUserId = meData?.id || '';
+        systemUserName = meData?.name || '';
+        console.log('[whatsapp/discover] Token owner:', { systemUserId, systemUserName });
+      } else {
+        const errJson = await meRes.json().catch(() => ({}));
+        console.warn('[whatsapp/discover] /me failed:', errJson);
       }
     } catch (e) {
-      console.warn('[whatsapp/discover] /me/whatsapp_business_accounts error:', e);
+      console.warn('[whatsapp/discover] /me exception:', e);
     }
 
-    // Try fetching /me/businesses
+    // 2. Query System User's assigned WhatsApp Business Accounts
+    // For System Users: /me/assigned_whatsapp_business_accounts or /{system_user_id}/assigned_whatsapp_business_accounts
+    const endpointsToTry = [
+      `${META_API_BASE}/me/assigned_whatsapp_business_accounts?fields=id,name&limit=50`,
+      `${META_API_BASE}/me/whatsapp_business_accounts?fields=id,name&limit=50`,
+    ];
+    if (systemUserId) {
+      endpointsToTry.push(
+        `${META_API_BASE}/${systemUserId}/assigned_whatsapp_business_accounts?fields=id,name&limit=50`
+      );
+    }
+
+    for (const ep of endpointsToTry) {
+      try {
+        const r = await fetch(ep, {
+          headers: { Authorization: `Bearer ${rawToken}` },
+        });
+        if (r.ok) {
+          const resJson = await r.json();
+          console.log(`[whatsapp/discover] Endpoint ${ep} returned:`, resJson);
+          for (const item of resJson?.data || []) {
+            if (item?.id) candidateWabaIds.add(String(item.id));
+          }
+        } else {
+          const errData = await r.json().catch(() => ({}));
+          console.log(`[whatsapp/discover] Endpoint ${ep} response:`, errData?.error?.message);
+        }
+      } catch (e) {
+        console.warn(`[whatsapp/discover] Endpoint ${ep} error:`, e);
+      }
+    }
+
+    // 3. Also check /me/businesses if accessible
     try {
       const bizRes = await fetch(
-        `${META_API_BASE}/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name},client_whatsapp_business_accounts{id,name}&limit=20`,
+        `${META_API_BASE}/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name},client_whatsapp_business_accounts{id,name}&limit=10`,
         { headers: { Authorization: `Bearer ${rawToken}` } }
       );
       if (bizRes.ok) {
         const bizData = await bizRes.json();
         for (const b of bizData?.data || []) {
           for (const item of b?.owned_whatsapp_business_accounts?.data || []) {
-            if (item?.id) candidateWabaIds.add(item.id);
+            if (item?.id) candidateWabaIds.add(String(item.id));
           }
           for (const item of b?.client_whatsapp_business_accounts?.data || []) {
-            if (item?.id) candidateWabaIds.add(item.id);
+            if (item?.id) candidateWabaIds.add(String(item.id));
           }
         }
       }
@@ -126,7 +121,9 @@ export async function POST(request: Request) {
       console.warn('[whatsapp/discover] /me/businesses error:', e);
     }
 
-    // 3. For each candidate WABA ID, fetch phone numbers and WABA info
+    console.log('[whatsapp/discover] Discovered Candidate WABA IDs:', Array.from(candidateWabaIds));
+
+    // 4. For each discovered WABA ID, fetch phone numbers
     const discoveredWabas: DiscoveredWaba[] = [];
     let metaFetchError: string | null = null;
 
@@ -152,6 +149,7 @@ export async function POST(request: Request) {
 
         if (phonesRes.ok) {
           const pData = await phonesRes.json();
+          console.log(`[whatsapp/discover] WABA ${wId} phone numbers:`, pData);
           const pList: DiscoveredPhoneNumber[] = (pData?.data || []).map(
             (p: Record<string, unknown>) => ({
               id: String(p.id || ''),
@@ -173,6 +171,7 @@ export async function POST(request: Request) {
           }
         } else {
           const errData = await phonesRes.json().catch(() => ({}));
+          console.warn(`[whatsapp/discover] WABA ${wId} phone fetch failed:`, errData);
           if (errData?.error?.message) {
             metaFetchError = errData.error.message;
           }
@@ -182,7 +181,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 4. If no WABA had phone numbers via list, but user provided an ID that might directly be a Phone Number ID:
+    // 5. If candidate IDs yielded 0 phone numbers, check if the fallback ID was itself a Phone Number ID
     if (discoveredWabas.length === 0 && fallbackWabaId && /^\d+$/.test(fallbackWabaId)) {
       try {
         const singlePhoneRes = await fetch(
@@ -192,9 +191,8 @@ export async function POST(request: Request) {
         if (singlePhoneRes.ok) {
           const sData = await singlePhoneRes.json();
           const parentWaba = sData?.whatsapp_business_account;
-          const assignedWabaId = parentWaba?.id || 'Unknown';
           discoveredWabas.push({
-            id: assignedWabaId,
+            id: parentWaba?.id || fallbackWabaId || '',
             name: parentWaba?.name || 'WhatsApp Business Account',
             phoneNumbers: [
               {
@@ -207,22 +205,19 @@ export async function POST(request: Request) {
           });
         }
       } catch {
-        // Ignore single phone probe
+        // ignore
       }
     }
 
-    // Check if we found anything
     const totalPhoneNumbers = discoveredWabas.reduce((sum, w) => sum + w.phoneNumbers.length, 0);
 
     return NextResponse.json({
       success: true,
-      isValidToken: isValid || scopes.length > 0 || discoveredWabas.length > 0,
-      appId,
-      scopes,
-      missingScopes,
-      hasRequiredScopes: missingScopes.length === 0,
+      systemUserId,
+      systemUserName,
       wabas: discoveredWabas,
       totalPhoneNumbers,
+      candidateWabaIds: Array.from(candidateWabaIds),
       errorHint: totalPhoneNumbers === 0 ? metaFetchError : null,
     });
   } catch (error: unknown) {
