@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server';
+import { decrypt } from '@/lib/whatsapp/encryption';
 
 interface DiscoveredPhoneNumber {
   id: string;
@@ -27,13 +29,49 @@ const META_API_BASE = 'https://graph.facebook.com/v21.0';
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const rawToken = typeof body?.access_token === 'string' ? body.access_token.trim() : '';
+    let rawToken =
+      (typeof body?.access_token === 'string' && body.access_token.trim()) ||
+      (typeof body?.accessToken === 'string' && body.accessToken.trim()) ||
+      '';
     const fallbackWabaId =
-      typeof body?.waba_id === 'string' ? body.waba_id.trim() : '';
+      (typeof body?.waba_id === 'string' && body.waba_id.trim()) ||
+      (typeof body?.wabaId === 'string' && body.wabaId.trim()) ||
+      '';
+
+    // If token passed is empty or masked ("••••"), fallback to saved token in DB
+    if (!rawToken || rawToken.startsWith('••') || rawToken.includes('••••')) {
+      try {
+        const supabase = await createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('account_id')
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+          if (profile?.account_id) {
+            const { data: cfg } = await supabase
+              .from('whatsapp_config')
+              .select('access_token')
+              .eq('account_id', profile.account_id)
+              .maybeSingle();
+
+            if (cfg?.access_token) {
+              rawToken = decrypt(cfg.access_token);
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn('[whatsapp/discover] fallback token fetch failed:', dbErr);
+      }
+    }
 
     if (!rawToken) {
       return NextResponse.json(
-        { error: 'Meta Access Token is required for auto-discovery.' },
+        { error: 'Meta Access Token is required for auto-discovery. Please paste your token or save credentials first.' },
         { status: 400 }
       );
     }

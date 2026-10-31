@@ -287,7 +287,9 @@ export function WhatsAppConfig() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          access_token: tokenToUse,
           accessToken: tokenToUse,
+          waba_id: discoverWabaId.trim() || undefined,
           wabaId: discoverWabaId.trim() || undefined,
         }),
       });
