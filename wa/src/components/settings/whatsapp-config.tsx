@@ -327,7 +327,8 @@ export function WhatsAppConfig() {
       setAccessToken(tokenToUse);
       setTokenEdited(true);
     }
-    toast.success(`Selected ${phone.verified_name || phone.display_phone_number} (ID: ${phone.id})`);
+    const label = phone.verified_name || phone.display_phone_number || 'WhatsApp Number';
+    toast.success(`Selected ${label} (ID: ${phone.id})`);
   }
 
   async function handleToggleMirrorMedia(next: boolean) {

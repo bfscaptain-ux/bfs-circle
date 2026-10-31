@@ -1,8 +1,4 @@
 import { NextResponse } from 'next/server';
-import { createClient } from '@/lib/supabase/server';
-
-const META_API_VERSION = 'v21.0';
-const META_API_BASE = `https://graph.facebook.com/${META_API_VERSION}`;
 
 interface DiscoveredPhoneNumber {
   id: string;
@@ -14,29 +10,30 @@ interface DiscoveredPhoneNumber {
 
 interface DiscoveredWaba {
   id: string;
-  name?: string;
+  name: string;
   phoneNumbers: DiscoveredPhoneNumber[];
 }
 
+const META_API_BASE = 'https://graph.facebook.com/v21.0';
+
+/**
+ * POST /api/whatsapp/discover
+ *
+ * Smart Meta Cloud API v21+ Auto-Discovery Engine:
+ * Accepts a Meta Permanent Access Token (and optional fallback WABA ID),
+ * queries the Meta Graph API v21+ endpoints to discover all WhatsApp Business
+ * Accounts and verified Phone Number IDs associated with the token.
+ */
 export async function POST(request: Request) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const body = await request.json().catch(() => ({}));
-    const rawToken = typeof body.accessToken === 'string' ? body.accessToken.trim() : '';
-    const fallbackWabaId = typeof body.wabaId === 'string' ? body.wabaId.trim() : '';
+    const rawToken = typeof body?.access_token === 'string' ? body.access_token.trim() : '';
+    const fallbackWabaId =
+      typeof body?.waba_id === 'string' ? body.waba_id.trim() : '';
 
     if (!rawToken) {
       return NextResponse.json(
-        { error: 'Please enter a Meta Access Token to discover accounts.' },
+        { error: 'Meta Access Token is required for auto-discovery.' },
         { status: 400 }
       );
     }
@@ -49,6 +46,8 @@ export async function POST(request: Request) {
     if (fallbackWabaId && /^\d+$/.test(fallbackWabaId)) {
       candidateWabaIds.add(fallbackWabaId);
     }
+    // Known BFS WABA ID
+    candidateWabaIds.add('1701808357546633');
 
     // 1. Identify token owner via /me
     try {
@@ -69,7 +68,6 @@ export async function POST(request: Request) {
     }
 
     // 2. Query System User's assigned WhatsApp Business Accounts
-    // For System Users: /me/assigned_whatsapp_business_accounts or /{system_user_id}/assigned_whatsapp_business_accounts
     const endpointsToTry = [
       `${META_API_BASE}/me/assigned_whatsapp_business_accounts?fields=id,name&limit=50`,
       `${META_API_BASE}/me/whatsapp_business_accounts?fields=id,name&limit=50`,
@@ -87,47 +85,66 @@ export async function POST(request: Request) {
         });
         if (r.ok) {
           const resJson = await r.json();
-          console.log(`[whatsapp/discover] Endpoint ${ep} returned:`, resJson);
           for (const item of resJson?.data || []) {
             if (item?.id) candidateWabaIds.add(String(item.id));
           }
-        } else {
-          const errData = await r.json().catch(() => ({}));
-          console.log(`[whatsapp/discover] Endpoint ${ep} response:`, errData?.error?.message);
         }
       } catch (e) {
         console.warn(`[whatsapp/discover] Endpoint ${ep} error:`, e);
       }
     }
 
-    // 3. Also check /me/businesses if accessible
-    try {
-      const bizRes = await fetch(
-        `${META_API_BASE}/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name},client_whatsapp_business_accounts{id,name}&limit=10`,
-        { headers: { Authorization: `Bearer ${rawToken}` } }
-      );
-      if (bizRes.ok) {
-        const bizData = await bizRes.json();
-        for (const b of bizData?.data || []) {
-          for (const item of b?.owned_whatsapp_business_accounts?.data || []) {
-            if (item?.id) candidateWabaIds.add(String(item.id));
-          }
-          for (const item of b?.client_whatsapp_business_accounts?.data || []) {
-            if (item?.id) candidateWabaIds.add(String(item.id));
+    const discoveredWabasMap = new Map<string, DiscoveredWaba>();
+
+    // 3. Also check business portfolios (including BFS portfolio 964140506785086)
+    const bizUrls = [
+      `${META_API_BASE}/964140506785086?fields=id,name,owned_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}},client_whatsapp_business_accounts{id,name,phone_numbers{id,display_phone_number,verified_name,quality_rating}}`,
+      `${META_API_BASE}/me/businesses?fields=id,name,owned_whatsapp_business_accounts{id,name},client_whatsapp_business_accounts{id,name}&limit=10`,
+    ];
+
+    for (const bUrl of bizUrls) {
+      try {
+        const bizRes = await fetch(bUrl, {
+          headers: { Authorization: `Bearer ${rawToken}` },
+        });
+        if (bizRes.ok) {
+          const bizData = await bizRes.json();
+          const bizList = Array.isArray(bizData?.data) ? bizData.data : [bizData];
+          for (const b of bizList) {
+            for (const item of b?.owned_whatsapp_business_accounts?.data || []) {
+              if (item?.id) candidateWabaIds.add(String(item.id));
+              if (item?.phone_numbers?.data && item.phone_numbers.data.length > 0) {
+                const pList: DiscoveredPhoneNumber[] = item.phone_numbers.data.map(
+                  (p: Record<string, unknown>) => ({
+                    id: String(p.id || ''),
+                    display_phone_number: String(p.display_phone_number || ''),
+                    verified_name: p.verified_name ? String(p.verified_name) : undefined,
+                    quality_rating: p.quality_rating ? String(p.quality_rating) : undefined,
+                  })
+                );
+                discoveredWabasMap.set(String(item.id), {
+                  id: String(item.id),
+                  name: item.name || `WABA (${item.id})`,
+                  phoneNumbers: pList,
+                });
+              }
+            }
+            for (const item of b?.client_whatsapp_business_accounts?.data || []) {
+              if (item?.id) candidateWabaIds.add(String(item.id));
+            }
           }
         }
+      } catch (e) {
+        console.warn('[whatsapp/discover] business query error:', e);
       }
-    } catch (e) {
-      console.warn('[whatsapp/discover] /me/businesses error:', e);
     }
 
-    console.log('[whatsapp/discover] Discovered Candidate WABA IDs:', Array.from(candidateWabaIds));
-
-    // 4. For each discovered WABA ID, fetch phone numbers
-    const discoveredWabas: DiscoveredWaba[] = [];
     let metaFetchError: string | null = null;
 
+    // 4. For each discovered WABA ID not yet fetched, fetch phone numbers
     for (const wId of Array.from(candidateWabaIds)) {
+      if (discoveredWabasMap.has(wId)) continue;
+
       try {
         const [wabaInfoRes, phonesRes] = await Promise.all([
           fetch(`${META_API_BASE}/${wId}?fields=id,name`, {
@@ -149,7 +166,6 @@ export async function POST(request: Request) {
 
         if (phonesRes.ok) {
           const pData = await phonesRes.json();
-          console.log(`[whatsapp/discover] WABA ${wId} phone numbers:`, pData);
           const pList: DiscoveredPhoneNumber[] = (pData?.data || []).map(
             (p: Record<string, unknown>) => ({
               id: String(p.id || ''),
@@ -163,7 +179,7 @@ export async function POST(request: Request) {
           );
 
           if (pList.length > 0) {
-            discoveredWabas.push({
+            discoveredWabasMap.set(wId, {
               id: wId,
               name: wabaName,
               phoneNumbers: pList,
@@ -171,7 +187,6 @@ export async function POST(request: Request) {
           }
         } else {
           const errData = await phonesRes.json().catch(() => ({}));
-          console.warn(`[whatsapp/discover] WABA ${wId} phone fetch failed:`, errData);
           if (errData?.error?.message) {
             metaFetchError = errData.error.message;
           }
@@ -181,34 +196,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // 5. If candidate IDs yielded 0 phone numbers, check if the fallback ID was itself a Phone Number ID
-    if (discoveredWabas.length === 0 && fallbackWabaId && /^\d+$/.test(fallbackWabaId)) {
-      try {
-        const singlePhoneRes = await fetch(
-          `${META_API_BASE}/${fallbackWabaId}?fields=id,display_phone_number,verified_name,quality_rating,whatsapp_business_account{id,name}`,
-          { headers: { Authorization: `Bearer ${rawToken}` } }
-        );
-        if (singlePhoneRes.ok) {
-          const sData = await singlePhoneRes.json();
-          const parentWaba = sData?.whatsapp_business_account;
-          discoveredWabas.push({
-            id: parentWaba?.id || fallbackWabaId || '',
-            name: parentWaba?.name || 'WhatsApp Business Account',
-            phoneNumbers: [
-              {
-                id: sData.id,
-                display_phone_number: sData.display_phone_number,
-                verified_name: sData.verified_name,
-                quality_rating: sData.quality_rating,
-              },
-            ],
-          });
-        }
-      } catch {
-        // ignore
-      }
-    }
-
+    const discoveredWabas = Array.from(discoveredWabasMap.values());
     const totalPhoneNumbers = discoveredWabas.reduce((sum, w) => sum + w.phoneNumbers.length, 0);
 
     return NextResponse.json({
@@ -221,8 +209,8 @@ export async function POST(request: Request) {
       errorHint: totalPhoneNumbers === 0 ? metaFetchError : null,
     });
   } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : 'Failed to discover WhatsApp credentials';
-    console.error('[whatsapp/discover] Fatal error:', error);
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Discovery failed';
+    console.error('[whatsapp/discover] Exception:', error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
