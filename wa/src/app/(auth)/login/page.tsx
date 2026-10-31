@@ -83,7 +83,7 @@ function LoginPageInner() {
             {inviteToken ? (
               <UsersRound className="h-6 w-6 text-primary" />
             ) : (
-              <img src="/logo.png" alt="BFS Circle" className="h-7 w-auto object-contain brightness-0 invert" />
+              <img src="/logo.png" alt="BFS Circle" className="h-7 w-auto object-contain bfs-logo" />
             )}
           </div>
           <CardTitle className="text-xl text-foreground">

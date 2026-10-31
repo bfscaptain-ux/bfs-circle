@@ -191,7 +191,7 @@ export function Sidebar({ open = false, onClose }: SidebarProps) {
             <img 
               src="/logo.png" 
               alt="BFS Circle" 
-              className="h-7 w-auto object-contain brightness-0 invert flex-shrink-0"
+              className="h-7 w-auto object-contain bfs-logo flex-shrink-0"
             />
             <div className="flex flex-col min-w-0 leading-tight">
               <span className="text-[14px] font-extrabold tracking-tight text-foreground truncate">
