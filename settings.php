@@ -313,6 +313,10 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                 Database Backup & Health
             </div>
             <?php endif; ?>
+            <div class="settings-menu-item <?= $active_tab === 'news' ? 'active' : '' ?>" onclick="switchSettingsTab('news', this)" style="border-left: 3px solid #10b981; background: rgba(16,185,129,0.04);">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>
+                <span style="font-weight:800; color:#0f172a;">Website News &amp; Alerts</span>
+            </div>
         </div>
 
         <!-- SETTINGS CONTENT PANELS -->
@@ -1969,6 +1973,223 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             </div>
             <?php endif; ?>
 
+
+            <!-- TAB: WEBSITE FINANCIAL NEWS & ALERTS DESK -->
+            <div id="tab-news" class="settings-panel">
+                <div class="panel-card" style="margin-bottom: 20px;">
+                    <div class="panel-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                        <div>
+                            <h2 class="panel-title" style="display:flex; align-items:center; gap:8px;">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>
+                                Website Financial News, Alerts &amp; Media Desk
+                            </h2>
+                            <p class="panel-subtitle">Publish breaking RBI policy news, rate changes, and festive loan offers directly onto <strong>https://bfsfin.com/news</strong>.</p>
+                        </div>
+                        <button type="button" class="btn-black-solid" onclick="openCrmNewsCreateModal()" style="background:#10b981; border-color:#10b981; display:flex; align-items:center; gap:6px;">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                            Publish New Article
+                        </button>
+                    </div>
+
+                    <!-- STATS CARDS -->
+                    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:14px; margin-top:20px;">
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#64748b; text-transform:uppercase;">Total Articles</div>
+                            <div style="font-size:24px; font-weight:900; color:#0f172a; margin-top:4px;" id="crm-news-stat-total">0</div>
+                        </div>
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#16a34a; text-transform:uppercase;">Live Published</div>
+                            <div style="font-size:24px; font-weight:900; color:#15803d; margin-top:4px;" id="crm-news-stat-published">0</div>
+                        </div>
+                        <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#d97706; text-transform:uppercase;">Drafts</div>
+                            <div style="font-size:24px; font-weight:900; color:#b45309; margin-top:4px;" id="crm-news-stat-drafts">0</div>
+                        </div>
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:16px;">
+                            <div style="font-size:11px; font-weight:700; color:#3b82f6; text-transform:uppercase;">Estimated Readers</div>
+                            <div style="font-size:24px; font-weight:900; color:#1d4ed8; margin-top:4px;" id="crm-news-stat-views">0</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTER BAR & ARTICLES LIST -->
+                <div class="panel-card">
+                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:16px;">
+                        <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+                            <span style="font-size:12px; font-weight:700; color:#475569;">Category:</span>
+                            <select id="crm-news-filter-cat" class="ctrl-input" style="width:auto; padding:6px 12px; font-size:12px;" onchange="renderCrmNewsTable()">
+                                <option value="All">All Categories</option>
+                                <option value="Loans & EMIs">Loans &amp; EMIs</option>
+                                <option value="CIBIL & Credit">CIBIL &amp; Credit</option>
+                                <option value="Banking & RBI">Banking &amp; RBI</option>
+                                <option value="Taxes & MSME">Taxes &amp; MSME</option>
+                                <option value="BFS Official">BFS Official</option>
+                            </select>
+                            <input type="text" id="crm-news-search" placeholder="Search headline..." class="ctrl-input" style="width:200px; padding:6px 12px; font-size:12px;" oninput="renderCrmNewsTable()">
+                        </div>
+                        <a href="https://bfsfin.com/news" target="_blank" class="btn-black-outline" style="font-size:12px; padding:6px 14px; display:flex; align-items:center; gap:6px;">
+                            🌐 Visit Public News Hub
+                        </a>
+                    </div>
+
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; font-size:12.5px;">
+                            <thead>
+                                <tr style="background:#f8fafc; border-bottom:1.5px solid #e2e8f0; text-align:left; color:#475569; font-size:11.5px; text-transform:uppercase;">
+                                    <th style="padding:10px 14px;">Preview</th>
+                                    <th style="padding:10px 14px;">Headline &amp; Slug</th>
+                                    <th style="padding:10px 14px;">Category</th>
+                                    <th style="padding:10px 14px;">Status</th>
+                                    <th style="padding:10px 14px;">Date</th>
+                                    <th style="padding:10px 14px; text-align:right;">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="crm-news-table-body">
+                                <tr><td colspan="6" style="padding:24px; text-align:center; color:#64748b;">Loading articles from website...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- NEWS CREATE / EDIT MODAL -->
+            <div id="crmNewsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); backdrop-filter:blur(6px); z-index:99999; justify-content:center; align-items:center; padding:20px; overflow-y:auto;">
+                <div style="background:#fff; border-radius:16px; max-width:800px; width:100%; max-height:90vh; overflow-y:auto; padding:24px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
+                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:18px;">
+                        <div>
+                            <h3 style="margin:0; font-size:17px; font-weight:800; color:#0f172a;" id="crmNewsModalTitle">Publish New Financial Article</h3>
+                            <p style="margin:2px 0 0 0; font-size:12px; color:#64748b;">Saves directly to website live database with automated Schema &amp; Sitemap inclusion.</p>
+                        </div>
+                        <button type="button" onclick="closeCrmNewsModal()" style="border:none; background:#f1f5f9; border-radius:50%; width:32px; height:32px; cursor:pointer; font-weight:bold; font-size:16px;">✕</button>
+                    </div>
+
+                    <form id="crmNewsForm" onsubmit="saveCrmNewsArticle(event)">
+                        <input type="hidden" id="crm_news_id" value="">
+
+                        <!-- Headline -->
+                        <div style="margin-bottom:14px;">
+                            <label style="display:block; font-size:12px; font-weight:800; color:#0f172a; margin-bottom:6px;">Article Headline *</label>
+                            <input type="text" id="crm_news_title" class="ctrl-input" placeholder="e.g. RBI MPC Keeps Repo Rate Unchanged at 6.50%: Impact on Home Loan EMIs" required style="font-weight:700; font-size:13.5px;">
+                        </div>
+
+                        <!-- 3-Col: Category, Author, CTA -->
+                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:14px;">
+                            <div>
+                                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Category</label>
+                                <select id="crm_news_category" class="ctrl-input">
+                                    <option value="Loans & EMIs">Loans &amp; EMIs</option>
+                                    <option value="CIBIL & Credit">CIBIL &amp; Credit</option>
+                                    <option value="Banking & RBI" selected>Banking &amp; RBI</option>
+                                    <option value="Taxes & MSME">Taxes &amp; MSME</option>
+                                    <option value="BFS Official">BFS Official</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Author</label>
+                                <select id="crm_news_author" class="ctrl-input">
+                                    <option value="Adv. Praveen Bhardwaj">Adv. Praveen Bhardwaj (MD)</option>
+                                    <option value="BFS Research Desk">BFS Research Desk</option>
+                                    <option value="BFS Editorial Team">BFS Editorial Team</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Contextual In-Article CTA</label>
+                                <select id="crm_news_cta" class="ctrl-input">
+                                    <option value="home-loan">Home Loan (7.15% ROI & Legal Vetting)</option>
+                                    <option value="business-loan">Business Loan (₹1 Cr Collateral-Free)</option>
+                                    <option value="personal-loan">Personal Loan (Fast Approval)</option>
+                                    <option value="cibil-check">CIBIL Health Desk Consultation</option>
+                                    <option value="general">General Advisory</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Featured Image with Auto WebP file input -->
+                        <div style="margin-bottom:14px;">
+                            <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Featured Image (URL or upload for auto WebP conversion)</label>
+                            <div style="display:flex; gap:8px;">
+                                <input type="text" id="crm_news_image" class="ctrl-input" placeholder="https://images.unsplash.com/..." style="flex-grow:1;">
+                                <input type="file" id="crm_news_file_upload" accept="image/*" style="display:none;" onchange="convertCrmImageToWebP(event)">
+                                <button type="button" class="btn-black-outline" onclick="document.getElementById('crm_news_file_upload').click()" style="padding:6px 12px; font-size:11.5px; white-space:nowrap;">
+                                    📁 Upload Photo
+                                </button>
+                            </div>
+                            <div id="crm_news_image_preview" style="margin-top:8px; display:none; height:80px; width:130px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
+                                <img id="crm_news_preview_tag" src="" style="width:100%; height:100%; object-fit:cover;">
+                            </div>
+                        </div>
+
+                        <!-- TL;DR (In a Nutshell) Bullet Points -->
+                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px; margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label style="font-size:12px; font-weight:800; color:#15803d; display:flex; align-items:center; gap:6px;">
+                                    ⚡ In a Nutshell (TL;DR Quick Summary Bullets)
+                                </label>
+                                <button type="button" onclick="addCrmTldrField()" class="btn-black-outline" style="font-size:11px; padding:2px 8px; background:#fff;">
+                                    + Add Point
+                                </button>
+                            </div>
+                            <p style="font-size:11px; color:#475569; margin:0 0 8px 0;">Add 2 to 4 bullet points for busy readers and AI Answer Engines (ChatGPT/Perplexity).</p>
+                            <div id="crm-tldr-container" style="display:flex; flex-direction:column; gap:6px;">
+                                <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #1: Key announcement..." style="background:#fff; font-size:12px;">
+                                <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #2: Direct borrower impact..." style="background:#fff; font-size:12px;">
+                            </div>
+                        </div>
+
+                        <!-- Content Body with HTML Snippet helpers -->
+                        <div style="margin-bottom:14px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                                <label style="font-size:12px; font-weight:800; color:#0f172a;">Article Content (HTML / Markdown supported) *</label>
+                                <div style="display:flex; gap:4px;">
+                                    <button type="button" class="btn-black-outline" style="font-size:10px; padding:2px 6px;" onclick="insertCrmSnippet('<h2>Subheading</h2>')">H2</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10px; padding:2px 6px;" onclick="insertCrmSnippet('<div class="my-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-800"><p><strong>Notice:</strong> Key takeaway.</p></div>')">Note Box</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10px; padding:2px 6px;" onclick="insertCrmSnippet('<table class="w-full border-collapse my-4 text-xs"><thead><tr class="bg-slate-100"><th>Bank</th><th>Rate</th></tr></thead><tbody><tr><td>SBI</td><td>8.50%</td></tr></tbody></table>')">Table</button>
+                                </div>
+                            </div>
+                            <textarea id="crm_news_content" rows="8" class="ctrl-input" placeholder="<p>Full article paragraphs...</p>" required style="font-family:monospace; font-size:12px;"></textarea>
+                        </div>
+
+                        <!-- SEO Customization Drawer -->
+                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:14px;">
+                            <div style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:8px;">
+                                🌐 SEO &amp; Meta Customization
+                            </div>
+                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                                <div>
+                                    <label style="font-size:11px; color:#475569; display:block; margin-bottom:3px;">Custom Meta Title</label>
+                                    <input type="text" id="crm_news_seo_title" class="ctrl-input" placeholder="Leave blank to use headline" style="font-size:11.5px;">
+                                </div>
+                                <div>
+                                    <label style="font-size:11px; color:#475569; display:block; margin-bottom:3px;">Focus Keyword</label>
+                                    <input type="text" id="crm_news_focus_keyword" class="ctrl-input" placeholder="e.g. rbi repo rate agra" style="font-size:11.5px;">
+                                </div>
+                                <div style="grid-column: 1 / -1;">
+                                    <label style="font-size:11px; color:#475569; display:block; margin-bottom:3px;">Meta Description</label>
+                                    <input type="text" id="crm_news_meta_desc" class="ctrl-input" placeholder="Leave blank to use first TL;DR point" style="font-size:11.5px;">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Trending Toggle -->
+                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:18px;">
+                            <input type="checkbox" id="crm_news_is_trending" style="width:16px; height:16px; cursor:pointer;">
+                            <label for="crm_news_is_trending" style="font-size:12.5px; font-weight:800; color:#0f172a; cursor:pointer;">
+                                🔥 Highlight as Breaking / Trending Banner on Homepage
+                            </label>
+                        </div>
+
+                        <!-- Modal Actions -->
+                        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
+                            <button type="button" class="btn-black-outline" onclick="closeCrmNewsModal()">Cancel</button>
+                            <button type="button" class="btn-black-outline" onclick="submitCrmNews('draft')" id="crmNewsDraftBtn">Save as Draft</button>
+                            <button type="button" class="btn-black-solid" onclick="submitCrmNews('published')" style="background:#10b981; border-color:#10b981;" id="crmNewsPublishBtn">
+                                🚀 Publish Live to bfsfin.com
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
         </div> <!-- END SETTINGS CONTENT -->
     </div> <!-- END LAYOUT -->
 </div>
@@ -2107,6 +2328,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             window.history.pushState({ tab: tabId }, '', newUrl);
         }
         
+        if (tabId === 'news') loadCrmNewsDesk();
         if (tabId === 'slabs') loadCommissionSlabs();
         else if (tabId === 'docmatrix') loadDocComplianceMatrix();
         else if (tabId === 'backup') loadSystemHealth();
@@ -4224,6 +4446,265 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         toggleUserFields();
         <?php endif; ?>
     });
+
+    // ==========================================
+    // WEBSITE NEWS & ALERTS MANAGEMENT LOGIC
+    // ==========================================
+    let crmNewsArticlesCache = [];
+
+    async function loadCrmNewsDesk() {
+        const tbody = document.getElementById('crm-news-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="6" style="padding:24px; text-align:center; color:#64748b;">Loading articles from website...</td></tr>';
+
+        try {
+            const res = await fetch('api_website_news.php?action=list');
+            const json = await res.json();
+            crmNewsArticlesCache = json.data || [];
+            
+            // Stats
+            const total = crmNewsArticlesCache.length;
+            const published = crmNewsArticlesCache.filter(a => a.status === 'published').length;
+            const drafts = crmNewsArticlesCache.filter(a => a.status === 'draft').length;
+            const views = crmNewsArticlesCache.reduce((acc, a) => acc + (a.views || 0), 0);
+
+            document.getElementById('crm-news-stat-total').innerText = total;
+            document.getElementById('crm-news-stat-published').innerText = published;
+            document.getElementById('crm-news-stat-drafts').innerText = drafts;
+            document.getElementById('crm-news-stat-views').innerText = views.toLocaleString();
+
+            renderCrmNewsTable();
+        } catch (e) {
+            console.error(e);
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:24px; text-align:center; color:#ef4444;">Error loading news articles.</td></tr>';
+        }
+    }
+
+    function renderCrmNewsTable() {
+        const tbody = document.getElementById('crm-news-table-body');
+        if (!tbody) return;
+
+        const cat = document.getElementById('crm-news-filter-cat')?.value || 'All';
+        const q = (document.getElementById('crm-news-search')?.value || '').toLowerCase().trim();
+
+        const filtered = crmNewsArticlesCache.filter(a => {
+            const matchCat = cat === 'All' || a.category === cat;
+            const matchSearch = !q || a.title.toLowerCase().includes(q) || (a.tldr && a.tldr.some(t => t.toLowerCase().includes(q)));
+            return matchCat && matchSearch;
+        });
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="padding:24px; text-align:center; color:#64748b;">No news articles match filter. Click "+ Publish New Article" to write one!</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = filtered.map(item => {
+            const dateStr = new Date(item.publishedAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+            const isPub = item.status === 'published';
+            return `
+                <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
+                    <td style="padding:10px 14px; width:70px;">
+                        <img src="${item.imageUrl}" style="width:60px; height:42px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;">
+                    </td>
+                    <td style="padding:10px 14px; max-width:320px;">
+                        <div style="font-weight:800; color:#0f172a; line-height:1.3; font-size:12.5px;">
+                            ${item.isTrending ? '<span style="background:#fee2e2; color:#ef4444; font-size:10px; font-weight:800; padding:2px 6px; border-radius:4px; margin-right:4px;">🔥 TRENDING</span>' : ''}
+                            ${item.title}
+                        </div>
+                        <div style="font-size:11px; color:#64748b; margin-top:2px;">/news/${item.slug}</div>
+                    </td>
+                    <td style="padding:10px 14px; white-space:nowrap;">
+                        <span style="background:#eff6ff; color:#2563eb; font-size:10.5px; font-weight:700; padding:3px 8px; border-radius:6px; border:1px solid #bfdbfe;">
+                            ${item.category}
+                        </span>
+                    </td>
+                    <td style="padding:10px 14px; white-space:nowrap;">
+                        <span style="background:${isPub ? '#dcfce7' : '#fef3c7'}; color:${isPub ? '#15803d' : '#b45309'}; font-size:10.5px; font-weight:800; padding:3px 8px; border-radius:12px;">
+                            ${item.status.toUpperCase()}
+                        </span>
+                    </td>
+                    <td style="padding:10px 14px; white-space:nowrap; color:#64748b; font-size:11.5px;">
+                        ${dateStr}
+                    </td>
+                    <td style="padding:10px 14px; text-align:right; white-space:nowrap;">
+                        <a href="https://bfsfin.com/news/${item.slug}" target="_blank" class="btn-black-outline" style="font-size:11px; padding:4px 8px; margin-right:4px;" title="View Live">🌐 View</a>
+                        <button type="button" onclick="editCrmNews('${item.id}')" class="btn-black-outline" style="font-size:11px; padding:4px 8px; margin-right:4px;">✏️ Edit</button>
+                        <button type="button" onclick="deleteCrmNews('${item.id}')" class="btn-black-outline" style="font-size:11px; padding:4px 8px; color:#ef4444;" title="Delete">🗑️</button>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    function openCrmNewsCreateModal() {
+        document.getElementById('crm_news_id').value = '';
+        document.getElementById('crm_news_title').value = '';
+        document.getElementById('crm_news_category').value = 'Banking & RBI';
+        document.getElementById('crm_news_author').value = 'Adv. Praveen Bhardwaj';
+        document.getElementById('crm_news_cta').value = 'home-loan';
+        document.getElementById('crm_news_image').value = 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80';
+        document.getElementById('crm_news_content').value = '';
+        document.getElementById('crm_news_seo_title').value = '';
+        document.getElementById('crm_news_meta_desc').value = '';
+        document.getElementById('crm_news_focus_keyword').value = '';
+        document.getElementById('crm_news_is_trending').checked = false;
+        
+        // Reset TLDR
+        document.getElementById('crm-tldr-container').innerHTML = `
+            <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #1: Key announcement..." style="background:#fff; font-size:12px;">
+            <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #2: Direct borrower impact..." style="background:#fff; font-size:12px;">
+        `;
+
+        document.getElementById('crmNewsModalTitle').innerText = 'Publish New Financial Article to Website';
+        document.getElementById('crmNewsModal').style.display = 'flex';
+    }
+
+    function editCrmNews(id) {
+        const item = crmNewsArticlesCache.find(a => a.id === id);
+        if (!item) return;
+
+        document.getElementById('crm_news_id').value = item.id;
+        document.getElementById('crm_news_title').value = item.title;
+        document.getElementById('crm_news_category').value = item.category;
+        document.getElementById('crm_news_author').value = item.author;
+        document.getElementById('crm_news_cta').value = item.ctaType || 'home-loan';
+        document.getElementById('crm_news_image').value = item.imageUrl || '';
+        document.getElementById('crm_news_content').value = item.content || '';
+        document.getElementById('crm_news_seo_title').value = item.seoTitle || '';
+        document.getElementById('crm_news_meta_desc').value = item.metaDescription || '';
+        document.getElementById('crm_news_focus_keyword').value = item.focusKeyword || '';
+        document.getElementById('crm_news_is_trending').checked = Boolean(item.isTrending);
+
+        const container = document.getElementById('crm-tldr-container');
+        if (item.tldr && item.tldr.length > 0) {
+            container.innerHTML = item.tldr.map(p => `<input type="text" class="ctrl-input crm-tldr-input" value="${p.replace(/"/g, '&quot;')}" style="background:#fff; font-size:12px;">`).join('');
+        } else {
+            container.innerHTML = '<input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #1..." style="background:#fff; font-size:12px;">';
+        }
+
+        document.getElementById('crmNewsModalTitle').innerText = 'Edit Financial Article';
+        document.getElementById('crmNewsModal').style.display = 'flex';
+    }
+
+    function closeCrmNewsModal() {
+        document.getElementById('crmNewsModal').style.display = 'none';
+    }
+
+    function addCrmTldrField() {
+        const container = document.getElementById('crm-tldr-container');
+        const count = container.querySelectorAll('.crm-tldr-input').length + 1;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'ctrl-input crm-tldr-input';
+        input.placeholder = 'Point #' + count + '...';
+        input.style.background = '#fff';
+        input.style.fontSize = '12px';
+        container.appendChild(input);
+    }
+
+    function insertCrmSnippet(text) {
+        const ta = document.getElementById('crm_news_content');
+        ta.value = ta.value + '\n' + text + '\n';
+    }
+
+    function convertCrmImageToWebP(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let w = img.width, h = img.height;
+                const maxD = 1200;
+                if (w > maxD || h > maxD) {
+                    if (w > h) { h = Math.round((h * maxD) / w); w = maxD; }
+                    else { w = Math.round((w * maxD) / h); h = maxD; }
+                }
+                canvas.width = w; canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+                const webp = canvas.toDataURL('image/webp', 0.82);
+                document.getElementById('crm_news_image').value = webp;
+                document.getElementById('crm_news_preview_tag').src = webp;
+                document.getElementById('crm_news_image_preview').style.display = 'block';
+            };
+            img.src = ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function submitCrmNews(statusToSave) {
+        const title = document.getElementById('crm_news_title').value.trim();
+        const content = document.getElementById('crm_news_content').value.trim();
+
+        if (!title) { alert('Please enter article headline'); return; }
+        if (!content) { alert('Please enter article content'); return; }
+
+        const tldrInputs = document.querySelectorAll('.crm-tldr-input');
+        const tldr = Array.from(tldrInputs).map(inp => inp.value.trim()).filter(Boolean);
+
+        const payload = {
+            action: 'save',
+            id: document.getElementById('crm_news_id').value,
+            title: title,
+            category: document.getElementById('crm_news_category').value,
+            author: document.getElementById('crm_news_author').value,
+            ctaType: document.getElementById('crm_news_cta').value,
+            imageUrl: document.getElementById('crm_news_image').value.trim(),
+            content: content,
+            tldr: tldr,
+            status: statusToSave,
+            seoTitle: document.getElementById('crm_news_seo_title').value.trim(),
+            metaDescription: document.getElementById('crm_news_meta_desc').value.trim(),
+            focusKeyword: document.getElementById('crm_news_focus_keyword').value.trim(),
+            isTrending: document.getElementById('crm_news_is_trending').checked
+        };
+
+        const btn = document.getElementById('crmNewsPublishBtn');
+        const oldText = btn.innerHTML;
+        btn.innerHTML = 'Publishing...';
+        btn.disabled = true;
+
+        try {
+            const res = await fetch('api_website_news.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json = await res.json();
+            if (json.success) {
+                alert('Success: ' + (json.message || 'Article published to website!'));
+                closeCrmNewsModal();
+                loadCrmNewsDesk();
+            } else {
+                alert('Error: ' + (json.error || 'Failed to save'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Network error communicating with website API.');
+        } finally {
+            btn.innerHTML = oldText;
+            btn.disabled = false;
+        }
+    }
+
+    async function deleteCrmNews(id) {
+        if (!confirm('Are you sure you want to delete this article from the website?')) return;
+        try {
+            const res = await fetch('api_website_news.php?action=delete&id=' + id);
+            const json = await res.json();
+            if (json.success) {
+                loadCrmNewsDesk();
+            } else {
+                alert('Could not delete: ' + (json.error || 'Unknown error'));
+            }
+        } catch (e) {
+            console.error(e);
+            alert('Error deleting article');
+        }
+    }
+
 </script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
