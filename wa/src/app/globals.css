@@ -229,10 +229,15 @@ html[data-theme="rose"] {
   }
 }
 /* BFS Circle Logo - black in light mode, white in dark mode */
-.bfs-logo {
-  filter: brightness(0);
+.bfs-logo,
+html[data-mode="light"] .bfs-logo {
+  filter: brightness(0) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
 html[data-mode="dark"] .bfs-logo,
 .dark .bfs-logo {
-  filter: brightness(0) invert(1);
+  filter: brightness(0) invert(1) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
 }
