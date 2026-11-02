@@ -120,7 +120,9 @@ $late_punch_penalty_count = $profile['late_punch_penalty_count'] ?? 3;
     }
     .settings-layout { display: flex; gap: 24px; align-items: flex-start; }
     .settings-sidebar { 
-        width: 275px; 
+        width: 275px;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto; 
         background: #ffffff; 
         border-radius: 14px; 
         border: 1px solid #e2e8f0; 
@@ -234,7 +236,7 @@ $late_punch_penalty_count = $profile['late_punch_penalty_count'] ?? 3;
 
 <?php
 $active_tab = trim($_GET['tab'] ?? '');
-$valid_tabs = ['profile', 'finrules', 'slabs', 'security', 'switches', 'notifications', 'docmatrix', 'vault', 'crmconfig', 'gamification', 'integrations', 'users', 'templates', 'ppts', 'tracking', 'backup', 'dangerzone'];
+$valid_tabs = ['profile', 'news', 'finrules', 'slabs', 'security', 'switches', 'notifications', 'docmatrix', 'vault', 'crmconfig', 'gamification', 'integrations', 'users', 'templates', 'ppts', 'tracking', 'backup', 'dangerzone'];
 if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
 ?>
 
@@ -246,6 +248,13 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             <div class="settings-menu-item <?= $active_tab === 'profile' ? 'active' : '' ?>" onclick="switchSettingsTab('profile', this)">
                 <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
                 Company Profile
+            </div>
+            <div class="settings-menu-item <?= $active_tab === 'news' ? 'active' : '' ?>" onclick="switchSettingsTab('news', this)" style="border-left: 3px solid #10b981; background: rgba(16,185,129,0.06); display: flex; align-items: center; justify-content: space-between;">
+                <div style="display: flex; align-items: center; gap: 11px;">
+                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>
+                    <span style="font-weight:800; color:#0f172a;">Website News &amp; Alerts</span>
+                </div>
+                <span style="background:#10b981; color:#fff; font-size:10px; font-weight:800; padding:2px 7px; border-radius:12px; letter-spacing:0.04em;">NEW</span>
             </div>
             <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'Admin'): ?>
             <div class="settings-menu-item <?= $active_tab === 'finrules' ? 'active' : '' ?>" onclick="switchSettingsTab('finrules', this)">
@@ -313,10 +322,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                 Database Backup & Health
             </div>
             <?php endif; ?>
-            <div class="settings-menu-item <?= $active_tab === 'news' ? 'active' : '' ?>" onclick="switchSettingsTab('news', this)" style="border-left: 3px solid #10b981; background: rgba(16,185,129,0.04);">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>
-                <span style="font-weight:800; color:#0f172a;">Website News &amp; Alerts</span>
-            </div>
+            
         </div>
 
         <!-- SETTINGS CONTENT PANELS -->

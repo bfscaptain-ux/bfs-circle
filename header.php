@@ -2857,6 +2857,7 @@ if (isset($db)) {
             { title: 'Referrals / DSA Network', type: 'Page', url: '<?php echo $base_path; ?>referrals_list.php', icon: 'briefcase' },
             { title: 'Staff & HRMS', type: 'Admin', url: '<?php echo $base_path; ?>employees_list.php', icon: 'contact' },
             { title: 'Payout Master', type: 'Admin', url: '<?php echo $base_path; ?>payout_settings.php', icon: 'percent' },
+            { title: 'Website News & Financial Alerts', type: 'Admin', url: '<?php echo $base_path; ?>settings.php?tab=news', icon: 'newspaper' },
             { title: 'CRM Settings', type: 'Admin', url: '<?php echo $base_path; ?>settings.php', icon: 'settings' }
         ];
 
@@ -3592,6 +3593,13 @@ if (isset($db)) {
                 <a href="<?php echo $base_path; ?>settings.php" title="CRM Settings">
                     <i data-lucide="settings"></i>
                     <span class="menu-text">CRM Settings</span>
+                </a>
+            </li>
+            <li class="menu-item <?php echo ($active_page === 'settings.php' && ($_GET['tab'] ?? '') === 'news') ? 'active' : ''; ?>">
+                <a href="<?php echo $base_path; ?>settings.php?tab=news" title="Website News & Financial Alerts" style="display:flex; align-items:center;">
+                    <i data-lucide="newspaper"></i>
+                    <span class="menu-text">Website News</span>
+                    <span style="margin-left:auto; background:#10b981; color:#ffffff; font-size:9px; font-weight:800; padding:1px 6px; border-radius:6px; letter-spacing:0.03em;">NEW</span>
                 </a>
             </li>
 
