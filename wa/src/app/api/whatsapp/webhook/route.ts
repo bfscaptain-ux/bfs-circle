@@ -984,6 +984,8 @@ async function processMessage(
     whatsapp_message_id: message.id,
     content_type: contentType,
     text: contentText,
+    media_url: mediaUrl,
+    media_type: mediaType,
   })
 }
 
