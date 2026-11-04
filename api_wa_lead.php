@@ -37,7 +37,38 @@ $email = trim($payload['email'] ?? '');
 $loanType = trim($payload['loan_type'] ?? $payload['requirement'] ?? 'Loan Inquiry');
 $loanAmount = trim($payload['loan_amount'] ?? $payload['amount'] ?? '');
 $city = trim($payload['city'] ?? $payload['location'] ?? 'Agra');
-$notes = trim($payload['notes'] ?? $payload['message'] ?? 'Lead captured via Official WhatsApp Automation (+91 9286683232)');
+$notes = trim($payload['notes'] ?? $payload['message_text'] ?? $payload['message'] ?? 'Lead captured via Official WhatsApp Automation (+91 9286683232)');
+$contactId = trim($payload['contact_id'] ?? '');
+
+// If mobile is missing but contact_id is provided, resolve from WhatsApp CRM API
+if ((empty($mobile) || strlen($mobile) < 10) && !empty($contactId)) {
+    $cApiUrl = (defined('WACRM_API_URL') ? WACRM_API_URL : 'https://wa.bfsfin.cloud/api/v1') . '/contacts/' . urlencode($contactId);
+    $cApiKey = defined('WACRM_API_KEY') ? WACRM_API_KEY : '';
+    $ch = curl_init($cApiUrl);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    if (!empty($cApiKey)) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $cApiKey,
+            'Content-Type: application/json'
+        ]);
+    }
+    curl_setopt($ch, CURLOPT_TIMEOUT, 6);
+    $cRes = curl_exec($ch);
+    curl_close($ch);
+    if ($cRes) {
+        $cData = json_decode($cRes, true);
+        $contactObj = $cData['data'] ?? $cData;
+        if (!empty($contactObj) && isset($contactObj['phone'])) {
+            $mobile = $contactObj['phone'];
+            if (empty($name) && !empty($contactObj['name'])) {
+                $name = $contactObj['name'];
+            }
+            if (empty($email) && !empty($contactObj['email'])) {
+                $email = $contactObj['email'];
+            }
+        }
+    }
+}
 
 // Normalize mobile number
 $cleanMobile = preg_replace('/\D/', '', $mobile);
@@ -49,7 +80,7 @@ if (strlen($cleanMobile) === 12 && substr($cleanMobile, 0, 2) === '91') {
 
 if (empty($cleanMobile) || strlen($cleanMobile) < 10) {
     http_response_code(400);
-    echo json_encode(['error' => 'Valid 10-digit mobile number is required.']);
+    echo json_encode(['error' => 'Valid 10-digit mobile number is required.', 'received' => $payload]);
     exit;
 }
 
