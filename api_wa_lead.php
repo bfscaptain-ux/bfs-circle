@@ -39,6 +39,9 @@ $loanAmount = trim($payload['loan_amount'] ?? $payload['amount'] ?? '');
 $city = trim($payload['city'] ?? $payload['location'] ?? 'Agra');
 $notes = trim($payload['notes'] ?? $payload['message_text'] ?? $payload['message'] ?? 'Lead captured via Official WhatsApp Automation (+91 9286683232)');
 $contactId = trim($payload['contact_id'] ?? '');
+$mediaUrl = trim($payload['media_url'] ?? $payload['mediaUrl'] ?? '');
+$mediaType = trim($payload['media_type'] ?? $payload['mediaType'] ?? $payload['content_type'] ?? '');
+$filename = trim($payload['filename'] ?? '');
 
 // If mobile is missing but contact_id is provided, resolve from WhatsApp CRM API
 if ((empty($mobile) || strlen($mobile) < 10) && !empty($contactId)) {
@@ -89,6 +92,50 @@ if (empty($name)) {
 }
 
 try {
+    // 0. If this is an incoming document/media from WhatsApp, attach to Applicant / Loan File
+    if (!empty($mediaUrl)) {
+        $appStmt = $db->prepare("SELECT id, customer_name FROM applicants WHERE mobile = ? OR mobile = ? OR mobile LIKE ? LIMIT 1");
+        $appStmt->execute([$cleanMobile, '91' . $cleanMobile, '%' . substr($cleanMobile, -10)]);
+        $applicant = $appStmt->fetch(PDO::FETCH_ASSOC);
+
+        $docName = !empty($filename) ? $filename : 'WhatsApp_Doc_' . date('Ymd_His');
+        if (!empty($mediaType) && strpos($docName, '.') === false) {
+            $ext = strpos($mediaType, 'pdf') !== false ? '.pdf' : (strpos($mediaType, 'png') !== false ? '.png' : '.jpg');
+            $docName .= $ext;
+        }
+
+        // Try downloading to local uploads folder if possible
+        $dbFilePath = $mediaUrl;
+        $uploadDir = __DIR__ . '/uploads/';
+        if (is_dir($uploadDir) && is_writable($uploadDir)) {
+            $savedFilename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $docName);
+            $localDest = $uploadDir . $savedFilename;
+            $fileData = @file_get_contents($mediaUrl);
+            if ($fileData !== false && strlen($fileData) > 0) {
+                if (@file_put_contents($localDest, $fileData)) {
+                    $dbFilePath = 'uploads/' . $savedFilename;
+                }
+            }
+        }
+
+        if ($applicant) {
+            $insDoc = $db->prepare("INSERT INTO applicant_documents (applicant_id, document_category, document_name, file_path, uploaded_at, status, notes, file_type, client_mobile) VALUES (?, 'WhatsApp Upload', ?, ?, CURRENT_TIMESTAMP, 'Pending Verification', 'Received via WhatsApp Cloud API (+91 9286683232)', ?, ?)");
+            $insDoc->execute([$applicant['id'], $docName, $dbFilePath, $mediaType, $cleanMobile]);
+
+            log_activity("📎 WhatsApp document attached for applicant {$applicant['customer_name']}: $docName", "applicant_documents.php?id={$applicant['id']}");
+
+            echo json_encode([
+                'success' => true,
+                'action' => 'document_attached',
+                'applicant_id' => $applicant['id'],
+                'document_name' => $docName,
+                'file_path' => $dbFilePath,
+                'message' => "Document successfully saved to Loan File of '{$applicant['customer_name']}'!"
+            ]);
+            exit;
+        }
+    }
+
     // 1. Check if lead already exists by mobile
     $stmt = $db->prepare("SELECT id, lead_name, stage FROM leads WHERE mobile = ? OR mobile = ? LIMIT 1");
     $stmt->execute([$cleanMobile, '91' . $cleanMobile]);
@@ -96,7 +143,7 @@ try {
 
     if ($existing) {
         // Update existing lead notes and requirement
-        $updateNote = "\n[" . date('d-m-Y H:i') . " WhatsApp Bot]: Loan Req: $loanType ($loanAmount), Notes: $notes";
+        $updateNote = "\n[" . date('d-m-Y H:i') . " WhatsApp Bot]: Loan Req: $loanType ($loanAmount), Notes: $notes" . (!empty($mediaUrl) ? " | Document: $mediaUrl" : "");
         $up = $db->prepare("UPDATE leads SET requirement = COALESCE(NULLIF(?, ''), requirement), loan_amount = COALESCE(NULLIF(?, ''), loan_amount), notes = notes || ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
         $up->execute([$loanType, $loanAmount, $updateNote, $existing['id']]);
 
