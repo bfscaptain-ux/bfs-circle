@@ -30,6 +30,9 @@ echo "======================================================================"
 cd /var/www/crm
 git stash || true
 git pull origin main
+chown -R www-data:www-data /var/www/crm/uploads /var/www/crm/crm.db 2>/dev/null || true
+chmod -R 775 /var/www/crm/uploads 2>/dev/null || true
+chmod 664 /var/www/crm/crm.db 2>/dev/null || true
 
 echo ""
 echo "======================================================================"
