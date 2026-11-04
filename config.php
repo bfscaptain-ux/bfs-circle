@@ -3079,6 +3079,95 @@ if (!function_exists('log_permanent_activity')) {
     }
 }
 
+// ==============================================================================
+// BFS Official WhatsApp CRM Cloud API Integration (https://wa.bfsfin.cloud)
+// Official Number: +91 9286683232
+// ==============================================================================
+if (!defined('WACRM_API_URL')) {
+    define('WACRM_API_URL', 'https://wa.bfsfin.cloud/api/v1');
+}
+if (!defined('WACRM_API_KEY')) {
+    define('WACRM_API_KEY', 'wacrm_live_lh4bScuqYfcV_Cvwk9wKlvBOZWBsJDH6XT0vlo0lvHk');
+}
+if (!defined('WACRM_OFFICIAL_NUMBER')) {
+    define('WACRM_OFFICIAL_NUMBER', '9286683232');
+}
+
+if (!function_exists('send_bfs_whatsapp_cloud_api')) {
+    /**
+     * Universal BFS WhatsApp Cloud API Sender
+     * Sends real-time WhatsApp via https://wa.bfsfin.cloud from official number (+91 9286683232)
+     */
+    function send_bfs_whatsapp_cloud_api($mobile, $message, $customerName = '', $type = 'text', $mediaUrl = null, $filename = null) {
+        $apiKey = defined('WACRM_API_KEY') ? WACRM_API_KEY : '';
+        $apiUrl = defined('WACRM_API_URL') ? rtrim(WACRM_API_URL, '/') : 'https://wa.bfsfin.cloud/api/v1';
+
+        if (empty($apiKey)) {
+            return ['success' => false, 'error' => 'WhatsApp API key is not configured.'];
+        }
+
+        $clean = preg_replace('/\D/', '', (string)$mobile);
+        if (strlen($clean) === 10) {
+            $clean = '91' . $clean;
+        } elseif (strlen($clean) === 11 && substr($clean, 0, 1) === '0') {
+            $clean = '91' . substr($clean, 1);
+        }
+        if (strlen($clean) < 10) {
+            return ['success' => false, 'error' => 'Invalid mobile number.'];
+        }
+        $to = '+' . $clean;
+
+        $payload = [
+            'to' => $to,
+            'type' => $type,
+            'text' => $message
+        ];
+        if (!empty($customerName)) {
+            $payload['name'] = trim($customerName);
+        }
+        if (!empty($mediaUrl)) {
+            $payload['media_url'] = $mediaUrl;
+            if (!empty($filename)) {
+                $payload['filename'] = $filename;
+            }
+        }
+
+        $ch = curl_init($apiUrl . '/messages');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json',
+            'User-Agent: BFS-Loan-CRM/1.0'
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr) {
+            return ['success' => false, 'error' => 'cURL error: ' . $curlErr];
+        }
+
+        $resData = json_decode($response, true);
+        if ($httpCode >= 200 && $httpCode < 300) {
+            return [
+                'success' => true,
+                'data' => $resData['data'] ?? [],
+                'phone' => $to,
+                'message_id' => $resData['data']['message_id'] ?? null
+            ];
+        }
+
+        $errMsg = $resData['error']['message'] ?? ('HTTP ' . $httpCode . ': ' . $response);
+        return ['success' => false, 'error' => $errMsg, 'raw' => $response];
+    }
+}
+
 // Handle API requests globally (when called through other entrypoints)
 if (isset($_GET['api']) && basename($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']) !== 'api.php') {
     require_once __DIR__ . '/api.php';

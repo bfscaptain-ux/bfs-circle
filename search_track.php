@@ -3613,6 +3613,104 @@ BFS Financial Services Sourcing Team`;
         document.getElementById('wa_message_content').value = text;
     }
 
+    async function sendOfficialWhatsAppAPI() {
+        const c = activeWhatsAppContext;
+        const msg = document.getElementById('wa_message_content').value.trim();
+        if (!msg) {
+            showNotification('Please enter a WhatsApp message', 'error');
+            return;
+        }
+
+        let phone = c.mobile ? c.mobile.replace(/\D/g, '') : '';
+        if (phone.length === 10) phone = '91' + phone;
+        if (phone.startsWith('0') && phone.length === 11) phone = '91' + phone.substring(1);
+
+        if (!phone || phone.length < 10) {
+            showNotification('Invalid target phone number for WhatsApp', 'error');
+            return;
+        }
+
+        const btn = document.getElementById('btnSendOfficialWa');
+        const oldBtnHtml = btn ? btn.innerHTML : '';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span style="display:inline-block; width:13px; height:13px; border:2px solid #fff; border-top-color:transparent; border-radius:50%; animation:spin 0.8s linear infinite; margin-right:6px;"></span> Sending via Official WhatsApp (+91 9286683232)...';
+        }
+
+        try {
+            const formData = new FormData();
+            if (window.currentLoadedApplicant && window.currentLoadedApplicant.id) {
+                formData.append('applicant_id', window.currentLoadedApplicant.id);
+            }
+            formData.append('mobile', phone);
+            formData.append('customer_name', c.name || '');
+            formData.append('message', msg);
+            formData.append('channel', 'official');
+
+            const resp = await fetch('api.php?api=send_whatsapp_api', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await resp.json();
+
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = oldBtnHtml;
+            }
+
+            if (data.success) {
+                closeWhatsAppQuickMenu();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'success',
+                        title: '⚡ Message Dispatched Successfully!',
+                        html: `
+                            <div style="text-align:left; font-size:13px; line-height:1.6; color:#1e293b;">
+                                <div style="background:#f0fdf4; border:1px solid #bbf7d0; padding:12px; border-radius:8px; margin-bottom:12px;">
+                                    <div style="font-weight:700; color:#15803d; font-size:13.5px;">✓ Delivered via Official WhatsApp API</div>
+                                    <div style="color:#334155; margin-top:4px;"><strong>From:</strong> +91 9286683232 (Official BFS Business Desk)</div>
+                                    <div style="color:#334155;"><strong>To:</strong> ${c.name} (+${phone})</div>
+                                </div>
+                                <p style="margin:0; color:#64748b; font-size:12px;">
+                                    💬 This conversation is now auto-synced to your <strong>WhatsApp CRM (wa.bfsfin.cloud)</strong> Inbox and Contacts.
+                                </p>
+                            </div>
+                        `,
+                        confirmButtonColor: '#16a34a',
+                        confirmButtonText: 'Great, Done!'
+                    });
+                } else {
+                    showNotification('WhatsApp message sent successfully via Official Desk!', 'success');
+                }
+            } else {
+                const err = data.message || data.error || 'Failed to dispatch via WhatsApp API';
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: 'API Dispatch Notice',
+                        text: err,
+                        showCancelButton: true,
+                        confirmButtonText: 'Open in WhatsApp Web Instead',
+                        confirmButtonColor: '#16a34a',
+                        cancelButtonText: 'Cancel'
+                    }).then(res => {
+                        if (res.isConfirmed) {
+                            sendQuickWhatsApp();
+                        }
+                    });
+                } else {
+                    showNotification(err, 'error');
+                }
+            }
+        } catch (e) {
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = oldBtnHtml;
+            }
+            showNotification('Connection error while sending WhatsApp: ' + e.message, 'error');
+        }
+    }
+
     async function sendQuickWhatsApp() {
         const c = activeWhatsAppContext;
         const msg = document.getElementById('wa_message_content').value.trim();
@@ -4259,8 +4357,13 @@ BFS Financial Services Sourcing Team`;
             </div>
 
             <div style="display:flex; justify-content:flex-end; gap:10px;">
-                <button type="button" onclick="closeWhatsAppQuickMenu()" class="btn btn-secondary" style="padding:8px 16px;">Cancel</button>
-                <button type="button" onclick="sendQuickWhatsApp()" class="btn btn-primary" style="padding:8px 20px; font-weight:700; background:#16a34a; border:none;"><i data-lucide="send" style="width:14px;"></i> Open in WhatsApp</button>
+                <button type="button" onclick="closeWhatsAppQuickMenu()" class="btn btn-secondary" style="padding:8px 16px; border-radius:8px;">Cancel</button>
+                <button type="button" onclick="sendQuickWhatsApp()" class="btn btn-secondary" style="padding:8px 14px; font-size:12px; border-radius:8px; display:inline-flex; align-items:center; gap:6px; background:#f1f5f9; color:#334155; border:1px solid #cbd5e1;" title="Open in Personal WhatsApp Web as alternative">
+                    <i data-lucide="external-link" style="width:13px;"></i> Open in WhatsApp Web
+                </button>
+                <button type="button" id="btnSendOfficialWa" onclick="sendOfficialWhatsAppAPI()" class="btn btn-primary" style="padding:8px 18px; font-weight:700; background:linear-gradient(135deg, #15803d, #16a34a); border:none; border-radius:8px; display:inline-flex; align-items:center; gap:6px; box-shadow:0 2px 8px rgba(22,163,74,0.3);">
+                    <i data-lucide="send" style="width:14px;"></i> ⚡ Send via Official WhatsApp (+91 9286683232)
+                </button>
             </div>
         </div>
     </div>
@@ -4329,21 +4432,66 @@ function generateMissingDocsWhatsAppQuery(appId) {
                 </div>
             `,
             showCancelButton: true,
-            confirmButtonText: '📲 Send via WhatsApp',
+            showDenyButton: true,
+            confirmButtonText: '⚡ Send via Official WhatsApp (+91 9286683232)',
+            denyButtonText: '💬 Open in WhatsApp Web',
             cancelButtonText: 'Copy Text',
             confirmButtonColor: '#16a34a',
-            cancelButtonColor: '#0f172a',
+            denyButtonColor: '#0284c7',
+            cancelButtonColor: '#64748b',
             customClass: { container: 'swal-wide-modal' }
-        }).then((result) => {
+        }).then(async (result) => {
+            const updatedMsg = document.getElementById('swalMissingDocsMsg') ? document.getElementById('swalMissingDocsMsg').value : msg;
             if (result.isConfirmed) {
-                const updatedMsg = document.getElementById('swalMissingDocsMsg').value;
+                if (!cleanMobile) {
+                    showNotification("Customer mobile number is missing", "error");
+                    return;
+                }
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        title: 'Sending Missing Docs Query...',
+                        text: 'Dispatched via Official WhatsApp API (+91 9286683232)',
+                        allowOutsideClick: false,
+                        didOpen: () => Swal.showLoading()
+                    });
+                }
+                try {
+                    const fd = new FormData();
+                    fd.append('applicant_id', appId);
+                    fd.append('mobile', cleanMobile);
+                    fd.append('customer_name', name);
+                    fd.append('message', updatedMsg);
+                    fd.append('channel', 'official');
+                    const r = await fetch('api.php?api=send_whatsapp_api', { method: 'POST', body: fd });
+                    const resJson = await r.json();
+                    if (resJson.success) {
+                        Swal.fire({
+                            icon: 'success',
+                            title: '⚡ Missing Docs Query Sent!',
+                            html: '<div style="text-align:left; font-size:13px;">Query successfully delivered from <strong>Official WhatsApp (+91 9286683232)</strong> and logged to loan file timeline & WhatsApp CRM Inbox!</div>',
+                            confirmButtonColor: '#16a34a'
+                        });
+                    } else {
+                        Swal.fire({
+                            icon: 'warning',
+                            title: 'API Dispatch Notice',
+                            text: resJson.message || 'Could not send via API. Opening in WhatsApp Web.',
+                            confirmButtonText: 'Open in WhatsApp Web',
+                            confirmButtonColor: '#16a34a'
+                        }).then(() => {
+                            window.open(`https://api.whatsapp.com/send?phone=${cleanMobile}&text=` + encodeURIComponent(updatedMsg), '_blank');
+                        });
+                    }
+                } catch(err) {
+                    showNotification("Error sending query: " + err.message, "error");
+                }
+            } else if (result.isDenied) {
                 if (!cleanMobile) {
                     showNotification("Customer mobile number is missing", "error");
                     return;
                 }
                 window.open(`https://api.whatsapp.com/send?phone=${cleanMobile}&text=` + encodeURIComponent(updatedMsg), '_blank');
             } else if (result.dismiss === Swal.DismissReason.cancel) {
-                const updatedMsg = document.getElementById('swalMissingDocsMsg').value;
                 navigator.clipboard.writeText(updatedMsg);
                 if (typeof showNotification === 'function') showNotification("Query text copied to clipboard!", "success");
             }

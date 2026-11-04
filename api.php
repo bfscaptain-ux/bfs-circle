@@ -14102,44 +14102,67 @@ try {
         case 'send_whatsapp_api':
             $applicant_id = intval($_POST['applicant_id'] ?? $_GET['applicant_id'] ?? 0);
             $message = trim($_POST['message'] ?? $_GET['message'] ?? '');
+            $mobile = trim($_POST['mobile'] ?? $_GET['mobile'] ?? '');
+            $customer_name = trim($_POST['customer_name'] ?? $_GET['customer_name'] ?? '');
             $reminder_type = trim($_POST['reminder_type'] ?? $_GET['reminder_type'] ?? 'general');
-            
-            $mobile = '';
-            $customer_name = 'Applicant';
+            $channel = trim($_POST['channel'] ?? 'official'); // 'official' (Meta Cloud API) or 'link'
 
             if ($applicant_id) {
-                $stmt = $db->prepare("SELECT customer_name, mobile, loan_id FROM applicants WHERE id = ?");
+                $stmt = $db->prepare("SELECT customer_name, mobile, loan_id, loan_type FROM applicants WHERE id = ?");
                 $stmt->execute([$applicant_id]);
                 $app = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($app) {
-                    $customer_name = $app['customer_name'];
-                    $mobile = preg_replace('/[^0-9]/', '', $app['mobile'] ?? '');
+                    if (empty($customer_name)) $customer_name = $app['customer_name'];
+                    if (empty($mobile)) $mobile = $app['mobile'];
                 }
-            } else {
-                $mobile = preg_replace('/[^0-9]/', '', $_POST['mobile'] ?? $_GET['mobile'] ?? '');
             }
 
-            if (!$mobile) {
-                return_json(['error' => 'Mobile number is required for WhatsApp dispatch.'], 400);
+            $cleanMobile = preg_replace('/\D/', '', $mobile);
+            if (strlen($cleanMobile) === 10) $cleanMobile = '91' . $cleanMobile;
+            elseif (strlen($cleanMobile) === 11 && substr($cleanMobile, 0, 1) === '0') $cleanMobile = '91' . substr($cleanMobile, 1);
+
+            if (!$cleanMobile || strlen($cleanMobile) < 10) {
+                return_json(['error' => 'Valid mobile number is required for WhatsApp dispatch.'], 400);
+            }
+            if (!$message) {
+                return_json(['error' => 'Message text is required.'], 400);
             }
 
-            // Log activity / interaction
+            // Real-time dispatch via Official WhatsApp Cloud API (9286683232)
+            $apiResult = ['success' => false, 'error' => 'Unknown dispatch failure'];
+            if (function_exists('send_bfs_whatsapp_cloud_api')) {
+                $apiResult = send_bfs_whatsapp_cloud_api($cleanMobile, $message, $customer_name);
+            }
+
+            // Log activity & RM interaction
             try {
-                $username = $_SESSION['username'] ?? 'System_AI';
+                $username = $_SESSION['username'] ?? 'System';
+                $statusText = $apiResult['success'] ? 'Delivered via Official WhatsApp API (+91 9286683232)' : 'Attempted (' . ($apiResult['error'] ?? 'API issue') . ')';
+                $logMsg = "WhatsApp to $customer_name ($cleanMobile): $statusText";
+                $actionLink = $applicant_id ? "search_track.php?app_id=$applicant_id" : null;
+                
                 $db->prepare("INSERT INTO activities (username, description, action_link, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)")
-                   ->execute([$username, "Dispatched WhatsApp missing docs reminder to $customer_name ($mobile)", "applicant_documents.php?id=$applicant_id"]);
+                   ->execute([$username, $logMsg, $actionLink]);
+
+                if ($applicant_id) {
+                    $db->prepare("INSERT INTO rm_interactions (applicant_id, rm_name, interaction_type, notes, outcome, created_at) VALUES (?, ?, 'WhatsApp', ?, ?, CURRENT_TIMESTAMP)")
+                       ->execute([$applicant_id, $username, "Dispatched official WhatsApp message: " . mb_substr($message, 0, 150) . "...", $apiResult['success'] ? 'Sent' : 'Failed']);
+                }
             } catch (Exception $e) {}
 
-            $wa_url = "https://wa.me/91{$mobile}?text=" . urlencode($message);
+            $wa_url = "https://wa.me/{$cleanMobile}?text=" . urlencode($message);
 
             return_json([
-                'success' => true,
-                'message' => 'WhatsApp missing docs follow-up logged & queued.',
+                'success' => $apiResult['success'],
+                'message' => $apiResult['success'] 
+                    ? 'Message sent successfully via Official BFS WhatsApp (+91 9286-683-232)!' 
+                    : ($apiResult['error'] ?? 'Failed to send WhatsApp message via API.'),
+                'api_response' => $apiResult,
+                'official_number' => '9286683232',
                 'whatsapp_url' => $wa_url,
-                'mobile' => $mobile,
-                'customer_name' => $customer_name,
-                'status' => 'queued_for_dispatch'
-            ]);
+                'mobile' => $cleanMobile,
+                'customer_name' => $customer_name
+            ], $apiResult['success'] ? 200 : 502);
             break;
 
         case 'extract_document_details':
