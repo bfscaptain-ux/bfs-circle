@@ -72,14 +72,15 @@ export async function dispatchInboundToAiReply(
     // avoid double-texting the customer. (Relationship triggers like
     // `first_inbound_message` don't count — they're not per-message
     // auto-responders.)
-    const { data: autoResponders } = await db
-      .from('automations')
+    const fifteenSecAgo = new Date(Date.now() - 15000).toISOString()
+    const { data: recentRun } = await db
+      .from('automation_logs')
       .select('id')
       .eq('account_id', accountId)
-      .eq('is_active', true)
-      .in('trigger_type', ['new_message_received', 'keyword_match'])
+      .eq('contact_id', contactId)
+      .gte('created_at', fifteenSecAgo)
       .limit(1)
-    if (autoResponders && autoResponders.length > 0) return
+    if (recentRun && recentRun.length > 0) return
 
     const { data: conv, error: convErr } = await db
       .from('conversations')
