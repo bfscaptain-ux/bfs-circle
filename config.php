@@ -3132,7 +3132,34 @@ if (!function_exists('send_bfs_whatsapp_cloud_api')) {
             }
         }
 
-        $ch = curl_init($apiUrl . '/messages');
+        return bfs_wacrm_dispatch_payload($apiUrl, $apiKey, $payload, $to);
+    }
+}
+
+if (!function_exists('bfs_wacrm_normalize_phone')) {
+    /**
+     * Normalize phone numbers cleanly to E.164 (+91XXXXXXXXXX for Indian 10-digit numbers).
+     */
+    function bfs_wacrm_normalize_phone($mobile) {
+        $clean = preg_replace('/\D/', '', (string)$mobile);
+        if (strlen($clean) === 10) {
+            $clean = '91' . $clean;
+        } elseif (strlen($clean) === 11 && substr($clean, 0, 1) === '0') {
+            $clean = '91' . substr($clean, 1);
+        }
+        if (strlen($clean) < 10) {
+            return '';
+        }
+        return '+' . $clean;
+    }
+}
+
+if (!function_exists('bfs_wacrm_dispatch_payload')) {
+    /**
+     * Shared HTTP transport for POST /api/v1/messages on wa.bfsfin.cloud.
+     */
+    function bfs_wacrm_dispatch_payload($apiUrl, $apiKey, array $payload, $to) {
+        $ch = curl_init(rtrim($apiUrl, '/') . '/messages');
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_POST, true);
         curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
@@ -3165,6 +3192,46 @@ if (!function_exists('send_bfs_whatsapp_cloud_api')) {
 
         $errMsg = $resData['error']['message'] ?? ('HTTP ' . $httpCode . ': ' . $response);
         return ['success' => false, 'error' => $errMsg, 'raw' => $response];
+    }
+}
+
+if (!function_exists('send_bfs_whatsapp_template')) {
+    /**
+     * Send a Meta-approved WhatsApp template via wa.bfsfin.cloud (auto-creates contact/conversation).
+     */
+    function send_bfs_whatsapp_template($mobile, $templateName, $language = 'en_US', array $params = [], $customerName = '') {
+        $apiKey = defined('WACRM_API_KEY') ? WACRM_API_KEY : '';
+        $apiUrl = defined('WACRM_API_URL') ? rtrim(WACRM_API_URL, '/') : 'https://wa.bfsfin.cloud/api/v1';
+
+        if (empty($apiKey)) {
+            return ['success' => false, 'error' => 'WhatsApp API key is not configured.'];
+        }
+
+        $to = bfs_wacrm_normalize_phone($mobile);
+        if (empty($to)) {
+            return ['success' => false, 'error' => 'Invalid mobile number.'];
+        }
+
+        $cleanParams = array_values(array_map(function ($val) {
+            $s = preg_replace('/[\r\n\t]+/', ' ', (string)$val);
+            $s = preg_replace('/\s{2,}/', ' ', trim($s));
+            return $s !== '' ? $s : 'N/A';
+        }, $params));
+
+        $payload = [
+            'to' => $to,
+            'type' => 'template',
+            'template' => [
+                'name' => $templateName,
+                'language' => $language,
+                'params' => $cleanParams,
+            ],
+        ];
+        if (!empty($customerName)) {
+            $payload['name'] = trim($customerName);
+        }
+
+        return bfs_wacrm_dispatch_payload($apiUrl, $apiKey, $payload, $to);
     }
 }
 

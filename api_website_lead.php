@@ -18,6 +18,56 @@ if (!$is_cli) {
 
 require_once __DIR__ . '/config.php';
 
+/**
+ * Send immediate WhatsApp confirmation with the customer's submitted inquiry details.
+ * Uses the dedicated `bfs_website_lead_confirm_v2` Utility template and safely falls back
+ * to `bfs_alert` if v2 is still pending Meta review. Never throws or blocks CRM save.
+ */
+function bfs_send_website_lead_whatsapp($mobile, $customerName, $requirement, $amountOrSlot, $locationProfile) {
+    if (empty($mobile) || !function_exists('send_bfs_whatsapp_template')) {
+        return ['success' => false, 'error' => 'WhatsApp sender unavailable or missing phone'];
+    }
+    try {
+        $nameClean = trim((string)$customerName) ?: 'Customer';
+        $reqClean = trim((string)$requirement) ?: 'Loan Inquiry';
+        $amtClean = trim((string)$amountOrSlot) ?: 'As discussed';
+        $locClean = trim((string)$locationProfile) ?: 'India';
+
+        $res = send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_website_lead_confirm_v2',
+            'en_US',
+            [$nameClean, $reqClean, $amtClean, $locClean],
+            $nameClean
+        );
+        if (!empty($res['success'])) {
+            return $res;
+        }
+        // Fallback #1 while bfs_website_lead_confirm_v2 awaits initial Meta approval (already APPROVED, preserves inquiry details)
+        $amtNumericOrText = ltrim(str_replace('₹', '', $amtClean));
+        $fallback1 = send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_lead_welcome_v1',
+            'en_US',
+            [$nameClean, $reqClean, $amtNumericOrText, 'Senior Credit Advisor'],
+            $nameClean
+        );
+        if (!empty($fallback1['success'])) {
+            return $fallback1;
+        }
+        // Fallback #2 generic approved alert
+        return send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_alert',
+            'en',
+            [$nameClean],
+            $nameClean
+        );
+    } catch (Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 try {
     // 1. Parse Input Data (CLI argument, JSON raw body, or $_POST)
     $input = [];
@@ -235,11 +285,21 @@ try {
             ]);
         }
 
+        $slotLabel = trim("{$slot_date} {$slot_time}") ?: 'Preferred Slot';
+        $wa_appt_res = bfs_send_website_lead_whatsapp(
+            $mobile,
+            $lead_name,
+            "{$p_type} ({$s_type})",
+            "Slot: {$slotLabel}",
+            $city ?: 'Agra'
+        );
+
         echo json_encode([
             'success' => true,
             'id' => $appt_id,
             'lead_id' => $lead_id,
             'type' => 'appointment',
+            'whatsapp' => $wa_appt_res,
             'message' => 'Appointment scheduled and synced to CRM'
         ]);
         exit;
@@ -335,10 +395,22 @@ try {
         log_activity("New Website Lead received: {$lead_name} - {$requirement}{$amt_str}", "leads.php?edit_lead={$new_lead_id}");
     } catch (Exception $e) {}
 
+    // Auto-dispatch instant WhatsApp confirmation with submitted loan inquiry details
+    $amtLabel = $loan_amount > 0 ? ('₹' . number_format($loan_amount)) : 'As discussed';
+    $locProfileLabel = trim($location . (!empty($employment) ? " • {$employment}" : ''));
+    $wa_lead_res = bfs_send_website_lead_whatsapp(
+        $mobile,
+        $lead_name,
+        $requirement,
+        $amtLabel,
+        $locProfileLabel
+    );
+
     echo json_encode([
         'success' => true,
         'lead_id' => $new_lead_id,
         'type' => 'lead',
+        'whatsapp' => $wa_lead_res,
         'message' => 'Apply lead saved to CRM'
     ]);
 
