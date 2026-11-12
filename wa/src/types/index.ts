@@ -604,6 +604,8 @@ export interface ConditionStepConfig {
   operand?: string;
   /** For contact_field equals / message_content contains — comparison value */
   value?: string;
+  /** Optional IANA timezone (e.g. "Asia/Kolkata") for time_of_day evaluation */
+  timezone?: string;
 }
 
 export interface SendWebhookStepConfig {

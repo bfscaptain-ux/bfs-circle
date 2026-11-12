@@ -222,6 +222,17 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && isset($_POST['action']) && 
     
     log_activity("Completed Final Loan Disbursement (₹" . number_format($disbursed_amt) . " via $final_bank_val, Ref: $ref_no_val)", "applicant_bank_assign.php?id=$id");
     
+    if (function_exists('bfs_crm_send_disbursal_wa') && !empty($app['mobile'])) {
+        $refSuffix = $ref_no_val !== '' ? " (Ref #$ref_no_val)" : '';
+        $fmtAmt = "₹" . number_format($disbursed_amt);
+        $fmtDate = date('d M Y', strtotime($disbursed_date_val ?: 'today'));
+        @bfs_crm_send_disbursal_wa(
+            $app['mobile'],
+            $app['customer_name'] ?? 'Customer',
+            trim(($app['loan_type'] ?? 'Loan') . " - " . $final_bank_val . $refSuffix),
+            "$fmtAmt on $fmtDate"
+        );
+    }
     header("Location: applicant_bank_assign.php?id=$id&msg=disbursed");
     exit;
 }

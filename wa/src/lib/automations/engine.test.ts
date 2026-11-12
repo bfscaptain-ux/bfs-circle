@@ -104,7 +104,7 @@ vi.mock("./meta-send", () => ({
   engineSendInteractive: vi.fn(async () => ({ whatsapp_message_id: "m1" })),
 }));
 
-import { runAutomationsForTrigger, triggerMatches } from "./engine";
+import { isWithinTimeOfDay, runAutomationsForTrigger, triggerMatches } from "./engine";
 import type { Automation, KeywordMatchTriggerConfig } from "@/types";
 
 const ACCOUNT = "acct-1";
@@ -548,5 +548,28 @@ describe("triggerMatches — keyword_match", () => {
   it("ignores empty keywords and empty messages in `word` mode", () => {
     expect(on(automation({ keywords: [""], match_type: "word" }), "anything")).toBe(false);
     expect(on(automation({ keywords: ["hi"], match_type: "word" }), "")).toBe(false);
+  });
+});
+
+describe("isWithinTimeOfDay", () => {
+  it("evaluates over-midnight IST windows regardless of host timezone", () => {
+    // 16:00 UTC = 21:30 IST -> inside 20:00-09:30
+    expect(
+      isWithinTimeOfDay("20:00-09:30", "Asia/Kolkata", new Date("2026-11-12T16:00:00Z")),
+    ).toBe(true);
+    // 03:30 UTC = 09:00 IST -> inside 20:00-09:30
+    expect(
+      isWithinTimeOfDay("20:00-09:30", "Asia/Kolkata", new Date("2026-11-12T03:30:00Z")),
+    ).toBe(true);
+    // 04:00 UTC = 09:30 IST -> upper bound exclusive, outside
+    expect(
+      isWithinTimeOfDay("20:00-09:30", "Asia/Kolkata", new Date("2026-11-12T04:00:00Z")),
+    ).toBe(false);
+    // 06:00 UTC = 11:30 IST -> inside daytime 09:30-20:00
+    expect(
+      isWithinTimeOfDay("09:30-20:00", "Asia/Kolkata", new Date("2026-11-12T06:00:00Z")),
+    ).toBe(true);
+    // Missing/malformed operand fails closed
+    expect(isWithinTimeOfDay("", "Asia/Kolkata")).toBe(false);
   });
 });

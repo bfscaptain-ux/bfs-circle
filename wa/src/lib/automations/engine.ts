@@ -779,23 +779,47 @@ async function evaluateCondition(cfg: ConditionStepConfig, args: ExecuteArgs): P
       return text.toLowerCase().includes((cfg.value ?? '').toLowerCase())
     }
     case 'time_of_day': {
-      // operand form "HH:mm-HH:mm" — true if now is within that window
-      // (supports over-midnight ranges like "18:00-09:00").
-      const [from, to] = (cfg.operand ?? '').split('-')
-      if (!from || !to) return false
-      const now = new Date()
-      const mins = now.getHours() * 60 + now.getMinutes()
-      const parse = (s: string) => {
-        const [h, m] = s.split(':').map(Number)
-        return (h || 0) * 60 + (m || 0)
-      }
-      const f = parse(from)
-      const t = parse(to)
-      return f <= t ? mins >= f && mins < t : mins >= f || mins < t
+      return isWithinTimeOfDay(cfg.operand, cfg.timezone)
     }
     default:
       return false
   }
+}
+
+/**
+ * Evaluates whether `now` falls inside an `HH:mm-HH:mm` window in `timezone`
+ * (supports over-midnight windows such as `"20:00-09:30"`).
+ */
+export function isWithinTimeOfDay(
+  operand?: string,
+  timezone?: string,
+  now: Date = new Date(),
+): boolean {
+  const [from, to] = (operand ?? '').split('-')
+  if (!from || !to) return false
+  let mins = now.getHours() * 60 + now.getMinutes()
+  if (timezone) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-GB', {
+        timeZone: timezone,
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }).formatToParts(now)
+      const h = Number(parts.find((p) => p.type === 'hour')?.value ?? '0') % 24
+      const m = Number(parts.find((p) => p.type === 'minute')?.value ?? '0')
+      mins = h * 60 + m
+    } catch {
+      // Invalid timezone falls back to host local time
+    }
+  }
+  const parse = (s: string) => {
+    const [h, m] = s.split(':').map(Number)
+    return (h || 0) * 60 + (m || 0)
+  }
+  const f = parse(from)
+  const t = parse(to)
+  return f <= t ? mins >= f && mins < t : mins >= f || mins < t
 }
 
 function waitMs(cfg: WaitStepConfig): number {

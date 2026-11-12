@@ -4184,7 +4184,21 @@ try {
             log_activity($act_desc, "search_track.php?view_client=$client_id");
             
             $quote_id = $db->lastInsertId();
-            return_json(['success' => true, 'quotation_number' => $quotation_number, 'quotation_id' => $quote_id, 'message' => "Quotation {$quotation_number} saved successfully!"]);
+            $wa_quote_sent = false;
+            if (function_exists('bfs_crm_send_loan_stage_wa')) {
+                $clRow = $db->query("SELECT mobile FROM clients WHERE id = $client_id")->fetch(PDO::FETCH_ASSOC);
+                if (!empty($clRow['mobile'])) {
+                    $qRes = @bfs_crm_send_loan_stage_wa(
+                        $clRow['mobile'],
+                        $c_name,
+                        "Quotation {$quotation_number}",
+                        "Proposal Drafted",
+                        "Estimated Total ₹" . number_format($total_amount, 0) . ". Reply here or call +91 92587-24227 to finalize."
+                    );
+                    $wa_quote_sent = !empty($qRes['success']);
+                }
+            }
+            return_json(['success' => true, 'quotation_number' => $quotation_number, 'quotation_id' => $quote_id, 'whatsapp_sent' => $wa_quote_sent, 'message' => "Quotation {$quotation_number} saved successfully!"]);
             break;
 
         case 'send_quotation_email':
@@ -5957,7 +5971,14 @@ try {
                 $f_stmt->execute([$visit_id, $remarks, $next_meeting_date, $executive_name]);
             }
 
-            return_json(['success' => true, 'message' => 'Visit recorded successfully!']);
+            $wa_visit_sent = false;
+            if (function_exists('bfs_crm_send_field_visit_wa') && !empty($mobile)) {
+                $vPurpose = trim(($custom_profession ?: $profession) ?: 'Field Verification / Consultation');
+                $vLoc = trim($visit_date . ' | ' . ($city ?: $state ?: 'Agra'));
+                $vRes = @bfs_crm_send_field_visit_wa($mobile, $person_name ?: $firm_name, $vPurpose, $vLoc, $executive_name);
+                $wa_visit_sent = !empty($vRes['success']);
+            }
+            return_json(['success' => true, 'whatsapp_sent' => $wa_visit_sent, 'message' => 'Visit recorded successfully!']);
             break;
 
         case 'get_field_visits':
@@ -7191,17 +7212,27 @@ try {
 
                 $db->commit();
 
-                // Optionally dispatch Sanction Email
-                $email_result = null;
-                if ($send_email && !empty($applicant['email'])) {
-                    $email_result = sendCustomerLoanEmail($applicant_id, 'Sanction', ['custom_note' => $email_custom_note]);
-                }
-
-                return_json([
-                    'success' => true,
-                    'message' => 'Loan sanction details saved successfully.' . ($send_email ? ' Customer sanction email dispatched.' : ''),
-                    'sanction_letter_path' => $sanction_letter_path,
-                    'email_result' => $email_result
+                                // Optionally dispatch Sanction Email
+                $email_result = null;
+                if ($send_email && !empty($applicant['email'])) {
+                    $email_result = sendCustomerLoanEmail($applicant_id, 'Sanction', ['custom_note' => $email_custom_note]);
+                }
+
+                $wa_sent = false;
+                if (!empty($applicant['mobile']) && function_exists('bfs_crm_send_loan_stage_wa')) {
+                    $loanTitle = trim((string)($applicant['loan_type'] ?: 'Loan') . ' (' . ($applicant['loan_id'] ?: ('APP-' . $applicant_id)) . ')');
+                    $stageLabel = 'Sanctioned - ' . $sanction_bank;
+                    $stageDetails = 'Rs. ' . number_format((float)$sanctioned_amount) . ' approved. Coordination underway for disbursal formalities.';
+                    $waRes = @bfs_crm_send_loan_stage_wa((string)$applicant['mobile'], (string)($applicant['customer_name'] ?? 'Customer'), $loanTitle, $stageLabel, $stageDetails);
+                    $wa_sent = !empty($waRes['success']);
+                }
+
+                return_json([
+                    'success' => true,
+                    'message' => 'Loan sanction details saved successfully.' . ($send_email ? ' Customer sanction email dispatched.' : ''),
+                    'sanction_letter_path' => $sanction_letter_path,
+                    'email_result' => $email_result,
+                    'whatsapp_sent' => $wa_sent
                 ]);
             } catch (Exception $e) {
                 $db->rollBack();
@@ -8876,20 +8907,37 @@ try {
                 $ok = $stmt->execute([$status, $reason, $stage, $sanctioned_amount, $interest_rate, $tenure_months, $emi, $processing_fee, $assignment_id]);
             }
 
-            if ($ok) {
-                // If marked as Approved and sanctioned amount exists, optionally auto-sync to applicant if none accepted yet
-                if ($status === 'Approved') {
-                    $assign_row = $db->query("SELECT * FROM applicant_bank_assignments WHERE id = $assignment_id")->fetch(PDO::FETCH_ASSOC);
-                    if ($assign_row) {
-                        $app_id = (int)$assign_row['applicant_id'];
-                        $check_accepted = $db->query("SELECT COUNT(*) FROM applicant_bank_assignments WHERE applicant_id = $app_id AND is_accepted = 1")->fetchColumn();
-                        if ($check_accepted == 0 && $sanctioned_amount > 0) {
-                            $db->prepare("UPDATE applicants SET sanction_bank = ?, sanctioned_amount = ?, interest_rate = ?, tenure_months = ?, emi = ?, sanction_letter_path = COALESCE(?, sanction_letter_path) WHERE id = ?")
-                               ->execute([$assign_row['bank_name'], $sanctioned_amount, $interest_rate, $tenure_months, $emi, $sanction_letter_path, $app_id]);
-                        }
-                    }
-                }
-                return_json(['success' => true, 'message' => 'Bank submission and status updated successfully!']);
+                        if ($ok) {
+                $assign_row = $db->query("SELECT * FROM applicant_bank_assignments WHERE id = $assignment_id")->fetch(PDO::FETCH_ASSOC);
+                // If marked as Approved and sanctioned amount exists, optionally auto-sync to applicant if none accepted yet
+                if ($status === 'Approved' && $assign_row) {
+                    $app_id = (int)$assign_row['applicant_id'];
+                    $check_accepted = $db->query("SELECT COUNT(*) FROM applicant_bank_assignments WHERE applicant_id = $app_id AND is_accepted = 1")->fetchColumn();
+                    if ($check_accepted == 0 && $sanctioned_amount > 0) {
+                        $db->prepare("UPDATE applicants SET sanction_bank = ?, sanctioned_amount = ?, interest_rate = ?, tenure_months = ?, emi = ?, sanction_letter_path = COALESCE(?, sanction_letter_path) WHERE id = ?")
+                           ->execute([$assign_row['bank_name'], $sanctioned_amount, $interest_rate, $tenure_months, $emi, $sanction_letter_path, $app_id]);
+                    }
+                }
+
+                $wa_sent = false;
+                if ($assign_row && function_exists('bfs_crm_send_loan_stage_wa')) {
+                    $appStmt = $db->prepare("SELECT id, loan_id, customer_name, mobile, loan_type FROM applicants WHERE id = ? LIMIT 1");
+                    $appStmt->execute([(int)$assign_row['applicant_id']]);
+                    $appRow = $appStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($appRow && !empty($appRow['mobile'])) {
+                        $bankLabel = (string)($assign_row['bank_name'] ?? 'Bank');
+                        $loanTitle = trim((string)($appRow['loan_type'] ?: 'Loan') . ' (' . ($appRow['loan_id'] ?: ('APP-' . $appRow['id'])) . ')');
+                        $stageLabel = trim(($stage ?: $status) . ' - ' . $bankLabel);
+                        $stageDetails = ($status === 'Approved' && $sanctioned_amount > 0)
+                            ? ('Approved Rs. ' . number_format((float)$sanctioned_amount) . ' with ' . $bankLabel)
+                            : ($status === 'Rejected'
+                                ? ($bankLabel . ' update received. Credit team evaluating alternate options.')
+                                : ('Stage: ' . ($stage ?: $status) . ' (' . $bankLabel . ')'));
+                        $waRes = @bfs_crm_send_loan_stage_wa((string)$appRow['mobile'], (string)($appRow['customer_name'] ?? 'Customer'), $loanTitle, $stageLabel, $stageDetails);
+                        $wa_sent = !empty($waRes['success']);
+                    }
+                }
+                return_json(['success' => true, 'message' => 'Bank submission and status updated successfully!', 'whatsapp_sent' => $wa_sent]);
             }
             return_json(['error' => 'Database error'], 500);
             break;

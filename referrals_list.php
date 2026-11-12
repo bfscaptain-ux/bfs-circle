@@ -65,7 +65,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $email_sent = !empty($m_res['success']);
             }
 
-            echo json_encode(['success' => true, 'dsa_code' => $dsa_code, 'email_sent' => $email_sent]);
+            $wa_sent = false;
+            if (function_exists('bfs_crm_send_dsa_approved_wa') && !empty($req['phone'])) {
+                $wa_res = @bfs_crm_send_dsa_approved_wa($req['phone'], $req['name'] ?? 'Partner', $dsa_code, trim(($req['profession'] ?? $ref_type) . ' (' . ($req['city'] ?? 'India') . ')'));
+                $wa_sent = !empty($wa_res['success']);
+            }
+            echo json_encode(['success' => true, 'dsa_code' => $dsa_code, 'email_sent' => $email_sent, 'whatsapp_sent' => $wa_sent]);
             exit;
         }
     }

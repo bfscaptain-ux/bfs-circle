@@ -3283,6 +3283,95 @@ if (!function_exists('bfs_wacrm_upsert_contact')) {
     }
 }
 
+if (!function_exists('bfs_wacrm_send_with_fallback')) {
+    /**
+     * Send a primary WhatsApp Utility template with safe fallback to an approved template.
+     * Never throws or disrupts CRM flows.
+     */
+    function bfs_wacrm_send_with_fallback($mobile, $customerName, $templateName, array $params, $fallbackTemplate = 'bfs_alert', array $fallbackParams = [], $fallbackLang = 'en') {
+        if (empty($mobile) || !function_exists('send_bfs_whatsapp_template')) {
+            return ['success' => false, 'error' => 'WhatsApp sender unavailable or missing phone'];
+        }
+        try {
+            $nameClean = trim((string)$customerName) ?: 'Customer';
+            $res = send_bfs_whatsapp_template($mobile, $templateName, 'en_US', $params, $nameClean);
+            if (!empty($res['success'])) {
+                return $res;
+            }
+            if (!empty($fallbackTemplate)) {
+                $fbParams = !empty($fallbackParams) ? $fallbackParams : [$nameClean];
+                return send_bfs_whatsapp_template($mobile, $fallbackTemplate, $fallbackLang, $fbParams, $nameClean);
+            }
+            return $res;
+        } catch (Throwable $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+}
+
+if (!function_exists('bfs_crm_send_dsa_approved_wa')) {
+    function bfs_crm_send_dsa_approved_wa($mobile, $partnerName, $dsaCode, $profileCity) {
+        $nameClean = trim((string)$partnerName) ?: 'Partner';
+        if (function_exists('bfs_wacrm_upsert_contact') && !empty($mobile)) {
+            @bfs_wacrm_upsert_contact($mobile, $nameClean, '', trim((string)$profileCity), ['Approved DSA', 'Website Partner']);
+        }
+        return bfs_wacrm_send_with_fallback(
+            $mobile,
+            $nameClean,
+            'bfs_dsa_approved_v1',
+            [$nameClean, (string)$dsaCode, trim((string)$profileCity) ?: 'Channel Partner'],
+            'bfs_partner_welcome_v2',
+            [$nameClean, trim((string)$profileCity) ?: 'Approved DSA', 'Code: ' . $dsaCode, 'Monthly MIS Cycle'],
+            'en_US'
+        );
+    }
+}
+
+if (!function_exists('bfs_crm_send_loan_stage_wa')) {
+    function bfs_crm_send_loan_stage_wa($mobile, $customerName, $loanTitle, $stage, $details) {
+        $nameClean = trim((string)$customerName) ?: 'Customer';
+        return bfs_wacrm_send_with_fallback(
+            $mobile,
+            $nameClean,
+            'bfs_loan_stage_update_v1',
+            [$nameClean, trim((string)$loanTitle) ?: 'Loan Application', trim((string)$stage) ?: 'Updated', trim((string)$details) ?: 'In Progress'],
+            'bfs_alert',
+            [$nameClean],
+            'en'
+        );
+    }
+}
+
+if (!function_exists('bfs_crm_send_field_visit_wa')) {
+    function bfs_crm_send_field_visit_wa($mobile, $personName, $purpose, $dateLoc, $execName) {
+        $nameClean = trim((string)$personName) ?: 'Customer';
+        return bfs_wacrm_send_with_fallback(
+            $mobile,
+            $nameClean,
+            'bfs_field_visit_scheduled_v1',
+            [$nameClean, trim((string)$purpose) ?: 'Field Verification', trim((string)$dateLoc) ?: 'Scheduled', trim((string)$execName) ?: 'BFS Officer'],
+            'bfs_alert',
+            [$nameClean],
+            'en'
+        );
+    }
+}
+
+if (!function_exists('bfs_crm_send_disbursal_wa')) {
+    function bfs_crm_send_disbursal_wa($mobile, $customerName, $loanRef, $amtDate) {
+        $nameClean = trim((string)$customerName) ?: 'Customer';
+        return bfs_wacrm_send_with_fallback(
+            $mobile,
+            $nameClean,
+            'bfs_disbursal_referral_v1',
+            [$nameClean, trim((string)$loanRef) ?: 'Loan Disbursed', trim((string)$amtDate) ?: date('d M Y')],
+            'bfs_alert',
+            [$nameClean],
+            'en'
+        );
+    }
+}
+
 // Handle API requests globally (when called through other entrypoints)
 if (isset($_GET['api']) && basename($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']) !== 'api.php') {
     require_once __DIR__ . '/api.php';

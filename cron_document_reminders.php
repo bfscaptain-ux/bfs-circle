@@ -16,15 +16,21 @@ $db->exec("CREATE TABLE IF NOT EXISTS doc_reminders_log (applicant_id INTEGER, s
 $today = date('Y-m-d');
 
 // 2. Fetch all active applicants (not completed, not rejected) who have an email
-$stmt = $db->query("SELECT * FROM applicants WHERE overall_status IN ('Phase 1', 'Phase 2') AND email IS NOT NULL AND email != ''");
+$stmt = $db->query("SELECT * FROM applicants WHERE overall_status IN ('Phase 1', 'Phase 2') AND ((email IS NOT NULL AND email != '') OR (mobile IS NOT NULL AND mobile != ''))");
 $applicants = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$dry_run = (isset($argv) && is_array($argv) && in_array('--dry-run', $argv, true)) || isset($_GET['dry_run']);
+$evaluated = 0;
+$pending_count = 0;
 $sent_count = 0;
+$wa_sent_count = 0;
+$details = [];
 
 // Fetch company SMTP profile
 $company = $db->query("SELECT * FROM company_profile LIMIT 1")->fetch(PDO::FETCH_ASSOC);
 
 foreach ($applicants as $app) {
+    $evaluated++;
     $id = $app['id'];
     
     // Check if already sent today
@@ -65,70 +71,102 @@ foreach ($applicants as $app) {
     // "if some docs have arrived but some are remaining" -> count($docs) > 0 && count($missing_cats) > 0
     
     if (count($docs) > 0 && count($missing_cats) > 0) {
-        // Send Email
-        $mail = new PHPMailer(true);
-        try {
-            if (!empty($company['smtp_host'])) {
-                $mail->isSMTP();
-                $mail->Host       = $company['smtp_host'];
-                $mail->SMTPAuth   = true;
-                $mail->Username   = $company['smtp_user'];
-                $mail->Password   = $company['smtp_pass'];
-                if ($company['smtp_encryption'] === 'ssl') {
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-                } else {
-                    $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $pending_count++;
+        $nameClean = trim((string)($app['customer_name'] ?? 'Customer')) ?: 'Customer';
+        $loanLabel = trim((string)(($app['loan_type'] ?: 'Loan') . (!empty($app['loan_id']) ? (' #' . $app['loan_id']) : '')));
+        $missingList = implode(', ', $missing_cats);
+        if ($dry_run) {
+            $details[] = ['applicant_id' => (int)$app['id'], 'name' => $nameClean, 'has_email' => !empty($app['email']), 'has_mobile' => !empty($app['mobile']), 'missing' => $missing_cats];
+            continue;
+        }
+
+        $emailSent = false;
+        $waSent = false;
+        $smtpUser = trim((string)($company['smtp_user'] ?? $company['smtp_username'] ?? ''));
+        $smtpPass = (string)($company['smtp_pass'] ?? $company['smtp_password'] ?? '');
+        $smtpHost = trim((string)($company['smtp_host'] ?? ''));
+        $smtpEnc  = strtolower(trim((string)($company['smtp_encryption'] ?? 'tls')));
+        $smtpPort = (int)($company['smtp_port'] ?? 587);
+
+        if (!empty($app['email'])) {
+            $mail = new PHPMailer(true);
+            try {
+                if ($smtpHost !== '' && $smtpUser !== '' && $smtpPass !== '') {
+                    $mail->isSMTP();
+                    $mail->Host       = $smtpHost;
+                    $mail->SMTPAuth   = true;
+                    $mail->Username   = $smtpUser;
+                    $mail->Password   = $smtpPass;
+                    if ($smtpEnc === 'ssl') {
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+                    } else {
+                        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+                    }
+                    $mail->Port       = $smtpPort > 0 ? $smtpPort : 587;
+                    $mail->setFrom($smtpUser, $company['company_name'] ?? 'CRM Team');
                 }
-                $mail->Port       = $company['smtp_port'];
-                $mail->setFrom($company['smtp_user'], $company['company_name'] ?? 'CRM Team');
-            } else {
-                // Fallback to PHP mail()
-                $mail->isMail();
-                $mail->setFrom('noreply@crm.local', 'CRM Team');
+                $mail->addAddress($app['email'], $nameClean);
+                $mail->isHTML(true);
+                $mail->Subject = "Pending Documents Reminder - Loan Application #" . $app['loan_id'];
+                $missingHtml = "<ul style='color: #dc2626; font-weight: bold;'>";
+                foreach ($missing_cats as $mc) {
+                    $missingHtml .= "<li>" . htmlspecialchars($mc) . "</li>";
+                }
+                $missingHtml .= "</ul>";
+                $compName = htmlspecialchars($company['company_name'] ?? 'Bhardwaj Financial Services');
+                $custHtml = htmlspecialchars($nameClean);
+                $loanHtml = htmlspecialchars((string)($app['loan_type'] ?? 'Loan'));
+                $mail->Body = <<<HTML
+<div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;'>
+    <div style='background: #0f172a; color: #fff; padding: 20px; text-align: center;'>
+        <h2 style='margin: 0;'>Pending Document Reminder</h2>
+    </div>
+    <div style='padding: 25px; color: #334155; line-height: 1.6;'>
+        <p>Dear <strong>{$custHtml}</strong>,</p>
+        <p>Thank you for initiating your <strong>{$loanHtml}</strong> application with us. We have received your initial documents, however, to process your file swiftly, the following mandatory documents are still pending:</p>
+        {$missingHtml}
+        <p>Please share clear scanned copies/PDFs of these documents at your earliest convenience on WhatsApp (+91 79009-79001) or reply to this email.</p>
+        <p>If you have already submitted these, please ignore this email or contact your loan executive.</p>
+        <hr style='border: none; border-top: 1px solid #e2e8f0; margin: 20px 0;' />
+        <p style='font-size: 12px; color: #64748b;'>Regards,<br/><strong>{$compName}</strong></p>
+    </div>
+</div>
+HTML;
+                $mail->send();
+                $emailSent = true;
+                $sent_count++;
+            } catch (Exception $e) {
+                error_log("Document Reminder Email failed for {$app['email']}: {$mail->ErrorInfo}");
             }
-            
-            $mail->addAddress($app['email'], $app['customer_name']);
-            $mail->isHTML(true);
-            $mail->Subject = "Action Required: Pending Documents for your Loan Application (ID: {$app['loan_id']})";
-            
-            $missing_html = "<ul>";
-            foreach ($missing_cats as $mc) {
-                $missing_html .= "<li><strong>{$mc}</strong></li>";
+        }
+
+        // Dispatch WhatsApp Pending Document Reminder (bfs_doc_request_v1 takes 2 params: {{1}}=name, {{2}}=loan/pending summary)
+        if (!empty($app['mobile']) && function_exists('send_bfs_whatsapp_template')) {
+            $docParam = $loanLabel . ' (Pending: ' . $missingList . ')';
+            if (strlen($docParam) > 120) {
+                $docParam = substr($docParam, 0, 117) . '...';
             }
-            $missing_html .= "</ul>";
-            
-            $company_name = $company['company_name'] ?? 'Our Company';
-            
-            $mail->Body = "
-            <div style='font-family: Arial, sans-serif; color:#333; max-width:600px; margin:0 auto; border:1px solid #ddd; border-radius:8px; overflow:hidden;'>
-                <div style='background:#0f172a; padding:15px; color:#fff; text-align:center;'>
-                    <h2 style='margin:0;'>Missing Document Reminder</h2>
-                </div>
-                <div style='padding:20px;'>
-                    <p>Dear <strong>" . htmlspecialchars($app['customer_name']) . "</strong>,</p>
-                    <p>We have received some of your documents for your <strong>{$loan_type}</strong> application (Loan ID: {$app['loan_id']}), but a few mandatory documents are still pending.</p>
-                    <p>To ensure smooth and fast processing of your application, please submit the following pending documents at your earliest convenience:</p>
-                    {$missing_html}
-                    <p>If you have already submitted these, please ignore this email or contact your loan executive.</p>
-                    <br>
-                    <p>Best regards,<br><strong>{$company_name}</strong></p>
-                </div>
-            </div>";
-            
-            $mail->send();
-            
-            // Log that it was sent today
+            $waRes = @send_bfs_whatsapp_template((string)$app['mobile'], 'bfs_doc_request_v1', 'en_US', [$nameClean, $docParam], $nameClean);
+            if (!empty($waRes['success'])) {
+                $waSent = true;
+                $wa_sent_count++;
+            }
+        }
+
+        if ($emailSent || $waSent) {
             $logIns = $db->prepare("INSERT INTO doc_reminders_log (applicant_id, sent_date) VALUES (?, ?)");
-            $logIns->execute([$id, $today]);
-            
-            $sent_count++;
-            
-        } catch (Exception $e) {
-            // Log error or ignore
-            error_log("Document Reminder Email failed for {$app['email']}: {$mail->ErrorInfo}");
+            $logIns->execute([$app['id'], $today]);
         }
     }
 }
 
-echo json_encode(['success' => true, 'emails_sent' => $sent_count, 'date' => $today]);
-?>
+echo json_encode([
+    'success' => true,
+    'dry_run' => $dry_run,
+    'evaluated' => $evaluated,
+    'pending_count' => $pending_count,
+    'emails_sent' => $sent_count,
+    'whatsapp_sent' => $wa_sent_count,
+    'date' => $today,
+    'details' => $details,
+]);
