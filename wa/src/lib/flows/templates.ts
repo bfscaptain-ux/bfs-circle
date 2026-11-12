@@ -289,7 +289,249 @@ const LEAD_CAPTURE: FlowTemplate = {
 // Registry
 // ============================================================
 
+// ============================================================
+// 4. Bhardwaj Financial Services — Direct Loan & BT Qualification
+// ============================================================
+const BFS_LOAN_QUALIFICATION: FlowTemplate = {
+  slug: "bfs_loan_qualification",
+  name: "BFS Loan & BT Qualification",
+  description:
+    "Bhardwaj Financial Services direct-lender greeting with Interested/Not Interested buttons, all Loan types + Balance Transfer (BT) branching, requirement capture, and city qualification.",
+  icon: "UserPlus",
+  trigger_type: "first_inbound_message",
+  trigger_config: {},
+  entry_node_id: "start",
+  nodes: [
+    {
+      node_key: "start",
+      node_type: "start",
+      config: { next_node_key: "welcome_interest" },
+    },
+    {
+      node_key: "welcome_interest",
+      node_type: "send_buttons",
+      config: {
+        header_text: "Bhardwaj Financial Services",
+        text:
+          "Namaste {{contact.first_name}} ji! 🙏\n\n" +
+          "*Bhardwaj Financial Services* mein aapka swagat hai. Hum apne Credit Desk ke zariye sabhi prakar ke Loans aur Balance Transfer (BT) ki direct suvidha dete hain — bina kisi middleman ke, fast processing aur best interest rates ke saath.\n\n" +
+          "Kya aap naye Loan ya Balance Transfer (BT) ke liye jankari lena chahte hain?",
+        footer_text: "Direct Credit Desk • Agra & PAN India",
+        buttons: [
+          {
+            reply_id: "interested",
+            title: "Interested",
+            next_node_key: "choose_loan_type",
+          },
+          {
+            reply_id: "not_interested",
+            title: "Not Interested",
+            next_node_key: "not_interested_msg",
+          },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "not_interested_msg",
+      node_type: "send_message",
+      config: {
+        text:
+          "Dhanyavaad {{contact.first_name}} ji! 🙏 Koi baat nahi. Jab bhi aapko future mein kisi bhi Loan ya Balance Transfer ki zaroorat ho, aap humein yahan message kar sakte hain. Aapka din shubh rahe!",
+        next_node_key: "end_not_interested",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "end_not_interested",
+      node_type: "end",
+      config: {},
+    },
+    {
+      node_key: "choose_loan_type",
+      node_type: "send_list",
+      config: {
+        header_text: "Loan & BT Options",
+        text:
+          "Bahut badhiya {{contact.first_name}} ji! 👍\n\n" +
+          "Kripya neeche di gayi list se batayein aapko kis tarah ke Loan ya Balance Transfer (BT) ki zaroorat hai:",
+        footer_text: "Tap below to choose",
+        button_label: "Select Loan Type",
+        sections: [
+          {
+            title: "Secured & Property Loans",
+            rows: [
+              {
+                reply_id: "home_loan",
+                title: "Home Loan",
+                description: "Naya ghar kharidne ya ghar banane ke liye",
+                next_node_key: "ask_amount",
+              },
+              {
+                reply_id: "lap_loan",
+                title: "Loan Against Property",
+                description: "Residential ya commercial property par loan",
+                next_node_key: "ask_amount",
+              },
+              {
+                reply_id: "topup_loan",
+                title: "Top-Up Loan",
+                description: "Maujooda loan ke upar extra fund ke liye",
+                next_node_key: "ask_amount",
+              },
+            ],
+          },
+          {
+            title: "Business & Personal",
+            rows: [
+              {
+                reply_id: "business_loan",
+                title: "Business Loan",
+                description: "Vyapar badhane aur working capital ke liye",
+                next_node_key: "ask_amount",
+              },
+              {
+                reply_id: "personal_loan",
+                title: "Personal Loan",
+                description: "Salaried aur self-employed ke liye quick fund",
+                next_node_key: "ask_amount",
+              },
+              {
+                reply_id: "auto_loan",
+                title: "Car / Auto Loan",
+                description: "Nayi ya purani gaadi ke liye loan",
+                next_node_key: "ask_amount",
+              },
+            ],
+          },
+          {
+            title: "Balance Transfer (BT)",
+            rows: [
+              {
+                reply_id: "balance_transfer",
+                title: "Balance Transfer (BT)",
+                description: "Chalte loan ko kam byaj rate par shift karein",
+                next_node_key: "choose_bt_type",
+              },
+            ],
+          },
+        ],
+      } as SendListNodeConfig,
+    },
+    {
+      node_key: "choose_bt_type",
+      node_type: "send_list",
+      config: {
+        header_text: "Balance Transfer (BT)",
+        text:
+          "Bilkul {{contact.first_name}} ji, hum aapka chal raha loan kam interest rate par transfer karne ke saath Top-Up ki suvidha bhi dete hain.\n\n" +
+          "Kripya batayein aapka maujooda (BT) loan kis category ka hai?",
+        footer_text: "Select BT loan category",
+        button_label: "Select BT Loan Type",
+        sections: [
+          {
+            title: "BT Loan Category",
+            rows: [
+              {
+                reply_id: "bt_home",
+                title: "Home Loan BT",
+                description: "Chal rahe Home Loan ko kam rate par shift karein",
+                next_node_key: "ask_bt_details",
+              },
+              {
+                reply_id: "bt_lap",
+                title: "LAP / Property BT",
+                description: "Loan Against Property ka Balance Transfer + Top-Up",
+                next_node_key: "ask_bt_details",
+              },
+              {
+                reply_id: "bt_business",
+                title: "Business Loan BT",
+                description: "Chal rahe Business Loan ko transfer ya consolidate karein",
+                next_node_key: "ask_bt_details",
+              },
+              {
+                reply_id: "bt_personal",
+                title: "Personal Loan BT",
+                description: "Personal Loan ko kam EMI aur behtar rate par shift karein",
+                next_node_key: "ask_bt_details",
+              },
+            ],
+          },
+        ],
+      } as SendListNodeConfig,
+    },
+    {
+      node_key: "ask_bt_details",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "Aapka abhi kitna Balance Transfer (BT) amount bacha hai aur kya aapko saath mein Top-Up bhi chahiye? (Jaise: 25 Lakh BT + 5 Lakh Top-Up)",
+        var_key: "loan_amount",
+        next_node_key: "ask_work_profile",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_amount",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "Shukriya {{contact.first_name}} ji! Aapko lagbhag kitne rupaye ke Loan ki zaroorat hai? (Jaise: 10 Lakh, 25 Lakh, 1 Crore)",
+        var_key: "loan_amount",
+        next_node_key: "ask_work_profile",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "ask_work_profile",
+      node_type: "send_buttons",
+      config: {
+        text:
+          "Note kar liya (Requirement: {{vars.loan_amount}}).\n\n" +
+          "Aapka work profile kya hai, taaki humari Credit Team sahi eligibility aur best rate tayyar kar sake?",
+        buttons: [
+          {
+            reply_id: "salaried",
+            title: "Salaried (Job)",
+            next_node_key: "ask_city",
+          },
+          {
+            reply_id: "business",
+            title: "Business / Self-Emp",
+            next_node_key: "ask_city",
+          },
+        ],
+      } as SendButtonsNodeConfig,
+    },
+    {
+      node_key: "ask_city",
+      node_type: "collect_input",
+      config: {
+        prompt_text:
+          "Aakhri sawal {{contact.first_name}} ji — aap kis shehar (City) se hain aur property/office kis location par hai?",
+        var_key: "city",
+        next_node_key: "final_confirm",
+      } as CollectInputNodeConfig,
+    },
+    {
+      node_key: "final_confirm",
+      node_type: "send_message",
+      config: {
+        text:
+          "Dhanyavaad {{contact.first_name}} ji! 🙏 Aapki requirement humare Credit Desk par register ho gayi hai:\n\n" +
+          "💰 Requirement: {{vars.loan_amount}}\n" +
+          "📍 Location: {{vars.city}}\n\n" +
+          "Humare Senior Credit Officer jald hi aapse contact karke direct loan sanction process aur documents ki jankari denge. Agar aapka koi bhi sawal hai (interest rate, ROI, tenure ya documents), toh aap yahan pooch sakte hain!",
+        next_node_key: "end_qualified",
+      } as SendMessageNodeConfig,
+    },
+    {
+      node_key: "end_qualified",
+      node_type: "end",
+      config: {},
+    },
+  ],
+};
+
 const TEMPLATES: Record<string, FlowTemplate> = {
+  bfs_loan_qualification: BFS_LOAN_QUALIFICATION,
   welcome_menu: WELCOME_MENU,
   faq_bot: FAQ_BOT,
   lead_capture: LEAD_CAPTURE,

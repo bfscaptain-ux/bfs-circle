@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateFlowForActivation, reachableFromEntry } from "./validate";
+import { listFlowTemplates, getFlowTemplate } from "./templates";
 
 const validFlow = {
   name: "Welcome",
@@ -545,5 +546,44 @@ describe("reachableFromEntry", () => {
     ];
     const set = reachableFromEntry("a", nodes);
     expect(set).toEqual(new Set(["a", "b"]));
+  });
+});
+
+describe("starter flow templates", () => {
+  it("all starter templates pass activation validation cleanly", () => {
+    for (const tpl of listFlowTemplates()) {
+      const issues = validateFlowForActivation(
+        {
+          ...tpl,
+          trigger_config: tpl.trigger_config as unknown as Record<string, unknown>,
+        },
+        tpl.nodes.map((n) => ({
+          ...n,
+          config: n.config as unknown as Record<string, unknown>,
+        })),
+      );
+      expect(issues, `template ${tpl.slug} issues`).toEqual([]);
+    }
+  });
+
+  it("bfs_loan_qualification includes Interested/Not Interested, Loan/BT branching, and zero insurance mention", () => {
+    const bfs = getFlowTemplate("bfs_loan_qualification");
+    expect(bfs).not.toBeNull();
+    const serialized = JSON.stringify(bfs).toLowerCase();
+    expect(serialized).not.toContain("insurance");
+    expect(serialized).not.toContain("bima");
+    expect(serialized).not.toContain("sahayata");
+    expect(bfs?.nodes.map((n) => n.node_key)).toEqual(
+      expect.arrayContaining([
+        "welcome_interest",
+        "choose_loan_type",
+        "choose_bt_type",
+        "ask_bt_details",
+        "ask_amount",
+        "ask_work_profile",
+        "ask_city",
+        "final_confirm",
+      ]),
+    );
   });
 });
