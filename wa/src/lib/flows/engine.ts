@@ -42,6 +42,7 @@ import {
 import { decideFallback, resolveFallbackPolicy } from "./fallback";
 import { addContactTagAndDispatch } from "@/lib/contacts/tag-events";
 import { removeContactTag } from "@/lib/contacts/tag-write";
+import { collapseEmptyVarSpaces, resolveUsableContactName } from "@/lib/contacts/contact-name";
 import {
   type CollectInputNodeConfig,
   type ConditionNodeConfig,
@@ -561,10 +562,28 @@ async function evaluateConditionNode(
  */
 function interpolateVars(template: string, vars: Record<string, unknown>): string {
   if (!template) return "";
-  return template.replace(/\{\{vars\.([a-zA-Z0-9_]+)\}\}/g, (_, key) => {
-    const v = vars[key];
-    return v === undefined || v === null ? "" : String(v);
-  });
+  const replaced = template.replace(
+    /\{\{\s*(?:vars\.([a-zA-Z0-9_]+)|contact\.(name|first_name|phone|email)|(first_name|name))\s*\}\}/g,
+    (_, varKey, contactKey, bareKey) => {
+      let v: unknown;
+      if (varKey) {
+        v = vars[varKey];
+      } else if (contactKey) {
+        v =
+          contactKey === "name"
+            ? (vars.contact_name ?? vars.name)
+            : contactKey === "first_name"
+              ? vars.first_name
+              : contactKey === "phone"
+                ? vars.contact_phone
+                : vars.contact_email;
+      } else if (bareKey) {
+        v = bareKey === "first_name" ? vars.first_name : (vars.contact_name ?? vars.name);
+      }
+      return v === undefined || v === null ? "" : String(v);
+    },
+  );
+  return collapseEmptyVarSpaces(replaced);
 }
 
 /**
@@ -1153,6 +1172,30 @@ async function startNewRun(
   // INSERT — partial unique index `idx_one_active_run_per_contact`
   // catches concurrent inserts with 23505. We catch and return as
   // consumed:true (the parallel webhook handles it).
+  // Pre-seed customer name & phone so any node can greet the customer by
+  // name via {{contact.first_name}}, {{contact.name}}, {{vars.first_name}}, etc.
+  const initialVars: Record<string, unknown> = {};
+  try {
+    const { data: contactRow } = await db
+      .from("contacts")
+      .select("name, phone, email")
+      .eq("id", input.contactId)
+      .maybeSingle();
+    const c = contactRow as { name?: string | null; phone?: string | null; email?: string | null } | null;
+    if (c) {
+      const usable = resolveUsableContactName(c.name, c.phone);
+      if (usable) {
+        initialVars.contact_name = usable.fullName;
+        initialVars.first_name = usable.firstName;
+        initialVars.name = usable.fullName;
+      }
+      if (c.phone) initialVars.contact_phone = c.phone;
+      if (c.email) initialVars.contact_email = c.email;
+    }
+  } catch {
+    // Non-fatal: run starts cleanly even without contact lookup.
+  }
+
   const { data: inserted, error: insErr } = await db
     .from("flow_runs")
     .insert({
@@ -1169,6 +1212,7 @@ async function startNewRun(
       conversation_id: input.conversationId,
       status: "active",
       current_node_key: flow.entry_node_id,
+      vars: initialVars,
     })
     .select("*")
     .maybeSingle();

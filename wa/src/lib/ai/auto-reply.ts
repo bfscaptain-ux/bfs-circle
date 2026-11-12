@@ -7,6 +7,7 @@ import { buildSystemPrompt } from './defaults'
 import { buildHandoffSummary } from './handoff'
 import { logAiUsage } from './usage'
 import { latestUserMessage } from './query'
+import { resolveUsableContactName } from '@/lib/contacts/contact-name'
 import {
   engineSendText,
   loadAccountMetaCredentials,
@@ -131,10 +132,25 @@ export async function dispatchInboundToAiReply(
       latestUserMessage(messages),
     )
 
+    // Resolve customer's saved name from CRM contacts (best-effort) so
+    // the AI can greet and address them personally.
+    let customerName = null
+    try {
+      const { data: contactRow } = await db
+        .from('contacts')
+        .select('name, phone')
+        .eq('id', contactId)
+        .maybeSingle()
+      customerName = resolveUsableContactName(contactRow?.name, contactRow?.phone)
+    } catch {
+      customerName = null
+    }
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
       knowledge,
+      customerName,
     })
 
     const { text, handoff, usage } = await generateReply({

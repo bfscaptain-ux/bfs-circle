@@ -24,6 +24,8 @@ import { MAX_TAG_CHAIN_DEPTH, getTagChainDepth } from '@/lib/contacts/tag-chain'
 import { engineSendText, engineSendTemplate, engineSendInteractive } from './meta-send'
 import { validateInteractivePayload } from '@/lib/whatsapp/interactive'
 import { isDeliverableUrl } from '@/lib/webhooks/ssrf'
+import { collapseEmptyVarSpaces, resolveUsableContactName } from '@/lib/contacts/contact-name'
+import type { InteractiveMessagePayload } from '@/lib/whatsapp/interactive'
 
 // ------------------------------------------------------------
 // Public API
@@ -230,6 +232,12 @@ async function executeAutomation(automation: Automation, input: DispatchInput) {
   }
 }
 
+interface CachedContactFields {
+  name: string | null
+  phone: string | null
+  email: string | null
+}
+
 interface ExecuteArgs {
   automation: Automation
   contactId: string | null
@@ -239,6 +247,7 @@ interface ExecuteArgs {
   startPosition: number
   logId: string | null
   triggerEvent: string
+  contact?: CachedContactFields | null
 }
 
 async function executeStepsFrom(args: ExecuteArgs): Promise<void> {
@@ -362,7 +371,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
     case 'send_message': {
       const cfg = step.step_config as SendMessageStepConfig
       if (!args.contactId) throw new Error('send_message needs a contact')
-      const text = interpolate(cfg.text, args)
+      const text = await interpolateAsync(cfg.text, args)
       if (!text.trim()) throw new Error('send_message has empty text')
       const conversationId = await resolveConversationId(args)
       const { whatsapp_message_id } = await engineSendText({
@@ -377,8 +386,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
 
     case 'send_buttons':
     case 'send_list': {
-      const payload = step.step_config as SendButtonsStepConfig | SendListStepConfig
+      const rawPayload = step.step_config as SendButtonsStepConfig | SendListStepConfig
       if (!args.contactId) throw new Error(`${step.step_type} needs a contact`)
+      const payload = await interpolateInteractivePayload(rawPayload, args)
       // Validate against Meta's limits before the network call so a bad
       // payload surfaces as a clear failed-step detail rather than a raw
       // Meta 400 mid-conversation.
@@ -404,7 +414,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       // we MUST emit params in strict numeric order. Lexicographic sort
       // of "1", "2", …, "10" yields "1", "10", "2", … which silently
       // scrambles every template with ≥10 variables.
-      const params = cfg.variables
+      const rawParams = cfg.variables
         ? Object.keys(cfg.variables)
             .sort((a, b) => {
               const na = Number(a)
@@ -418,6 +428,9 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
             })
             .map((k) => String(cfg.variables![k]))
         : []
+      const params = await Promise.all(
+        rawParams.map((p) => interpolateAsync(p, args)),
+      )
       const { whatsapp_message_id } = await engineSendTemplate({
         accountId: args.automation.account_id,
         userId: args.automation.user_id,
@@ -509,7 +522,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!args.contactId) throw new Error('update_contact_field needs a contact')
       // Resolve workflow variables ({{ vars.* }}, {{ message.text }}) so custom
       // values can be populated dynamically from the triggering context.
-      const value = interpolate(cfg.value, args)
+      const value = await interpolateAsync(cfg.value, args)
 
       // Custom fields are encoded as `custom:<custom_field_id>`; anything else
       // is a built-in contact column.
@@ -576,7 +589,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
         pipeline_id: cfg.pipeline_id,
         stage_id: cfg.stage_id,
         contact_id: args.contactId,
-        title: interpolate(cfg.title, args),
+        title: await interpolateAsync(cfg.title, args),
         value: cfg.value ?? 0,
         currency: acct?.default_currency ?? 'USD',
         status: 'open',
@@ -594,7 +607,7 @@ async function runStep(step: AutomationStep, args: ExecuteArgs): Promise<string>
       if (!(await isDeliverableUrl(cfg.url))) {
         throw new Error('send_webhook: destination not allowed')
       }
-      const body = cfg.body_template ? interpolate(cfg.body_template, args) : JSON.stringify(args.context)
+      const body = cfg.body_template ? await interpolateAsync(cfg.body_template, args) : JSON.stringify(args.context)
       const res = await fetch(cfg.url, {
         method: 'POST',
         headers: { 'content-type': 'application/json', ...(cfg.headers ?? {}) },
@@ -790,13 +803,90 @@ function waitMs(cfg: WaitStepConfig): number {
   return Math.max(1_000, cfg.amount * unitMs)
 }
 
+const CONTACT_VAR_PATTERN = /\{\{\s*(?:contact\.|first_name\s*\}\}|name\s*\}\})/i
+
+async function ensureContactLoaded(args: ExecuteArgs): Promise<CachedContactFields | null> {
+  if (args.contact !== undefined) return args.contact
+  if (!args.contactId) {
+    args.contact = null
+    return null
+  }
+  try {
+    const db = supabaseAdmin()
+    const { data } = await db
+      .from('contacts')
+      .select('name, phone, email')
+      .eq('id', args.contactId)
+      .maybeSingle()
+    const row = (data as CachedContactFields | null) ?? null
+    args.contact = row
+    return row
+  } catch {
+    args.contact = null
+    return null
+  }
+}
+
+async function interpolateAsync(s: string, args: ExecuteArgs): Promise<string> {
+  if (!s) return ''
+  if (CONTACT_VAR_PATTERN.test(s)) {
+    await ensureContactLoaded(args)
+  }
+  return interpolate(s, args)
+}
+
+async function interpolateInteractivePayload(
+  payload: InteractiveMessagePayload,
+  args: ExecuteArgs,
+): Promise<InteractiveMessagePayload> {
+  const header = payload.header ? await interpolateAsync(payload.header, args) : undefined
+  const footer = payload.footer ? await interpolateAsync(payload.footer, args) : undefined
+  const body = await interpolateAsync(payload.body, args)
+  if (payload.kind === 'buttons') {
+    const buttons = await Promise.all(
+      payload.buttons.map(async (b) => ({
+        id: b.id,
+        title: await interpolateAsync(b.title, args),
+      })),
+    )
+    return { ...payload, body, ...(header !== undefined ? { header } : {}), ...(footer !== undefined ? { footer } : {}), buttons }
+  }
+  const button_label = await interpolateAsync(payload.button_label, args)
+  const sections = await Promise.all(
+    payload.sections.map(async (sec) => ({
+      ...(sec.title !== undefined ? { title: await interpolateAsync(sec.title, args) } : {}),
+      rows: await Promise.all(
+        sec.rows.map(async (r) => ({
+          id: r.id,
+          title: await interpolateAsync(r.title, args),
+          ...(r.description !== undefined ? { description: await interpolateAsync(r.description, args) } : {}),
+        })),
+      ),
+    })),
+  )
+  return { ...payload, body, button_label, ...(header !== undefined ? { header } : {}), ...(footer !== undefined ? { footer } : {}), sections }
+}
+
 function interpolate(s: string, args: ExecuteArgs): string {
-  return s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
-    const [ns, prop] = String(key).split('.')
+  const usable = args.contact
+    ? resolveUsableContactName(args.contact.name, args.contact.phone)
+    : null
+  const replaced = s.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key) => {
+    const k = String(key)
+    const [ns, prop] = k.split('.')
     if (ns === 'message' && prop === 'text') return String(args.context.message_text ?? '')
     if (ns === 'vars' && prop) return String(args.context.vars?.[prop] ?? '')
+    if (ns === 'contact') {
+      if (prop === 'name') return usable?.fullName ?? ''
+      if (prop === 'first_name') return usable?.firstName ?? ''
+      if (prop === 'phone') return String(args.contact?.phone ?? '')
+      if (prop === 'email') return String(args.contact?.email ?? '')
+    }
+    if (k === 'first_name') return usable?.firstName ?? ''
+    if (k === 'name') return usable?.fullName ?? ''
     return ''
   })
+  return collapseEmptyVarSpaces(replaced)
 }
 
 async function appendResults(

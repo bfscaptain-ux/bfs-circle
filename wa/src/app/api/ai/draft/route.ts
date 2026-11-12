@@ -10,6 +10,7 @@ import { latestUserMessage } from '@/lib/ai/query'
 import { logAiUsage } from '@/lib/ai/usage'
 import { supabaseAdmin } from '@/lib/ai/admin-client'
 import { AiError } from '@/lib/ai/types'
+import { resolveUsableContactName } from '@/lib/contacts/contact-name'
 
 /**
  * POST /api/ai/draft  (agent+)
@@ -47,7 +48,7 @@ export async function POST(request: Request) {
     // row means "not yours / not found" either way.
     const { data: conversation, error: convErr } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, contact_id')
       .eq('id', conversationId)
       .maybeSingle()
     if (convErr) {
@@ -98,10 +99,21 @@ export async function POST(request: Request) {
       latestUserMessage(messages),
     )
 
+    let customerName = null
+    if (conversation.contact_id) {
+      const { data: contactRow } = await supabase
+        .from('contacts')
+        .select('name, phone')
+        .eq('id', conversation.contact_id)
+        .maybeSingle()
+      customerName = resolveUsableContactName(contactRow?.name, contactRow?.phone)
+    }
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'draft',
       knowledge,
+      customerName,
     })
 
     const { text, usage } = await generateReply({ config, systemPrompt, messages })

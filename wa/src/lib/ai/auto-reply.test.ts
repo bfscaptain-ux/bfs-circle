@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   sendTypingIndicator: vi.fn(),
   state: {
     conv: null as Record<string, unknown> | null,
+    contact: { name: 'Rahul Sharma', phone: '919876543210' } as Record<string, unknown> | null,
     autoResponders: [] as { id: string }[],
     claim: true as boolean,
     updatePayload: null as Record<string, unknown> | null,
@@ -33,16 +34,26 @@ vi.mock('@/lib/whatsapp/meta-api', () => ({
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({
     from: (table: string) => {
-      if (table === 'automations') {
-        // .select().eq().eq().in().limit() → active auto-responders
+      if (table === 'automations' || table === 'automation_logs') {
         const chain = {
           select: () => chain,
           eq: () => chain,
           in: () => chain,
+          gte: () => chain,
           limit: () =>
             Promise.resolve({ data: h.state.autoResponders, error: null }),
         }
         return chain
+      }
+      if (table === 'contacts') {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: () =>
+                Promise.resolve({ data: h.state.contact, error: null }),
+            }),
+          }),
+        }
       }
       // conversations
       return {
@@ -96,6 +107,7 @@ beforeEach(() => {
     ai_autoreply_disabled: false,
     ai_reply_count: 0,
   }
+  h.state.contact = { name: 'Rahul Sharma', phone: '919876543210' }
   h.state.autoResponders = []
   h.state.claim = true
   h.state.updatePayload = null
@@ -132,6 +144,22 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.retrieveKnowledge).toHaveBeenCalled()
     const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
     expect(systemPrompt).toContain('Returns accepted within 30 days.')
+  })
+
+  it('injects usable customer name into the AI system prompt', async () => {
+    h.state.contact = { name: 'Rahul Sharma', phone: '919876543210' }
+    await dispatchInboundToAiReply(ARGS)
+    const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(systemPrompt).toContain('Rahul Sharma')
+    expect(systemPrompt).toContain('Rahul')
+  })
+
+  it('asks politely for name when contact name is just a phone number', async () => {
+    h.state.contact = { name: '919876543210', phone: '919876543210' }
+    await dispatchInboundToAiReply(ARGS)
+    const systemPrompt = h.generateReply.mock.calls[0][0].systemPrompt as string
+    expect(systemPrompt).not.toContain('919876543210')
+    expect(systemPrompt).toContain('not saved yet')
   })
 
   it('stands down when an active message-level automation exists', async () => {
