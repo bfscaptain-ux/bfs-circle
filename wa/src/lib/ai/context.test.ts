@@ -3,12 +3,13 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { buildConversationContext } from './context'
 
 /** Minimal fake matching the query chain in buildConversationContext:
- *  from().select().eq().eq().order().limit() → { data, error }. */
+ *  from().select().eq().in().order().limit() → { data, error }. */
 function fakeDb(rows: unknown[]): SupabaseClient {
   const chain = {
     from: () => chain,
     select: () => chain,
     eq: () => chain,
+    in: () => chain,
     order: () => chain,
     limit: () => Promise.resolve({ data: rows, error: null }),
   }
@@ -49,5 +50,21 @@ describe('buildConversationContext', () => {
       'conv-1',
     )
     expect(out).toEqual([{ role: 'user', content: 'real' }])
+  })
+
+  it('preserves prior interactive and template context with populated content_text', async () => {
+    const out = await buildConversationContext(
+      fakeDb([
+        { sender_type: 'customer', content_text: 'Mera slot kab ka tha?' },
+        { sender_type: 'customer', content_text: 'Loan & BT Options' },
+        { sender_type: 'agent', content_text: 'Requirement: Home Loan | Slot: 2026-11-14 05:00 PM' },
+      ]),
+      'conv-1',
+    )
+    expect(out).toEqual([
+      { role: 'assistant', content: 'Requirement: Home Loan | Slot: 2026-11-14 05:00 PM' },
+      { role: 'user', content: 'Loan & BT Options' },
+      { role: 'user', content: 'Mera slot kab ka tha?' },
+    ])
   })
 })
