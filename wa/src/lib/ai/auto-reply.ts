@@ -73,29 +73,32 @@ export async function dispatchInboundToAiReply(
     // avoid double-texting the customer. (Relationship triggers like
     // `first_inbound_message` don't count — they're not per-message
     // auto-responders.)
+    // Fetch recent-automation guard, conversation gates, and recent turn history concurrently
     const fifteenSecAgo = new Date(Date.now() - 15000).toISOString()
-    const { data: recentRun } = await db
-      .from('automation_logs')
-      .select('id')
-      .eq('account_id', accountId)
-      .eq('contact_id', contactId)
-      .gte('created_at', fifteenSecAgo)
-      .limit(1)
-    if (recentRun && recentRun.length > 0) return
+    const [{ data: recentRun }, { data: conv, error: convErr }, messages] =
+      await Promise.all([
+        db
+          .from('automation_logs')
+          .select('id')
+          .eq('account_id', accountId)
+          .eq('contact_id', contactId)
+          .gte('created_at', fifteenSecAgo)
+          .limit(1),
+        db
+          .from('conversations')
+          .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
+          .eq('id', conversationId)
+          .maybeSingle(),
+        buildConversationContext(db, conversationId),
+      ])
 
-    const { data: conv, error: convErr } = await db
-      .from('conversations')
-      .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
-      .eq('id', conversationId)
-      .maybeSingle()
+    if (recentRun && recentRun.length > 0) return
     if (convErr || !conv) return
     if (conv.assigned_agent_id) return // a human owns this thread
     if (conv.ai_autoreply_disabled) return // handed off / turned off here
     // Cheap early-out; the authoritative cap check is the atomic claim
     // below (this read can race a concurrent inbound).
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
-
-    const messages = await buildConversationContext(db, conversationId)
     if (messages.length === 0) return
 
     // Account-wide throttle on the shared BYO key. The per-conversation
@@ -114,37 +117,31 @@ export async function dispatchInboundToAiReply(
       return
     }
 
-    // Every gate has passed — we're committed to attempting a reply, so
-    // show the customer "typing…" (and mark their message read) while the
-    // retrieval + LLM round trips run. Meta clears the indicator after
-    // 25 s or when our reply lands, whichever is first, so there's
-    // nothing to undo on the handoff / no-text path. Strictly
-    // best-effort: a failed indicator must never cost us the reply.
-    if (inboundMessageId) {
-      await showTypingIndicator(db, accountId, inboundMessageId)
-    }
-
-    // Ground the reply in the account's knowledge base (best-effort).
-    const knowledge = await retrieveKnowledge(
-      db,
-      accountId,
-      config,
-      latestUserMessage(messages),
-    )
-
-    // Resolve customer's saved name from CRM contacts (best-effort) so
-    // the AI can greet and address them personally.
-    let customerName = null
-    try {
-      const { data: contactRow } = await db
-        .from('contacts')
-        .select('name, phone')
-        .eq('id', contactId)
-        .maybeSingle()
-      customerName = resolveUsableContactName(contactRow?.name, contactRow?.phone)
-    } catch {
-      customerName = null
-    }
+    // Show "typing…" immediately in parallel with knowledge retrieval and
+    // customer-name lookup so all independent I/O overlaps before calling the LLM.
+    const [, knowledge, customerName] = await Promise.all([
+      inboundMessageId
+        ? showTypingIndicator(db, accountId, inboundMessageId)
+        : Promise.resolve(),
+      retrieveKnowledge(
+        db,
+        accountId,
+        config,
+        latestUserMessage(messages),
+      ),
+      (async () => {
+        try {
+          const { data: contactRow } = await db
+            .from('contacts')
+            .select('name, phone')
+            .eq('id', contactId)
+            .maybeSingle()
+          return resolveUsableContactName(contactRow?.name, contactRow?.phone)
+        } catch {
+          return null
+        }
+      })(),
+    ])
 
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,

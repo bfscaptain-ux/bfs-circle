@@ -291,10 +291,8 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
       const value = change.value
 
       // Handle status updates
-      if (value.statuses) {
-        for (const status of value.statuses) {
-          await handleStatusUpdate(status)
-        }
+      if (value.statuses && value.statuses.length > 0) {
+        await Promise.all(value.statuses.map((status) => handleStatusUpdate(status)))
       }
 
       // Handle incoming messages
@@ -341,27 +339,19 @@ async function processWebhook(body: { entry?: WhatsAppWebhookEntry[] }) {
 
       const decryptedAccessToken = decrypt(config.access_token)
 
-      for (let i = 0; i < value.messages.length; i++) {
-        const message = value.messages[i]
-        const contact = value.contacts[i] || value.contacts[0]
-
-        await processMessage(
-          message,
-          contact,
-          // Tenancy — drives every contact / conversation lookup
-          // and the engines' active-row dispatch.
-          config.account_id,
-          // Audit / sender-of-record — used as the user_id on row
-          // inserts that need it for NOT NULL FK compliance. Always
-          // the admin who saved the WhatsApp config.
-          config.user_id,
-          decryptedAccessToken,
-          // Default ON: the column is NOT NULL DEFAULT TRUE, but a row
-          // read before migration 039 lands would have it undefined,
-          // and losing attachments is the failure mode worth avoiding.
-          config.mirror_inbound_media !== false
-        )
-      }
+      await Promise.all(
+        value.messages.map((message, i) => {
+          const contact = value.contacts![i] || value.contacts![0]
+          return processMessage(
+            message,
+            contact,
+            config.account_id,
+            config.user_id,
+            decryptedAccessToken,
+            config.mirror_inbound_media !== false
+          )
+        })
+      )
     }
   }
 }
@@ -834,28 +824,21 @@ async function processMessage(
   // both reads see the same value and write the same increment, losing one
   // (issue #369). The RPC increments in a single UPDATE and refreshes the
   // last-message summary in the same statement.
-  const { error: convError } = await supabaseAdmin().rpc(
-    'bump_conversation_on_inbound',
-    {
-      p_conversation_id: conversation.id,
-      p_last_message_text: contentText || `[${message.type}]`,
-    }
-  )
+  const [{ error: convError }] = await Promise.all([
+    supabaseAdmin().rpc(
+      'bump_conversation_on_inbound',
+      {
+        p_conversation_id: conversation.id,
+        p_last_message_text: contentText || `[${message.type}]`,
+      }
+    ),
+    reopenClosedConversation(supabaseAdmin(), conversation),
+    flagBroadcastReplyIfAny(accountId, contactRecord.id),
+  ])
 
   if (convError) {
     console.error('Error updating conversation:', convError)
   }
-
-  // A customer writing again re-opens the thread (issue #409). Kept as a
-  // separate conditional statement rather than a `status` field on the
-  // update above so the write can be gated on the row's CURRENT status in
-  // SQL — see the helper for why that matters.
-  await reopenClosedConversation(supabaseAdmin(), conversation)
-
-  // If this contact was a recent broadcast recipient, flag the reply
-  // so the broadcast's `replied_count` advances (via the aggregate
-  // trigger installed in migration 003).
-  await flagBroadcastReplyIfAny(accountId, contactRecord.id)
 
   // ============================================================
   // Flow runner dispatch.
@@ -939,20 +922,20 @@ async function processMessage(
   // logging zero steps. `runAutomationsForTrigger` owns its own try/catch
   // and never throws; the `.catch` is belt-and-braces so one trigger
   // type's failure can't skip the rest of the loop.
-  for (const triggerType of automationTriggers) {
-    await runAutomationsForTrigger({
-      accountId,
-      triggerType,
-      contactId: contactRecord.id,
-      context: {
-        message_text: inboundText,
-        conversation_id: conversation.id,
-        // Only set on interactive taps; drives the interactive_reply
-        // trigger's exact-id match.
-        interactive_reply_id: interactiveReplyId ?? undefined,
-      },
-    }).catch((err) => console.error('[automations] dispatch failed:', err))
-  }
+  await Promise.all(
+    automationTriggers.map((triggerType) =>
+      runAutomationsForTrigger({
+        accountId,
+        triggerType,
+        contactId: contactRecord.id,
+        context: {
+          message_text: inboundText,
+          conversation_id: conversation.id,
+          interactive_reply_id: interactiveReplyId ?? undefined,
+        },
+      }).catch((err) => console.error('[automations] dispatch failed:', err))
+    )
+  )
 
   // AI auto-reply. Runs only for plain-text inbound the deterministic
   // flow runner did NOT consume (flows win over the LLM), and only when
