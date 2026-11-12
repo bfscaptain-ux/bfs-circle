@@ -13,7 +13,7 @@ const h = vi.hoisted(() => ({
   state: {
     conv: null as Record<string, unknown> | null,
     contact: { name: 'Rahul Sharma', phone: '919876543210' } as Record<string, unknown> | null,
-    autoResponders: [] as { id: string }[],
+    autoResponders: [] as { id: string; steps_executed?: { step_type?: string; status?: string; detail?: string }[] | null }[],
     claim: true as boolean,
     updatePayload: null as Record<string, unknown> | null,
     rpcCalls: [] as { name: string; args: unknown }[],
@@ -168,6 +168,33 @@ describe('dispatchInboundToAiReply — eligibility gates', () => {
     expect(h.generateReply).not.toHaveBeenCalled()
     expect(h.engineSendText).not.toHaveBeenCalled()
     expect(h.sendTypingIndicator).not.toHaveBeenCalled()
+  })
+
+  it('stands down when a recent automation log executed an outbound send step', async () => {
+    h.state.autoResponders = [
+      {
+        id: 'auto-send',
+        steps_executed: [{ step_type: 'send_message', status: 'success', detail: 'sent via Meta' }],
+      },
+    ]
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+
+  it('still replies when recent automation only evaluated condition=no without sending', async () => {
+    h.state.autoResponders = [
+      {
+        id: 'auto-cond-only',
+        steps_executed: [
+          { step_type: 'condition', status: 'success', detail: 'branch=no' },
+          { step_type: 'condition', status: 'success', detail: 'branch=no' },
+        ],
+      },
+    ]
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).toHaveBeenCalledTimes(1)
+    expect(h.engineSendText).toHaveBeenCalledTimes(1)
   })
 
   it('does not send when the atomic slot claim loses the race', async () => {

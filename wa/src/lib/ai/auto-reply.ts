@@ -75,15 +75,15 @@ export async function dispatchInboundToAiReply(
     // auto-responders.)
     // Fetch recent-automation guard, conversation gates, and recent turn history concurrently
     const fifteenSecAgo = new Date(Date.now() - 15000).toISOString()
-    const [{ data: recentRun }, { data: conv, error: convErr }, messages] =
+    const [{ data: recentRuns }, { data: conv, error: convErr }, messages] =
       await Promise.all([
         db
           .from('automation_logs')
-          .select('id')
+          .select('id, steps_executed')
           .eq('account_id', accountId)
           .eq('contact_id', contactId)
           .gte('created_at', fifteenSecAgo)
-          .limit(1),
+          .limit(5),
         db
           .from('conversations')
           .select('assigned_agent_id, ai_autoreply_disabled, ai_reply_count')
@@ -92,7 +92,7 @@ export async function dispatchInboundToAiReply(
         buildConversationContext(db, conversationId),
       ])
 
-    if (recentRun && recentRun.length > 0) return
+    if (automationSentOutbound(recentRuns)) return
     if (convErr || !conv) return
     if (conv.assigned_agent_id) return // a human owns this thread
     if (conv.ai_autoreply_disabled) return // handed off / turned off here
@@ -228,6 +228,40 @@ export async function dispatchInboundToAiReply(
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
   }
+}
+
+const AUTOMATION_SEND_STEP_TYPES = new Set([
+  'send_message',
+  'send_buttons',
+  'send_list',
+  'send_template',
+])
+
+interface AutomationLogProbeRow {
+  id: string
+  steps_executed?: { step_type?: string; status?: string }[] | null
+}
+
+/**
+ * Only treat an automation log as an auto-responder stand-down when it actually
+ * executed an outbound send step; condition-only no-ops (`branch=no`) leave
+ * the AI free to answer.
+ */
+function automationSentOutbound(
+  rows: AutomationLogProbeRow[] | null | undefined,
+): boolean {
+  if (!rows || rows.length === 0) return false
+  return rows.some((row) => {
+    if (row.steps_executed == null) return true
+    return (
+      Array.isArray(row.steps_executed) &&
+      row.steps_executed.some(
+        (s) =>
+          s?.status === 'success' &&
+          Boolean(s?.step_type && AUTOMATION_SEND_STEP_TYPES.has(s.step_type)),
+      )
+    )
+  })
 }
 
 /**
