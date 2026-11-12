@@ -3235,6 +3235,54 @@ if (!function_exists('send_bfs_whatsapp_template')) {
     }
 }
 
+if (!function_exists('bfs_wacrm_upsert_contact')) {
+    /**
+     * Create/update a contact in wa.bfsfin.cloud and apply tags (non-blocking, best-effort).
+     */
+    function bfs_wacrm_upsert_contact($mobile, $name = '', $email = '', $company = '', array $tags = []) {
+        $apiKey = defined('WACRM_API_KEY') ? WACRM_API_KEY : '';
+        $apiUrl = defined('WACRM_API_URL') ? rtrim(WACRM_API_URL, '/') : 'https://wa.bfsfin.cloud/api/v1';
+        if (empty($apiKey)) {
+            return ['success' => false, 'error' => 'WhatsApp API key is not configured.'];
+        }
+        $to = bfs_wacrm_normalize_phone($mobile);
+        if (empty($to)) {
+            return ['success' => false, 'error' => 'Invalid mobile number.'];
+        }
+
+        $payload = ['phone' => $to];
+        if (trim((string)$name) !== '') $payload['name'] = trim((string)$name);
+        if (trim((string)$email) !== '') $payload['email'] = trim((string)$email);
+        if (trim((string)$company) !== '') $payload['company'] = trim((string)$company);
+        if (!empty($tags)) $payload['tags'] = array_values($tags);
+
+        $ch = curl_init(rtrim($apiUrl, '/') . '/contacts');
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload, JSON_UNESCAPED_UNICODE));
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Authorization: Bearer ' . $apiKey,
+            'Content-Type: application/json',
+            'User-Agent: BFS-Loan-CRM/1.0'
+        ]);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 8);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
+        curl_close($ch);
+
+        if ($curlErr) {
+            return ['success' => false, 'error' => 'cURL error: ' . $curlErr];
+        }
+        $resData = json_decode($response, true);
+        if ($httpCode >= 200 && $httpCode < 300) {
+            return ['success' => true, 'data' => $resData['data'] ?? []];
+        }
+        return ['success' => false, 'error' => $resData['error']['message'] ?? ('HTTP ' . $httpCode)];
+    }
+}
+
 // Handle API requests globally (when called through other entrypoints)
 if (isset($_GET['api']) && basename($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']) !== 'api.php') {
     require_once __DIR__ . '/api.php';

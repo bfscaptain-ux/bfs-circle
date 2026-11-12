@@ -361,22 +361,25 @@ async function findEntryFlow(
   if (error || !flows) return null;
 
   const typed = flows as FlowRow[];
+  // Pass 1: explicit keyword / quick-reply button flows always win over
+  // generic `first_inbound_message` catch-alls so specialized menus
+  // (e.g. Partner Onboarding buttons or EMI/Doc queries) don't get
+  // hijacked by a default welcome flow on a contact's first inbound tap.
   for (const flow of typed) {
     if (flow.trigger_type === "keyword") {
       const cfg = flow.trigger_config as KeywordTriggerConfig;
       if (candidates.some((text) => matchesKeywordTrigger(text, cfg))) {
         return flow;
       }
-    } else if (flow.trigger_type === "first_inbound_message" && isFirstInbound) {
-      // Also reachable by a tap now: a broadcast template with a
-      // quick-reply button can genuinely be what prompts a contact's
-      // first-ever inbound. The automations dispatcher has always
-      // treated a tap that way (the webhook pushes
-      // `first_inbound_message` regardless of envelope) — flows were
-      // the inconsistent half.
-      return flow;
     }
-    // 'manual' triggers do not auto-start from inbound messages.
+  }
+  // Pass 2: generic first-inbound greeting flow when no keyword matched.
+  if (isFirstInbound) {
+    for (const flow of typed) {
+      if (flow.trigger_type === "first_inbound_message") {
+        return flow;
+      }
+    }
   }
   return null;
 }

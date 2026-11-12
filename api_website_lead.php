@@ -68,6 +68,53 @@ function bfs_send_website_lead_whatsapp($mobile, $customerName, $requirement, $a
     }
 }
 
+/**
+ * Send immediate WhatsApp confirmation for B2B Partner Empanelment requests (/partner).
+ * Uses `bfs_partner_welcome_v2` (with payout, onboarding docs & partner call quick replies)
+ * and safely falls back to `bfs_website_lead_confirm_v2` / `bfs_alert` if pending approval.
+ */
+function bfs_send_partner_whatsapp($mobile, $partnerName, $profession, $city, $monthlyVolume) {
+    if (empty($mobile) || !function_exists('send_bfs_whatsapp_template')) {
+        return ['success' => false, 'error' => 'WhatsApp sender unavailable or missing phone'];
+    }
+    try {
+        $nameClean = trim((string)$partnerName) ?: 'Partner';
+        $profClean = trim((string)$profession) ?: 'Channel Partner / DSA';
+        $cityClean = trim((string)$city) ?: 'India';
+        $volClean  = trim((string)$monthlyVolume) ?: '₹25 Lakh - ₹1 Crore';
+
+        $res = send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_partner_welcome_v2',
+            'en_US',
+            [$nameClean, $profClean, $cityClean, $volClean],
+            $nameClean
+        );
+        if (!empty($res['success'])) {
+            return $res;
+        }
+        $fallback = send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_website_lead_confirm_v2',
+            'en_US',
+            [$nameClean, 'B2B Partner Empanelment (' . $profClean . ')', $volClean, $cityClean],
+            $nameClean
+        );
+        if (!empty($fallback['success'])) {
+            return $fallback;
+        }
+        return send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_alert',
+            'en',
+            [$nameClean],
+            $nameClean
+        );
+    } catch (Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 try {
     // 1. Parse Input Data (CLI argument, JSON raw body, or $_POST)
     $input = [];
@@ -124,9 +171,33 @@ try {
                    isset($input['monthlyVolume']));
 
     if ($is_partner) {
-        $profession = trim($input['profession'] ?? 'Partner / DSA');
-        $experience = trim($input['experience'] ?? '1-3 Years');
-        $monthly_volume = trim($input['monthlyVolume'] ?? $input['monthly_volume'] ?? '₹25L - ₹50L');
+        $profession = trim((string)($input['profession'] ?? ''));
+        $experience = trim((string)($input['experience'] ?? ''));
+        $monthly_volume = trim((string)($input['monthlyVolume'] ?? $input['monthly_volume'] ?? ''));
+
+        // Backfill from subType / structured message if frontend sent older payload shape
+        if ($profession === '' && $sub_type !== '') {
+            $profession = $sub_type;
+        }
+        if ($profession === '' && preg_match('/Profession:\s*([^|]+)/i', $message, $m)) {
+            $profession = trim($m[1]);
+        }
+        if ($experience === '' && preg_match('/Experience:\s*([^|]+)/i', $message, $m)) {
+            $experience = trim($m[1]);
+        }
+        if ($monthly_volume === '' && preg_match('/Monthly Volume:\s*([^|]+)/i', $message, $m)) {
+            $monthly_volume = trim($m[1]);
+        }
+        if (empty($input['state']) && preg_match('/State:\s*([^|]+)/i', $message, $m)) {
+            $parsedState = trim($m[1]);
+            if ($parsedState !== '' && strtoupper($parsedState) !== 'N/A') {
+                $state = $parsedState;
+            }
+        }
+
+        if ($profession === '') $profession = 'Partner / DSA';
+        if ($experience === '') $experience = '1 - 3 Years';
+        if ($monthly_volume === '') $monthly_volume = '₹25 Lakh - ₹1 Crore';
 
         // Check recent duplicate
         if (!empty($mobile)) {
@@ -165,10 +236,26 @@ try {
             log_activity("New Partner Registration: {$lead_name} ({$profession})", "partner_requests.php");
         } catch (Exception $e) {}
 
+        // Tag contact in WhatsApp CRM as 'Website Partner' + send immediate Partner Empanelment WhatsApp template
+        $wa_tag_res = ['success' => false];
+        if (function_exists('bfs_wacrm_upsert_contact') && !empty($mobile)) {
+            $wa_tag_res = bfs_wacrm_upsert_contact(
+                $mobile,
+                $lead_name,
+                $email,
+                trim("{$profession} • {$city} • {$monthly_volume}"),
+                ['Website Partner']
+            );
+        }
+        $wa_res = bfs_send_partner_whatsapp($mobile, $lead_name, $profession, $city, $monthly_volume);
+
         echo json_encode([
             'success' => true,
             'id' => $partner_id,
             'type' => 'partner',
+            'whatsapp_sent' => !empty($wa_res['success']),
+            'whatsapp_tagged' => !empty($wa_tag_res['success']),
+            'whatsapp_error' => !empty($wa_res['success']) ? null : ($wa_res['error'] ?? null),
             'message' => 'Partner request successfully received in CRM'
         ]);
         exit;
