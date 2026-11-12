@@ -115,6 +115,37 @@ function bfs_send_partner_whatsapp($mobile, $partnerName, $profession, $city, $m
     }
 }
 
+/**
+ * Send dedicated Appointment Confirmation WhatsApp template (/appointment)
+ * showing exact Date & Time Slot + "Yes, I am Ready" / "Need to Reschedule"
+ * buttons, falling back safely to bfs_website_lead_confirm_v2 if pending.
+ */
+function bfs_send_appointment_confirm_whatsapp($mobile, $customerName, $serviceTopic, $dateTimeSlot, $city) {
+    if (empty($mobile) || !function_exists('send_bfs_whatsapp_template')) {
+        return ['success' => false, 'error' => 'WhatsApp sender unavailable or missing phone'];
+    }
+    try {
+        $nameClean = trim((string)$customerName) ?: 'Customer';
+        $topicClean = trim((string)$serviceTopic) ?: 'Financial Consultation';
+        $slotClean = trim((string)$dateTimeSlot) ?: 'Scheduled Slot';
+        $cityClean = trim((string)$city) ?: 'Agra';
+
+        $res = send_bfs_whatsapp_template(
+            $mobile,
+            'bfs_appointment_confirm_v1',
+            'en_US',
+            [$nameClean, $topicClean, $slotClean, $cityClean],
+            $nameClean
+        );
+        if (!empty($res['success'])) {
+            return $res;
+        }
+        return bfs_send_website_lead_whatsapp($mobile, $nameClean, $topicClean, 'Slot: ' . $slotClean, $cityClean);
+    } catch (Throwable $e) {
+        return ['success' => false, 'error' => $e->getMessage()];
+    }
+}
+
 try {
     // 1. Parse Input Data (CLI argument, JSON raw body, or $_POST)
     $input = [];
@@ -372,12 +403,12 @@ try {
             ]);
         }
 
-        $slotLabel = trim("{$slot_date} {$slot_time}") ?: 'Preferred Slot';
-        $wa_appt_res = bfs_send_website_lead_whatsapp(
+        $slotLabel = trim($slot_date . ($slot_date !== '' && $slot_time !== '' ? ' | ' : '') . $slot_time) ?: 'Preferred Slot';
+        $wa_appt_res = bfs_send_appointment_confirm_whatsapp(
             $mobile,
             $lead_name,
-            "{$p_type} ({$s_type})",
-            "Slot: {$slotLabel}",
+            "{$p_type} - {$s_type}",
+            $slotLabel,
             $city ?: 'Agra'
         );
 
