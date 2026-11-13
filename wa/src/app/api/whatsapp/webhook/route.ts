@@ -23,6 +23,8 @@ import { verifyMetaWebhookSignature } from '@/lib/whatsapp/webhook-signature'
 import { runAutomationsForTrigger } from '@/lib/automations/engine'
 import { dispatchInboundToFlows } from '@/lib/flows/engine'
 import { dispatchInboundToAiReply } from '@/lib/ai/auto-reply'
+import { loadAiConfig } from '@/lib/ai/config'
+import { transcribeAudioWithGemini } from '@/lib/ai/transcribe'
 import { dispatchWebhookEvent } from '@/lib/webhooks/deliver'
 import {
   handleTemplateWebhookChange,
@@ -1318,9 +1320,41 @@ async function parseMessageContent(
 
     case 'audio':
       if (message.audio?.id) {
+        const mediaUrl = await verifyAndBuildUrl(message.audio.id)
+        let transcribedText: string | null = null
+
+        // Transcribe voice note using Gemini API if account has AI config
+        if (mirror?.accountId) {
+          try {
+            const aiConf = await loadAiConfig(supabaseAdmin(), mirror.accountId)
+            if (aiConf?.apiKey && mediaUrl) {
+              const audioInfo = await getMediaUrl({ mediaId: message.audio.id, accessToken })
+              const audioRes = await fetch(audioInfo.url, {
+                headers: { Authorization: `Bearer ${accessToken}` },
+              })
+              if (audioRes.ok) {
+                const arrayBuf = await audioRes.arrayBuffer()
+                const b64 = Buffer.from(arrayBuf).toString('base64')
+                const transcript = await transcribeAudioWithGemini({
+                  audioBase64: b64,
+                  mimeType: message.audio.mime_type,
+                  apiKey: aiConf.apiKey,
+                  model: aiConf.model,
+                })
+                if (transcript) {
+                  transcribedText = `🎤 [Voice Note]: ${transcript}`
+                }
+              }
+            }
+          } catch (err) {
+            console.warn('[webhook] audio transcription failed:', err)
+          }
+        }
+
         return {
           ...empty,
-          mediaUrl: await verifyAndBuildUrl(message.audio.id),
+          contentText: transcribedText,
+          mediaUrl,
           mediaType: message.audio.mime_type,
         }
       }

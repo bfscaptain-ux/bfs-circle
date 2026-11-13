@@ -30,6 +30,7 @@ vi.mock('@/lib/flows/meta-send', () => ({
 }))
 vi.mock('@/lib/whatsapp/meta-api', () => ({
   sendTypingIndicator: h.sendTypingIndicator,
+  sendTextMessage: vi.fn().mockResolvedValue({ messageId: 'alert-msg-1' }),
 }))
 vi.mock('./admin-client', () => ({
   supabaseAdmin: () => ({

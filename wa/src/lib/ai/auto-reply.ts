@@ -14,6 +14,9 @@ import {
 } from '@/lib/flows/meta-send'
 import { sendTypingIndicator } from '@/lib/whatsapp/meta-api'
 import { checkRateLimit, RATE_LIMITS } from '@/lib/rate-limit'
+import { isOutsideBusinessHours, buildNightModeMessage } from './night-mode'
+import { isVipLeadInquiry, sendVipLeadAlert } from './vip-alert'
+import { extractLoanDetails, syncLeadToMainCrm } from './crm-sync'
 
 interface DispatchArgs {
   /** Tenancy key — drives config, contact, and whatsapp_config lookups. */
@@ -231,6 +234,38 @@ export async function dispatchInboundToAiReply(
       })(),
     ])
 
+    // Night Mode / Business Hours check (9:30 AM to 7:00 PM IST, Mon-Sat)
+    const isNightModeEnabled =
+      process.env.NODE_ENV !== 'test' &&
+      process.env.ENABLE_NIGHT_MODE !== 'false'
+
+    if (isNightModeEnabled && isOutsideBusinessHours()) {
+      // Check if we already sent an out-of-office message recently (within 8 hours)
+      const eightHoursAgo = new Date(Date.now() - 8 * 60 * 60 * 1000).toISOString()
+      const { data: recentNightMsg } = await db
+        .from('messages')
+        .select('id, content_text')
+        .eq('conversation_id', conversationId)
+        .eq('sender_type', 'bot')
+        .gte('created_at', eightHoursAgo)
+        .ilike('content_text', '%office band hai%')
+        .limit(1)
+        .maybeSingle()
+
+      if (!recentNightMsg) {
+        const nightText = buildNightModeMessage(customerName?.firstName)
+        await engineSendText({
+          accountId,
+          userId: configOwnerUserId,
+          conversationId,
+          contactId,
+          text: nightText,
+          aiGenerated: true,
+        })
+      }
+      return
+    }
+
     const systemPrompt = buildSystemPrompt({
       userPrompt: config.systemPrompt,
       mode: 'auto_reply',
@@ -253,6 +288,61 @@ export async function dispatchInboundToAiReply(
       model: config.model,
       usage,
     })
+
+    // Background CRM Lead Auto-Sync and VIP Alert triggers
+    const allRecentText = messages
+      .filter((m) => m.role === 'user')
+      .map((m) => m.content)
+      .join(' ')
+
+    // 1. VIP Alert to Admin Phone if high-ticket
+    if (isVipLeadInquiry(allRecentText) || isVipLeadInquiry(text)) {
+      void (async () => {
+        try {
+          const { data: contactRow } = await db
+            .from('contacts')
+            .select('phone')
+            .eq('id', contactId)
+            .maybeSingle()
+          await sendVipLeadAlert({
+            db,
+            accountId,
+            customerName: customerName?.fullName,
+            customerPhone: contactRow?.phone,
+            loanDetails: latestUserMessage(messages) || allRecentText,
+            conversationId,
+          })
+        } catch (err) {
+          console.warn('[auto-reply] VIP alert dispatch failed:', err)
+        }
+      })()
+    }
+
+    // 2. Auto-Sync to Main CRM (crm.bfsfin.cloud)
+    void (async () => {
+      try {
+        const extracted = extractLoanDetails(allRecentText)
+        if (extracted.loanAmount || extracted.loanType) {
+          const { data: contactRow } = await db
+            .from('contacts')
+            .select('phone')
+            .eq('id', contactId)
+            .maybeSingle()
+          if (contactRow?.phone) {
+            await syncLeadToMainCrm({
+              name: customerName?.fullName || 'WhatsApp Lead',
+              phone: contactRow.phone,
+              loan_type: extracted.loanType || 'Loan Inquiry',
+              loan_amount: extracted.loanAmount || '',
+              notes: `CIBIL: ${extracted.cibil || 'N/A'} | Chat: ${latestUserMessage(messages)}`,
+              contact_id: contactId,
+            })
+          }
+        }
+      } catch (err) {
+        console.warn('[auto-reply] CRM sync dispatch failed:', err)
+      }
+    })()
 
     if (handoff || !text) {
       const summary = buildHandoffSummary({
