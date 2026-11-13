@@ -192,6 +192,20 @@ export async function dispatchInboundToAiReply(
         update.assigned_agent_id = config.handoffAgentId
       }
       await db.from('conversations').update(update).eq('id', conversationId)
+
+      // If the model produced explanatory text before handing off (e.g. telling
+      // the customer a Senior Director / agent is connecting), send it so the
+      // customer is never left in dead silence.
+      if (text) {
+        await engineSendText({
+          accountId,
+          userId: configOwnerUserId,
+          conversationId,
+          contactId,
+          text,
+          aiGenerated: true,
+        })
+      }
       return
     }
 
