@@ -2,7 +2,7 @@ import { NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia, sendTypingIndicator } from '@/lib/whatsapp/meta-api'
-import { loadAccountMetaCredentials } from '@/lib/flows/meta-send'
+import { loadAccountMetaCredentials, engineSendInteractiveButtons } from '@/lib/flows/meta-send'
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import {
@@ -900,14 +900,69 @@ async function processMessage(
           },
     isFirstInboundMessage,
   })
-  const flowConsumed = flowResult.consumed
+  let flowConsumed = flowResult.consumed
+  const inboundText = contentText ?? message.text?.body ?? ''
+
+  // ============================================================
+  // Real-time Applicant Loan File Status & Tracking (LOS Sync)
+  // Triggered when customer asks about their file / application status
+  // Strictly privacy-isolated: query is bound to customer's own mobile
+  // ============================================================
+  const statusIntentRegex = /\b(status|file status|meri file|loan status|file kahan|kahan tak|application status|check status|kya hua file|track status)\b/i
+  const isStatusQuery =
+    statusIntentRegex.test(inboundText) ||
+    interactiveReplyId === 'btn_track_file' ||
+    interactiveReplyId === 'btn_status' ||
+    interactiveReplyId === 'btn_track'
+
+  if (!flowConsumed && isStatusQuery && contactRecord.phone) {
+    try {
+      const cleanPhone = normalizePhone(contactRecord.phone)
+      const crmApiBase = process.env.NEXT_PUBLIC_CRM_URL || 'https://crm.bfsfin.cloud'
+      const statusRes = await fetch(
+        `${crmApiBase}/api_wa_lead.php?action=get_file_status&mobile=${encodeURIComponent(cleanPhone)}`,
+        { headers: { Accept: 'application/json' } }
+      )
+      if (statusRes.ok) {
+        const statusData = await statusRes.json()
+        if (statusData.found && statusData.status_card) {
+          await engineSendInteractiveButtons({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId: conversation.id,
+            contactId: contactRecord.id,
+            bodyText: statusData.status_card,
+            buttons: [
+              { id: 'btn_send_docs', title: '📤 Upload Docs' },
+              { id: 'btn_call_rm', title: '📞 Talk to Officer' },
+            ],
+          })
+          flowConsumed = true
+        } else if (statusData.found === false && isStatusQuery) {
+          await engineSendInteractiveButtons({
+            accountId,
+            userId: configOwnerUserId,
+            conversationId: conversation.id,
+            contactId: contactRecord.id,
+            bodyText: `Namaste ji! 🙏\n\nAapke is WhatsApp number (+${cleanPhone}) se linked koi active loan file hamare CRM system mein nahi mili.\n\nAgar aapki loan application kisi dusre number se darj hai to kripya apna registered number batayein, ya naye loan ke liye hamari team se connect karein:`,
+            buttons: [
+              { id: 'btn_apply_loan', title: '📝 Apply New Loan' },
+              { id: 'btn_call_rm', title: '📞 Talk to Advisor' },
+            ],
+          })
+          flowConsumed = true
+        }
+      }
+    } catch (err) {
+      console.warn('[webhook] real-time file status lookup failed:', err)
+    }
+  }
 
   // Fire any automations that react to this webhook event. All dispatches
   // run here (not earlier) so the contact, conversation, and inbound
   // message all exist before any step — including send_message — runs.
   // Fire-and-forget: a slow or failing automation must not block the
   // webhook's 200 OK response to Meta.
-  const inboundText = contentText ?? message.text?.body ?? ''
   const automationTriggers: (
     | 'new_contact_created'
     | 'first_inbound_message'
