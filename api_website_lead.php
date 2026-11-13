@@ -49,7 +49,7 @@ function bfs_send_website_lead_whatsapp($mobile, $customerName, $requirement, $a
             $mobile,
             'bfs_lead_welcome_v1',
             'en_US',
-            [$nameClean, $reqClean, $amtNumericOrText, 'Senior Credit Advisor'],
+            [$nameClean, $reqClean, $amtNumericOrText, 'Senior Loan Advisor'],
             $nameClean
         );
         if (!empty($fallback1['success'])) {
