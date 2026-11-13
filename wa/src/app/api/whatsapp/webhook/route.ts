@@ -1,7 +1,8 @@
 import { NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
-import { getMediaUrl, downloadMedia } from '@/lib/whatsapp/meta-api'
+import { getMediaUrl, downloadMedia, sendTypingIndicator } from '@/lib/whatsapp/meta-api'
+import { loadAccountMetaCredentials } from '@/lib/flows/meta-send'
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import {
@@ -838,6 +839,26 @@ async function processMessage(
 
   if (convError) {
     console.error('Error updating conversation:', convError)
+  }
+
+  // Immediately show "typing…" to the customer (and mark the message as read).
+  // This gives an authentic, live human presence: as soon as they text, WhatsApp shows "typing…".
+  if (message.id) {
+    void (async () => {
+      try {
+        const { phoneNumberId, accessToken } = await loadAccountMetaCredentials(
+          supabaseAdmin(),
+          accountId
+        )
+        await sendTypingIndicator({
+          phoneNumberId,
+          accessToken,
+          messageId: message.id,
+        })
+      } catch (err) {
+        console.warn('[webhook] instant typing indicator failed (continuing):', err)
+      }
+    })()
   }
 
   // ============================================================
