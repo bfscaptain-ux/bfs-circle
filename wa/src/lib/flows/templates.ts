@@ -313,8 +313,8 @@ const BFS_LOAN_QUALIFICATION: FlowTemplate = {
       "node_type": "send_buttons",
       "config": {
         "header_text": "Bhardwaj Financial Services",
-        "text": "Dear {{contact.first_name}} ji,\n\nWelcome to *Bhardwaj Financial Services*. Through our dedicated Credit Desk, we directly provide Home Loans, Loan Against Property (LAP), Business Loans, Personal Loans, and Balance Transfer (BT) facilities with transparent terms and competitive interest rates.\n\nWould you like to explore a new Loan or Balance Transfer (BT) requirement with us?",
-        "footer_text": "Credit Desk • +91 92587-24227",
+        "text": "Dear {{contact.first_name}} ji,\n\nWelcome to *Bhardwaj Financial Services*. Through our dedicated Senior Loan Advisor Desk, we directly provide Home Loans, Loan Against Property (LAP), Business Loans, Personal Loans, and Balance Transfer (BT) facilities with transparent terms and competitive interest rates.\n\nWould you like to explore a new Loan or Balance Transfer (BT) requirement with us?",
+        "footer_text": "Senior Loan Advisor Desk • +91 92587-24227",
         "buttons": [
           {
             "reply_id": "interested",
@@ -474,7 +474,7 @@ const BFS_LOAN_QUALIFICATION: FlowTemplate = {
       "node_key": "ask_work_profile",
       "node_type": "send_buttons",
       "config": {
-        "text": "Noted (Requirement: {{vars.loan_amount}}).\n\nPlease select your employment / work profile so our Credit Team can assess the right eligibility and terms:",
+        "text": "Noted (Requirement: {{vars.loan_amount}}).\n\nPlease select your employment / work profile so our Senior Loan Advisor team can assess the right eligibility and terms:",
         "buttons": [
           {
             "reply_id": "salaried",
@@ -502,7 +502,7 @@ const BFS_LOAN_QUALIFICATION: FlowTemplate = {
       "node_key": "final_confirm",
       "node_type": "send_message",
       "config": {
-        "text": "Thank you, {{contact.first_name}} ji. Your requirement has been registered with our Credit Desk:\n\n• Requirement: {{vars.loan_amount}}\n• Location: {{vars.city}}\n\nOur Credit Desk team will review your request and connect with you shortly via Call (+91 92587-24227) or WhatsApp (+91 79009-79001).\n\nIf you have any questions regarding interest rates, EMI, eligibility, or documents, please feel free to ask here in English or Hindi.",
+        "text": "Thank you, {{contact.first_name}} ji. Your requirement has been registered with our Senior Loan Advisor Desk:\n\n• Requirement: {{vars.loan_amount}}\n• Location: {{vars.city}}\n\nOur Senior Loan Advisor team will review your request and connect with you shortly via Call (+91 92587-24227) or WhatsApp (+91 79009-79001).\n\nIf you have any questions regarding interest rates, EMI, eligibility, or documents, please feel free to ask here in English or Hindi.",
         "next_node_key": "end_qualified"
       }
     },
