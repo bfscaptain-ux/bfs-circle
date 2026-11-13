@@ -164,53 +164,72 @@ if ($action === 'get_file_status' || isset($_GET['check_status'])) {
     $stage = $app['overall_status'] ?: 'In Progress';
 
     $cardLines = [];
-    $cardLines[] = "📂 *Loan File Status & Tracking Desk*";
-    $cardLines[] = "*Bhardwaj Financial Services*\n";
-    $cardLines[] = "Namaste *{$app['customer_name']}* ji! 🙏";
-    $cardLines[] = "Aapke registered mobile number (*{$cleanMobile}*) se linked loan file ka live status niche diya gaya hai:\n";
-    $cardLines[] = "📋 *Loan File Details:*";
-    $cardLines[] = "• File / Loan ID: *{$app['loan_id']}*";
-    $cardLines[] = "• Loan Type: *{$app['loan_type']}*";
-    $cardLines[] = "• Requested Amount: *{$fmtAmt}*";
-    $cardLines[] = "• Current Stage: *{$stage}*\n";
+    $cardLines[] = "━━━━━━━━━━━━━━━━━━━━━";
+    $cardLines[] = "🏦 *BHARDWAJ FINANCIAL SERVICES*";
+    $cardLines[] = "📋 *LOAN FILE LIVE TRACKER*";
+    $cardLines[] = "━━━━━━━━━━━━━━━━━━━━━\n";
+    $cardLines[] = "👤 *Applicant:* {$app['customer_name']} ji";
+    $cardLines[] = "📁 *File ID:* #{$app['loan_id']}";
+    $cardLines[] = "💰 *Loan Amount:* {$fmtAmt} ({$app['loan_type']})";
+    $cardLines[] = "📊 *Current Stage:* 🟡 {$stage}\n";
 
-    $cardLines[] = "📑 *Document Verification Status:*";
+    $cardLines[] = "━━━━━━━━━━━━━━━━━━━━━";
+    $cardLines[] = "📑 *DOCUMENT STATUS LIST:*";
+    $cardLines[] = "━━━━━━━━━━━━━━━━━━━━━";
     if (!empty($approvedDocs)) {
-        $cardLines[] = "✅ *Approved Documents:*";
         foreach ($approvedDocs as $ad) {
-            $cardLines[] = "  • {$ad}";
+            $cardLines[] = "✅ {$ad}";
         }
     }
     if (!empty($reviewDocs)) {
-        $cardLines[] = "⏳ *Under Verification (Within 24 Hours SLA):*";
         foreach ($reviewDocs as $rd) {
-            $cardLines[] = "  • {$rd}";
+            $cardLines[] = "⏳ {$rd} (Under 24h Review)";
         }
     }
     if (!empty($rejectedDocs)) {
-        $cardLines[] = "⚠️ *Action Required (Rejected Documents):*";
         foreach ($rejectedDocs as $rj) {
-            $cardLines[] = "  • {$rj}";
+            $cardLines[] = "⚠️ {$rj}";
+        }
+    }
+    if (!empty($missing)) {
+        foreach ($missing as $m) {
+            $cardLines[] = "❌ *Pending:* {$m}";
         }
     }
 
-    $cardLines[] = "\n📌 *File Complete Karne Ke Liye Next Steps:*";
+    $cardLines[] = "\n━━━━━━━━━━━━━━━━━━━━━";
+    $cardLines[] = "🎯 *ACTION TO COMPLETE FILE:*";
+    $cardLines[] = "━━━━━━━━━━━━━━━━━━━━━";
     if (!empty($missing)) {
-        $cardLines[] = "Aapki loan file ko bank approval & sanction stage tak le jaane ke liye niche diye documents abhi required hain:";
+        $cardLines[] = "Aapki file bank approval ke liye bas ye document baki hai:";
         foreach ($missing as $m) {
-            $cardLines[] = "  👉 *{$m}*";
+            $cardLines[] = "👉 *{$m}*";
         }
-        $cardLines[] = "\n📎 *Aap in documents ki photo ya PDF isi WhatsApp chat par direct bhej sakte hain!* Hamari team safely receive karke aapki file me attach kar degi.";
+        $cardLines[] = "\n📎 *Aap iski photo ya PDF isi WhatsApp chat par bhej dijiye!*";
     } elseif (!empty($rejectedDocs)) {
         $cardLines[] = "Kripya rejected documents ki clear copy WhatsApp par re-upload karein taaki hum turant approval process aage badhayein.";
     } else {
-        $cardLines[] = "🎉 *Aapke sabhi zaruri documents safely receive aur verify ho chuke hain!* Hamari Credit & Valuation Team aapki file agle stage (Bank Sanction) ke liye process kar rahi hai.";
+        $cardLines[] = "🎉 *Aapke sabhi zaruri documents receive aur verify ho chuke hain!* Hamari Credit Team agle stage ke liye process kar rahi hai.";
     }
 
-    $cardLines[] = "\n📞 *Direct Credit Desk:* +91 92587-24227 / +91 79009-79001";
+    $cardLines[] = "\n📞 *Senior Desk:* +91 92587-24227 / +91 79009-79001";
     $cardLines[] = "🏢 *Office:* Shop No. 4, Friends Center, Sanjay Place, Agra";
 
     $statusCard = implode("\n", $cardLines);
+
+    // Summary for List Message Body
+    $summaryLines = [];
+    $summaryLines[] = "Namaste *{$app['customer_name']}* ji! 🙏\n";
+    $summaryLines[] = "Aapki Loan File (*#{$app['loan_id']}*) ka live status:";
+    $summaryLines[] = "• Amount: *{$fmtAmt}* ({$app['loan_type']})";
+    $summaryLines[] = "• Current Stage: 🟡 *{$stage}*";
+    if (!empty($missing)) {
+        $summaryLines[] = "• Document Status: ⚠️ *" . count($missing) . " Document Required*";
+    } else {
+        $summaryLines[] = "• Document Status: ✅ *All Uploaded*";
+    }
+    $summaryLines[] = "\nKripya niche button dabakar complete options aur checklist dekhein:";
+    $summaryText = implode("\n", $summaryLines);
 
     echo json_encode([
         'success' => true,
@@ -231,7 +250,8 @@ if ($action === 'get_file_status' || isset($_GET['check_status'])) {
             'rejected' => $rejectedDocs,
             'missing' => $missing
         ],
-        'status_card' => $statusCard
+        'status_card' => $statusCard,
+        'summary_text' => $summaryText
     ]);
     exit;
 }

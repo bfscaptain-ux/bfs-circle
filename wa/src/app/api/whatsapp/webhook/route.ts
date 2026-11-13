@@ -2,7 +2,12 @@ import { NextResponse, after } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { decrypt, encrypt, isLegacyFormat } from '@/lib/whatsapp/encryption'
 import { getMediaUrl, downloadMedia, sendTypingIndicator } from '@/lib/whatsapp/meta-api'
-import { loadAccountMetaCredentials, engineSendInteractiveButtons } from '@/lib/flows/meta-send'
+import {
+  loadAccountMetaCredentials,
+  engineSendInteractiveButtons,
+  engineSendInteractiveList,
+  engineSendText,
+} from '@/lib/flows/meta-send'
 import { mirrorInboundMedia } from '@/lib/whatsapp/mirror-inbound-media'
 import { normalizePhone } from '@/lib/whatsapp/phone-utils'
 import {
@@ -915,7 +920,14 @@ async function processMessage(
     interactiveReplyId === 'btn_status' ||
     interactiveReplyId === 'btn_track'
 
-  if (!flowConsumed && isStatusQuery && contactRecord.phone) {
+  const isListRowReply =
+    interactiveReplyId === 'row_full_checklist' ||
+    interactiveReplyId === 'row_pending_docs' ||
+    interactiveReplyId === 'row_approved_docs' ||
+    interactiveReplyId === 'row_upload_now' ||
+    interactiveReplyId === 'row_call_officer'
+
+  if (!flowConsumed && (isStatusQuery || isListRowReply) && contactRecord.phone) {
     try {
       const cleanPhone = normalizePhone(contactRecord.phone)
       const crmApiBase = process.env.NEXT_PUBLIC_CRM_URL || 'https://crm.bfsfin.cloud'
@@ -925,19 +937,100 @@ async function processMessage(
       )
       if (statusRes.ok) {
         const statusData = await statusRes.json()
-        if (statusData.found && statusData.status_card) {
-          await engineSendInteractiveButtons({
-            accountId,
-            userId: configOwnerUserId,
-            conversationId: conversation.id,
-            contactId: contactRecord.id,
-            bodyText: statusData.status_card,
-            buttons: [
-              { id: 'btn_send_docs', title: '📤 Upload Docs' },
-              { id: 'btn_call_rm', title: '📞 Talk to Officer' },
-            ],
-          })
-          flowConsumed = true
+
+        if (statusData.found) {
+          const app = statusData.applicant
+          const missing = statusData.documents?.missing || []
+          const approved = statusData.documents?.approved || []
+          const review = statusData.documents?.under_review || []
+
+          if (isListRowReply) {
+            // Handle row click from List Menu
+            let replyText = ''
+            if (interactiveReplyId === 'row_full_checklist') {
+              replyText = statusData.status_card
+            } else if (interactiveReplyId === 'row_pending_docs') {
+              if (missing.length > 0) {
+                replyText = `━━━━━━━━━━━━━━━━━━━━━\n⏳ *PENDING DOCUMENTS CHECKLIST*\n━━━━━━━━━━━━━━━━━━━━━\nFile ID: #${app.loan_id} (${app.customer_name} ji)\n\nAapki file bank sanction ke liye complete karne ke liye ye documents required hain:\n${missing.map((m: string) => `👉 *${m}*`).join('\n')}\n\n📎 *Aap in documents ki photo ya PDF direct isi WhatsApp chat par bhej dijiye!* Hamari team 24 ghante ke andar verify karke file complete kar degi.`
+              } else {
+                replyText = `━━━━━━━━━━━━━━━━━━━━━\n✅ *ALL DOCUMENTS COMPLETED!*\n━━━━━━━━━━━━━━━━━━━━━\nFile ID: #${app.loan_id} (${app.customer_name} ji)\n\n🎉 Aapke sabhi mandatory documents receive ho chuke hain! Koi bhi document pending nahi hai.`
+              }
+            } else if (interactiveReplyId === 'row_approved_docs') {
+              const appList = approved.length > 0 ? approved.map((a: string) => `✅ ${a}`).join('\n') : 'Abhi koi document approve nahi hua hai.'
+              const revList = review.length > 0 ? `\n\n⏳ *Under 24h Review:*\n${review.map((r: string) => `• ${r}`).join('\n')}` : ''
+              replyText = `━━━━━━━━━━━━━━━━━━━━━\n📑 *VERIFIED & APPROVED DOCUMENTS*\n━━━━━━━━━━━━━━━━━━━━━\nFile ID: #${app.loan_id}\n\n${appList}${revList}`
+            } else if (interactiveReplyId === 'row_upload_now') {
+              replyText = `📤 *DIRECT WHATSAPP UPLOAD DESK*\n\nAap apne pending documents (Aadhaar / PAN / Bank Statement / Salary Slips) ki photo ya PDF directly is WhatsApp chat par attach karke bhej sakte hain.\n\nHamara system unhe turant aapki loan file (#${app.loan_id}) me attach karke confirmation de dega!`
+            } else if (interactiveReplyId === 'row_call_officer') {
+              replyText = `📞 *BHARDWAJ FINANCIAL SERVICES SENIOR DESK*\n\nAap hamare Senior Loan Officer se direct phone par baat kar sakte hain:\n• Mr. Anuj Bhardwaj: +91 92587-24227\n• Credit Desk: +91 79009-79001\n• Office: Shop No. 4, Friends Center, Sanjay Place, Agra\n• Hours: 9:30 AM – 8:00 PM IST`
+            }
+
+            await engineSendInteractiveButtons({
+              accountId,
+              userId: configOwnerUserId,
+              conversationId: conversation.id,
+              contactId: contactRecord.id,
+              bodyText: replyText,
+              buttons: [
+                { id: 'btn_send_docs', title: '📤 Upload Docs' },
+                { id: 'btn_track_file', title: '📋 View Tracker' },
+              ],
+            })
+            flowConsumed = true
+          } else {
+            // First time asking for status -> Send Native Interactive List Menu
+            const missingCount = missing.length
+            const approvedCount = approved.length
+
+            await engineSendInteractiveList({
+              accountId,
+              userId: configOwnerUserId,
+              conversationId: conversation.id,
+              contactId: contactRecord.id,
+              headerText: '🏦 BFS Loan File Tracker',
+              bodyText: statusData.summary_text || statusData.status_card,
+              buttonLabel: '📋 View File Options',
+              sections: [
+                {
+                  title: '📂 File & Document Status',
+                  rows: [
+                    {
+                      id: 'row_full_checklist',
+                      title: '📋 Full File Checklist',
+                      description: 'View complete live document & stage list',
+                    },
+                    {
+                      id: 'row_pending_docs',
+                      title: '⏳ Pending Documents',
+                      description: `${missingCount} document(s) required to complete file`,
+                    },
+                    {
+                      id: 'row_approved_docs',
+                      title: '✅ Approved Documents',
+                      description: `${approvedCount} document(s) verified & approved`,
+                    },
+                  ],
+                },
+                {
+                  title: '🚀 Actions & Support',
+                  rows: [
+                    {
+                      id: 'row_upload_now',
+                      title: '📤 Upload Docs Here',
+                      description: 'Directly send photos/PDFs in this chat',
+                    },
+                    {
+                      id: 'row_call_officer',
+                      title: '📞 Call Credit Officer',
+                      description: 'Direct support: +91 92587-24227',
+                    },
+                  ],
+                },
+              ],
+              footerText: 'Bhardwaj Financial Services',
+            })
+            flowConsumed = true
+          }
         } else if (statusData.found === false && isStatusQuery) {
           await engineSendInteractiveButtons({
             accountId,
