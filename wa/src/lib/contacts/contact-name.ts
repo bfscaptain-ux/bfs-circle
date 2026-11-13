@@ -40,7 +40,58 @@ const HONORIFIC_PREFIXES = new Set([
   'er.',
   'prof',
   'prof.',
+  'adv',
+  'adv.',
+  'advocate',
+  'ca',
+  'ca.',
+  'cs',
+  'cs.',
+  'ar',
+  'ar.',
+  // Hindi & Devanagari honorifics / professional prefixes
+  'एड',
+  'एड.',
+  'एड०',
+  'एड0',
+  'एडवोकेट',
+  'डा',
+  'डा.',
+  'डा०',
+  'डा0',
+  'डॉ',
+  'डॉ.',
+  'डॉ०',
+  'डॉ0',
+  'श्री',
+  'श्रीमान',
+  'श्रीमती',
+  'सुश्री',
+  'पं',
+  'पं.',
+  'पं०',
+  'पं0',
+  'पंडित',
 ])
+
+const HONORIFIC_NORMALIZATIONS: Record<string, string> = {
+  'एड0': 'एडवोकेट',
+  'एड०': 'एडवोकेट',
+  'एड.': 'एडवोकेट',
+  'एड': 'एडवोकेट',
+  'adv.': 'Adv.',
+  'adv': 'Adv.',
+  'डा0': 'डॉ.',
+  'डा०': 'डॉ.',
+  'डा.': 'डॉ.',
+  'डा': 'डॉ.',
+  'डॉ0': 'डॉ.',
+  'डॉ०': 'डॉ.',
+  'पं0': 'पंडित',
+  'पं०': 'पंडित',
+  'पं.': 'पंडित',
+  'पं': 'पंडित',
+}
 
 function digitsOnly(value: string): string {
   return value.replace(/\D/g, '')
@@ -88,7 +139,8 @@ export function resolveUsableContactName(
     HONORIFIC_PREFIXES.has(tokens[0].toLowerCase()) &&
     /\p{L}/u.test(tokens[1])
   ) {
-    firstName = `${tokens[0]} ${tokens[1]}`
+    const prefix = HONORIFIC_NORMALIZATIONS[tokens[0].toLowerCase()] || tokens[0]
+    firstName = `${prefix} ${tokens[1]}`
   }
 
   return {

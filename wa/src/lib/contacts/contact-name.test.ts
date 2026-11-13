@@ -26,6 +26,13 @@ describe('resolveUsableContactName', () => {
     })
   })
 
+  it('normalizes Devanagari honorific abbreviations like एड0', () => {
+    expect(resolveUsableContactName('एड0 प्रवीन भारद्वाज', '919258724227')).toEqual({
+      fullName: 'एड0 प्रवीन भारद्वाज',
+      firstName: 'एडवोकेट प्रवीन',
+    })
+  })
+
   it('rejects phone numbers stored as names', () => {
     expect(resolveUsableContactName('+91 9876543210', '919876543210')).toBeNull()
     expect(resolveUsableContactName('9876543210', '919876543210')).toBeNull()
