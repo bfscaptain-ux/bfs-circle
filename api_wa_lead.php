@@ -91,6 +91,19 @@ if ($action === 'get_file_status' || isset($_GET['check_status'])) {
         exit;
     }
 
+    // Ensure active 30-day tracking token
+    $token = $app['tracking_token'] ?? '';
+    $tokenCreated = $app['tracking_token_created'] ?? '';
+    $needsNewToken = empty($token) || strlen($token) !== 32 || empty($tokenCreated) || strtotime($tokenCreated) < strtotime('-30 days');
+
+    if ($needsNewToken) {
+        $token = bin2hex(random_bytes(16));
+        $updToken = $db->prepare("UPDATE applicants SET tracking_token = ?, tracking_token_created = CURRENT_TIMESTAMP WHERE id = ?");
+        $updToken->execute([$token, $app['id']]);
+        $app['tracking_token'] = $token;
+    }
+    $trackingUrl = "https://crm.bfsfin.cloud/track.php?token=" . $token;
+
     // Fetch documents
     $docStmt = $db->prepare("SELECT * FROM applicant_documents WHERE applicant_id = ? ORDER BY id ASC");
     $docStmt->execute([$app['id']]);
@@ -217,23 +230,47 @@ if ($action === 'get_file_status' || isset($_GET['check_status'])) {
 
     $statusCard = implode("\n", $cardLines);
 
+    // Concise Point-to-Point Status (Answers only what is needed)
+    $conciseStatus = "Namaste *{$app['customer_name']}* ji! 🙏\n"
+        . "Aapki *{$app['loan_type']}* file (*#{$app['loan_id']}*) abhi *{$stage}* stage par hai.\n\n"
+        . "🔗 *Live Tracking Portal:*\n{$trackingUrl}";
+
+    if (!empty($missing)) {
+        $pendingDocsText = "*{$app['customer_name']}* ji, aapki file (*#{$app['loan_id']}*) bank sanction ke liye bas ye document pending hain:\n"
+            . implode("\n", array_map(function($m) { return "👉 *{$m}*"; }, $missing))
+            . "\n\n📎 Aap in documents ki photo ya PDF direct isi WhatsApp chat par bhej sakte hain!\n"
+            . "🔗 *Live Portal:* {$trackingUrl}";
+    } else {
+        $pendingDocsText = "🎉 *{$app['customer_name']}* ji, aapki file (*#{$app['loan_id']}*) me sabhi zaroori documents verify ho chuke hain! Koi bhi document pending nahi hai.\n\n🔗 *Live Portal:* {$trackingUrl}";
+    }
+
+    $portalLinkText = "Namaste *{$app['customer_name']}* ji! 🙏\n"
+        . "Yeh aapka personal BFS Circle Loan Tracking Portal link hai:\n\n"
+        . "🔗 {$trackingUrl}\n\n"
+        . "Is link par click karke aap apni file ka live stage, verified documents, aur sanction details 24x7 dekh sakte hain.";
+
     // Summary for List Message Body
     $summaryLines = [];
-    $summaryLines[] = "Namaste *{$app['customer_name']}* ji! 🙏\n";
+    $summaryLines[] = "Namaste *{$app['customer_name']}* ji! 🙏";
     $summaryLines[] = "Aapki Loan File (*#{$app['loan_id']}*) ka live status:";
-    $summaryLines[] = "• Amount: *{$fmtAmt}* ({$app['loan_type']})";
+    $summaryLines[] = "• Loan: *{$app['loan_type']}* ({$fmtAmt})";
     $summaryLines[] = "• Current Stage: 🟡 *{$stage}*";
     if (!empty($missing)) {
-        $summaryLines[] = "• Document Status: ⚠️ *" . count($missing) . " Document Required*";
+        $summaryLines[] = "• Documents: ⚠️ *" . count($missing) . " Required*";
     } else {
-        $summaryLines[] = "• Document Status: ✅ *All Uploaded*";
+        $summaryLines[] = "• Documents: ✅ *All Uploaded*";
     }
-    $summaryLines[] = "\nKripya niche button dabakar complete options aur checklist dekhein:";
+    $summaryLines[] = "\n🌐 *Personal Live Portal:*\n{$trackingUrl}";
+    $summaryLines[] = "\nNiche diye menu se aap checklist aur details dekh sakte hain:";
     $summaryText = implode("\n", $summaryLines);
 
     echo json_encode([
         'success' => true,
         'found' => true,
+        'tracking_url' => $trackingUrl,
+        'concise_status' => $conciseStatus,
+        'pending_docs_text' => $pendingDocsText,
+        'portal_link_text' => $portalLinkText,
         'applicant' => [
             'id' => $app['id'],
             'loan_id' => $app['loan_id'],

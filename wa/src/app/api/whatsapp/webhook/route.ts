@@ -914,20 +914,27 @@ async function processMessage(
   // Strictly privacy-isolated: query is bound to customer's own mobile
   // ============================================================
   const statusIntentRegex = /\b(status|file status|meri file|loan status|file kahan|kahan tak|application status|check status|kya hua file|track status)\b/i
+  const linkIntentRegex = /\b(portal link|tracking link|dashboard link|portal ka link|file link|mera link|link bhejo|link do)\b/i
+  const docIntentRegex = /\b(pending doc|pending docs|kya document|kya kagaz|document checklist|bache hue document)\b/i
+
   const isStatusQuery =
     statusIntentRegex.test(inboundText) ||
     interactiveReplyId === 'btn_track_file' ||
     interactiveReplyId === 'btn_status' ||
     interactiveReplyId === 'btn_track'
 
+  const isLinkQuery = linkIntentRegex.test(inboundText)
+  const isDocQuery = docIntentRegex.test(inboundText)
+
   const isListRowReply =
     interactiveReplyId === 'row_full_checklist' ||
     interactiveReplyId === 'row_pending_docs' ||
     interactiveReplyId === 'row_approved_docs' ||
     interactiveReplyId === 'row_upload_now' ||
-    interactiveReplyId === 'row_call_officer'
+    interactiveReplyId === 'row_call_officer' ||
+    interactiveReplyId === 'row_portal_link'
 
-  if (!flowConsumed && (isStatusQuery || isListRowReply) && contactRecord.phone) {
+  if (!flowConsumed && (isStatusQuery || isLinkQuery || isDocQuery || isListRowReply) && contactRecord.phone) {
     try {
       const cleanPhone = normalizePhone(contactRecord.phone)
       const crmApiBase = process.env.NEXT_PUBLIC_CRM_URL || 'https://crm.bfsfin.cloud'
@@ -944,7 +951,37 @@ async function processMessage(
           const approved = statusData.documents?.approved || []
           const review = statusData.documents?.under_review || []
 
-          if (isListRowReply) {
+          if (isLinkQuery || interactiveReplyId === 'row_portal_link') {
+            // Customer asked specifically for the portal link
+            await engineSendInteractiveButtons({
+              accountId,
+              userId: configOwnerUserId,
+              conversationId: conversation.id,
+              contactId: contactRecord.id,
+              bodyText: statusData.portal_link_text || `Namaste ${app.customer_name} ji! 🙏\n\nYeh aapka live loan tracking portal link hai:\n🔗 ${statusData.tracking_url}`,
+              buttons: [
+                { id: 'btn_track_file', title: '📋 View Options' },
+                { id: 'btn_send_docs', title: '📤 Upload Docs' },
+              ],
+            })
+            flowConsumed = true
+          } else if (isDocQuery) {
+            // Customer asked specifically about pending documents
+            await engineSendInteractiveButtons({
+              accountId,
+              userId: configOwnerUserId,
+              conversationId: conversation.id,
+              contactId: contactRecord.id,
+              bodyText: statusData.pending_docs_text || (missing.length > 0
+                ? `Anuj ji, aapki file (#${app.loan_id}) me ye documents required hain:\n${missing.map((m: string) => `👉 *${m}*`).join('\n')}\n\n📎 Aap inki photo/PDF isi WhatsApp par bhej sakte hain.`
+                : `Aapke sabhi documents complete hain!`),
+              buttons: [
+                { id: 'btn_send_docs', title: '📤 Upload Docs' },
+                { id: 'btn_track_file', title: '📋 View Status' },
+              ],
+            })
+            flowConsumed = true
+          } else if (isListRowReply) {
             // Handle row click from List Menu
             let replyText = ''
             if (interactiveReplyId === 'row_full_checklist') {
@@ -995,9 +1032,9 @@ async function processMessage(
                   title: '📂 File & Document Status',
                   rows: [
                     {
-                      id: 'row_full_checklist',
-                      title: '📋 Full File Checklist',
-                      description: 'View complete live document & stage list',
+                      id: 'row_portal_link',
+                      title: '🌐 Open Live Portal',
+                      description: 'View real-time tracking dashboard online',
                     },
                     {
                       id: 'row_pending_docs',
@@ -1008,6 +1045,11 @@ async function processMessage(
                       id: 'row_approved_docs',
                       title: '✅ Approved Documents',
                       description: `${approvedCount} document(s) verified & approved`,
+                    },
+                    {
+                      id: 'row_full_checklist',
+                      title: '📋 Full File Checklist',
+                      description: 'View complete live document & stage list',
                     },
                   ],
                 },

@@ -3372,6 +3372,129 @@ if (!function_exists('bfs_crm_send_disbursal_wa')) {
     }
 }
 
+if (!function_exists('sendCustomerLoanWhatsAppStageUpdate')) {
+    /**
+     * Sends automated WhatsApp stage update alerts with personal Live Tracking Portal Link
+     * Triggered on Phase 1 CRM Login, Stage progression, Bank Sanction, Disbursal, or Doc updates.
+     */
+    function sendCustomerLoanWhatsAppStageUpdate($applicant_id, $stage_type, $custom_data = []) {
+        global $db;
+        if (empty($applicant_id)) return ['success' => false, 'error' => 'Applicant ID required'];
+
+        $stmt = $db->prepare("SELECT * FROM applicants WHERE id = ?");
+        $stmt->execute([$applicant_id]);
+        $app = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$app) return ['success' => false, 'error' => 'Applicant not found'];
+
+        if (empty($app['mobile'])) {
+            return ['success' => false, 'error' => 'Mobile number missing'];
+        }
+
+        // Ensure 30-day token
+        $token = $app['tracking_token'] ?? '';
+        $tokenCreated = $app['tracking_token_created'] ?? '';
+        $needsNew = empty($token) || strlen($token) !== 32 || empty($tokenCreated) || strtotime($tokenCreated) < strtotime('-30 days');
+        if ($needsNew) {
+            $token = bin2hex(random_bytes(16));
+            $db->prepare("UPDATE applicants SET tracking_token = ?, tracking_token_created = CURRENT_TIMESTAMP WHERE id = ?")->execute([$token, $applicant_id]);
+            $app['tracking_token'] = $token;
+        }
+        $tracking_url = "https://crm.bfsfin.cloud/track.php?token=" . $token;
+
+        $amt = floatval($app['loan_amount_requested'] ?? 0);
+        if ($amt >= 10000000) {
+            $fmtAmt = '₹' . number_format($amt / 10000000, 2) . ' Crore';
+        } elseif ($amt >= 100000) {
+            $fmtAmt = '₹' . number_format($amt / 100000, 2) . ' Lakh';
+        } else {
+            $fmtAmt = '₹' . number_format($amt, 0);
+        }
+
+        $name = trim($app['customer_name'] ?? 'Customer');
+        $loanId = trim($app['loan_id'] ?? '');
+        $loanType = trim($app['loan_type'] ?? 'Loan');
+
+        switch (strtolower(trim($stage_type))) {
+            case 'phase 1':
+            case 'login':
+            case 'new':
+                $msg = "Namaste *{$name}* ji! 🙏\n"
+                     . "*Bhardwaj Financial Services* me aapka swagat hai.\n\n"
+                     . "Aapki *{$loanType}* loan file hamare CRM me successfully login ho gayi hai!\n"
+                     . "📋 *File ID:* #{$loanId}\n"
+                     . "💰 *Loan Amount:* {$fmtAmt}\n"
+                     . "📊 *Current Stage:* Phase 1 (KYC & Profile Verification)\n\n"
+                     . "🔗 *Aapka Personal Live Tracking Dashboard:*\n{$tracking_url}\n\n"
+                     . "Aap upar diye link par click karke apni file ka live status aur document progress 24x7 dekh sakte hain.\n\n"
+                     . "📞 *Direct Credit Desk:* +91 92587-24227 / +91 79009-79001\n"
+                     . "🏢 *Office:* Shop No. 4, Friends Center, Sanjay Place, Agra";
+                break;
+
+            case 'phase 2':
+            case 'docket':
+                $msg = "Namaste *{$name}* ji! 🙏\n"
+                     . "Update on Loan File *#{$loanId}*:\n\n"
+                     . "Aapki file *Phase 2 (Bank Docket Preparation)* me proceed ho chuki hai. Hamari team bank submission ke liye aapka dossier aur verification complete kar rahi hai.\n\n"
+                     . "🔗 *Live Portal Status Check Karein:*\n{$tracking_url}\n\n"
+                     . "📞 *Senior Desk:* +91 92587-24227";
+                break;
+
+            case 'phase 3':
+            case 'bank_submission':
+                $bankName = $custom_data['bank'] ?? 'Partner Bank';
+                $msg = "Namaste *{$name}* ji! 🙏\n"
+                     . "Great News! Aapki Loan File *#{$loanId}* credit underwriting ke liye officially submit ho chuki hai.\n\n"
+                     . "🏦 *Bank Submission:* {$bankName}\n"
+                     . "📊 *Stage:* Phase 3 (Bank Appraisal & Sanction In-Progress)\n\n"
+                     . "🔗 *Live Portal Status:*\n{$tracking_url}\n\n"
+                     . "📞 *Credit Desk:* +91 92587-24227";
+                break;
+
+            case 'phase 4':
+            case 'sanction':
+                $sancAmt = floatval($app['sanctioned_amount'] ?? $amt);
+                $sancBank = $app['sanction_bank'] ?? 'Bank';
+                $roi = $app['sanction_roi'] ?? $app['interest_rate'] ?? '8.40';
+                $tenure = $app['sanction_tenure'] ?? $app['tenure_months'] ?? '240';
+                $msg = "🎉 *BADHAI HO {$name} JI!* 🎉\n\n"
+                     . "Aapka *{$loanType}* Loan officially Sanction ho chuka hai!\n\n"
+                     . "📋 *Loan ID:* #{$loanId}\n"
+                     . "🏦 *Sanctioning Bank:* {$sancBank}\n"
+                     . "💰 *Sanctioned Amount:* ₹" . number_format($sancAmt) . "\n"
+                     . "📈 *Rate of Interest:* {$roi}% p.a.\n"
+                     . "⏳ *Tenure:* {$tenure} Months\n\n"
+                     . "🔗 *Sanction Letter & Live Details Portal par dekhein:*\n{$tracking_url}\n\n"
+                     . "Hamari operations team disbursal ke agle steps ke liye aapse jaldi sampark karegi.\n"
+                     . "📞 *Senior Desk:* +91 92587-24227";
+                break;
+
+            case 'completed':
+            case 'disbursed':
+                $msg = "🎉 *CONGRATULATIONS {$name} JI!* 🎉\n\n"
+                     . "Aapke *{$loanType}* (#{$loanId}) ka Disbursal process successfully complete ho gaya hai!\n\n"
+                     . "*Bhardwaj Financial Services* par bharosa jatane ke liye aapka bahut bahut dhanyawad.\n\n"
+                     . "🔗 *Final Disbursal Summary:*\n{$tracking_url}\n\n"
+                     . "📞 *Senior Desk:* +91 92587-24227";
+                break;
+
+            default:
+                $note = $custom_data['custom_note'] ?? 'Aapki loan file me update darj kiya gaya hai.';
+                $msg = "Namaste *{$name}* ji! 🙏\n"
+                     . "Update on Loan File *#{$loanId}*:\n\n"
+                     . "{$note}\n\n"
+                     . "🔗 *Live Portal Status:*\n{$tracking_url}\n\n"
+                     . "📞 *Senior Desk:* +91 92587-24227";
+                break;
+        }
+
+        $res = send_bfs_whatsapp_cloud_api($app['mobile'], $msg, $name);
+        if (function_exists('log_activity')) {
+            @log_activity("Sent WhatsApp Stage Update ({$stage_type}) to {$name} ({$app['mobile']})", "search_track.php");
+        }
+        return array_merge($res, ['tracking_url' => $tracking_url, 'message' => $msg]);
+    }
+}
+
 // Handle API requests globally (when called through other entrypoints)
 if (isset($_GET['api']) && basename($_SERVER['SCRIPT_FILENAME'] ?? $_SERVER['PHP_SELF']) !== 'api.php') {
     require_once __DIR__ . '/api.php';
