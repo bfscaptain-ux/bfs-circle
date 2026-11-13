@@ -374,7 +374,8 @@ async function findEntryFlow(
     }
   }
   // Pass 2: generic first-inbound greeting flow when no keyword matched.
-  if (isFirstInbound) {
+  // Requires meaningful text (never hijack media-only uploads like KYC photos or PDF statements).
+  if (isFirstInbound && candidates.some((text) => text && text.trim().length > 0)) {
     for (const flow of typed) {
       if (flow.trigger_type === "first_inbound_message") {
         return flow;

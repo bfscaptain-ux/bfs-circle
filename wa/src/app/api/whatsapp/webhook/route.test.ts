@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
     // returns the row; a replayed delivery conflicts and returns [].
     messageUpsertResult: [{ id: 'msg-1' }] as { id: string }[],
     priorCustomerMsgCount: 0,
+    priorOutboundCount: 0,
     /** Row `lookupInternalIdByMetaId` resolves for a `context.id`. */
     replyContextParent: null as { id: string } | null,
     conversation: { id: 'conv-1', unread_count: 0, account_id: 'acc-1' },
@@ -168,11 +169,17 @@ vi.mock('@supabase/supabase-js', () => ({
             select: (_columns: string, options?: { head?: boolean }) =>
               options?.head
                 ? // priorCustomerMsgCount: select('id',{count,head}).eq().eq()
+                  // priorOutboundCount:   select('id',{count,head}).eq().in()
                   {
                     eq: () => ({
                       eq: () =>
                         Promise.resolve({
                           count: h.state.priorCustomerMsgCount,
+                          error: null,
+                        }),
+                      in: () =>
+                        Promise.resolve({
+                          count: h.state.priorOutboundCount,
                           error: null,
                         }),
                     }),

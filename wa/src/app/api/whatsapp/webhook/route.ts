@@ -764,12 +764,24 @@ async function processMessage(
   // BEFORE we insert, so the count is accurate. Covers the case where
   // the contact row already exists (manual add / CSV import) but they've
   // never messaged us before — which new_contact_created wouldn't catch.
-  const { count: priorCustomerMsgCount } = await supabaseAdmin()
-    .from('messages')
-    .select('id', { count: 'exact', head: true })
-    .eq('conversation_id', conversation.id)
-    .eq('sender_type', 'customer')
-  const isFirstInboundMessage = (priorCustomerMsgCount ?? 0) === 0
+  // When the conversation already has prior outbound messages (business-initiated
+  // template, document request, appointment alert), the customer is replying
+  // to that workflow, not starting an unprompted first cold inbound.
+  const [{ count: priorCustomerMsgCount }, { count: priorOutboundCount }] =
+    await Promise.all([
+      supabaseAdmin()
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', conversation.id)
+        .eq('sender_type', 'customer'),
+      supabaseAdmin()
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', conversation.id)
+        .in('sender_type', ['agent', 'bot']),
+    ])
+  const isFirstInboundMessage =
+    (priorCustomerMsgCount ?? 0) === 0 && (priorOutboundCount ?? 0) === 0
 
   // Idempotent insert. Meta retries webhook deliveries (a slow ack, a
   // transient 5xx), and each retry replays the exact same message.id. The
