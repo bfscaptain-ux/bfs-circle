@@ -29,6 +29,17 @@ interface DispatchArgs {
   inboundMessageId?: string
 }
 
+interface InboundTracking {
+  latestInboundId?: string
+  receivedAt: number
+}
+
+// In-memory per-conversation debounce and active processing locks.
+// Coalesces rapid multi-message bursts (e.g. "7cr", "?", "batao", "yrrr", "jaldi")
+// into a single coordinated AI reply, preventing duplicate concurrent calls.
+const pendingInboundByConv = new Map<string, InboundTracking>()
+const activeProcessingConvs = new Set<string>()
+
 /**
  * AI auto-reply for a freshly-arrived inbound message.
  *
@@ -42,7 +53,8 @@ interface DispatchArgs {
  *   - a human agent is assigned (they own the thread)
  *   - auto-reply was disabled for this conversation (prior handoff)
  *   - the per-conversation reply cap is reached
- *   - there's nothing to reply to
+ *   - there's nothing to reply to (or last message is already from assistant)
+ *   - another inbound in the same burst is newer (debounced)
  *
  * The 24h WhatsApp session window is inherently open here — we're
  * reacting to a customer message that just landed — so no separate
@@ -59,8 +71,86 @@ export async function dispatchInboundToAiReply(
     inboundMessageId,
   } = args
 
+  // 1. Record this inbound as the latest pending for this conversation
+  const now = Date.now()
+  pendingInboundByConv.set(conversationId, {
+    latestInboundId: inboundMessageId,
+    receivedAt: now,
+  })
+
+  // 2. Debounce window: wait for rapid burst messages to finish arriving.
+  // In test environment, bypass delay (0ms) so unit tests run fast.
+  const debounceMs =
+    process.env.NODE_ENV === 'test'
+      ? 0
+      : Number(process.env.AI_DEBOUNCE_MS || 2500)
+
+  if (debounceMs > 0) {
+    await new Promise((resolve) => setTimeout(resolve, debounceMs))
+  }
+
+  // 3. In-memory burst check: if a newer inbound arrived during debounce, yield to it.
+  const latestPending = pendingInboundByConv.get(conversationId)
+  if (
+    inboundMessageId &&
+    latestPending &&
+    latestPending.latestInboundId &&
+    latestPending.latestInboundId !== inboundMessageId
+  ) {
+    return
+  }
+
+  // 4. In-flight Lock: If an AI response is ALREADY being generated for this conversation,
+  // wait up to 4s for it to finish.
+  if (activeProcessingConvs.has(conversationId)) {
+    let waitCount = 0
+    while (activeProcessingConvs.has(conversationId) && waitCount < 8) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      waitCount++
+      const cur = pendingInboundByConv.get(conversationId)
+      if (
+        inboundMessageId &&
+        cur &&
+        cur.latestInboundId &&
+        cur.latestInboundId !== inboundMessageId
+      ) {
+        return // yield to newer message
+      }
+    }
+    if (activeProcessingConvs.has(conversationId)) {
+      return // still locked, exit to prevent duplicate
+    }
+  }
+
+  activeProcessingConvs.add(conversationId)
+
   try {
     const db = supabaseAdmin()
+
+    // 5. Cross-process / DB check: verify no newer customer message exists in DB
+    if (inboundMessageId) {
+      try {
+        const { data: latestCustomerMsg } = await db
+          .from('messages')
+          .select('message_id')
+          .eq('conversation_id', conversationId)
+          .eq('sender_type', 'customer')
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (
+          latestCustomerMsg &&
+          latestCustomerMsg.message_id &&
+          latestCustomerMsg.message_id !== inboundMessageId
+        ) {
+          // A newer message exists in the DB; let that invocation respond
+          return
+        }
+      } catch {
+        // Fall through safely if query is unmocked or transiently fails
+      }
+    }
 
     const config = await loadAiConfig(db, accountId)
     if (!config || !config.autoReplyEnabled) return
@@ -70,10 +160,7 @@ export async function dispatchInboundToAiReply(
     // automations (`new_message_received` / `keyword_match`) are
     // dispatched independently for this same inbound and may send their
     // own reply, so if the account has any active one we stand down to
-    // avoid double-texting the customer. (Relationship triggers like
-    // `first_inbound_message` don't count — they're not per-message
-    // auto-responders.)
-    // Fetch recent-automation guard, conversation gates, and recent turn history concurrently
+    // avoid double-texting the customer.
     const fifteenSecAgo = new Date(Date.now() - 15000).toISOString()
     const [{ data: recentRuns }, { data: conv, error: convErr }, messages] =
       await Promise.all([
@@ -96,16 +183,17 @@ export async function dispatchInboundToAiReply(
     if (convErr || !conv) return
     if (conv.assigned_agent_id) return // a human owns this thread
     if (conv.ai_autoreply_disabled) return // handed off / turned off here
-    // Cheap early-out; the authoritative cap check is the atomic claim
-    // below (this read can race a concurrent inbound).
+    // Cheap early-out; the authoritative cap check is the atomic claim below
     if (conv.ai_reply_count >= config.autoReplyMaxPerConversation) return
     if (messages.length === 0) return
 
-    // Account-wide throttle on the shared BYO key. The per-conversation
-    // cap bounds one thread; this bounds a burst across many threads (a
-    // marketing blast landing 200 replies at once) so we never run the
-    // owner's key past the provider's rate limit. Over the limit → skip
-    // the auto-reply; the inbound still sits in the inbox for a human.
+    // 6. Anti-duplicate turn guard: If the last message is already from
+    // the assistant (bot or agent), the turn has already been answered.
+    if (messages[messages.length - 1].role !== 'user') {
+      return
+    }
+
+    // Account-wide throttle on the shared BYO key.
     const acctLimit = checkRateLimit(
       `ai-autoreply:${accountId}`,
       RATE_LIMITS.aiAutoReplyAccount,
@@ -156,11 +244,7 @@ export async function dispatchInboundToAiReply(
       messages,
     })
 
-    // Record token spend on the account's BYO key. Fire-and-forget so it
-    // never adds latency to the customer-facing send: `logAiUsage`
-    // swallows its own errors, so the floating promise can't reject.
-    // Logged regardless of handoff — the provider call happened either
-    // way.
+    // Record token spend on the account's BYO key.
     void logAiUsage(db, {
       accountId,
       conversationId,
@@ -171,13 +255,6 @@ export async function dispatchInboundToAiReply(
     })
 
     if (handoff || !text) {
-      // The model can't (or shouldn't) answer — stop auto-replying on
-      // this thread and hand it to a human. We (a) pause the bot here
-      // (sticky until re-enabled), (b) route the conversation to the
-      // configured handoff agent — null leaves it in the shared queue —
-      // and (c) leave a short internal note so whoever picks it up has
-      // context. Assigning fires the `on_conversation_assigned` trigger,
-      // which notifies the agent.
       const summary = buildHandoffSummary({
         messages,
         replyCount: conv.ai_reply_count ?? 0,
@@ -186,34 +263,28 @@ export async function dispatchInboundToAiReply(
         ai_autoreply_disabled: true,
         ai_handoff_summary: summary,
       }
-      // Only set the assignee when a target is configured AND the thread
-      // isn't already owned — never stomp an existing human assignment.
       if (config.handoffAgentId && !conv.assigned_agent_id) {
         update.assigned_agent_id = config.handoffAgentId
       }
       await db.from('conversations').update(update).eq('id', conversationId)
 
-      // If the model produced explanatory text before handing off (e.g. telling
-      // the customer a Senior Director / agent is connecting), send it so the
-      // customer is never left in dead silence.
+      // Send explanatory handoff text if any (supports natural multi-bubble)
       if (text) {
-        await engineSendText({
+        await sendNaturalBubbles({
+          db,
           accountId,
           userId: configOwnerUserId,
           conversationId,
           contactId,
           text,
-          aiGenerated: true,
+          inboundMessageId,
         })
       }
       return
     }
 
     // Atomically claim a reply slot: the cap check + increment happen in
-    // one UPDATE, so concurrent inbounds can never overshoot the cap. If
-    // another inbound just took the last slot, `claimed` is false and we
-    // skip the send. (We consume a slot slightly before the send lands —
-    // fail-safe: under-reply rather than over-reply.)
+    // one UPDATE, so concurrent inbounds can never overshoot the cap.
     const { data: claimed, error: claimErr } = await db.rpc(
       'claim_ai_reply_slot',
       {
@@ -222,25 +293,74 @@ export async function dispatchInboundToAiReply(
       },
     )
     if (claimErr) {
-      // A real error here (vs. losing the cap race) is almost always a
-      // deploy issue — e.g. `claim_ai_reply_slot` not EXECUTE-able by the
-      // service role, or the migration not applied. Log it loudly: a
-      // silent return makes "auto-reply never fires" undiagnosable.
       console.error('[ai auto-reply] claim_ai_reply_slot failed:', claimErr)
       return
     }
     if (claimed !== true) return // lost the per-conversation cap race
 
-    await engineSendText({
+    // Deliver reply using natural human WhatsApp bubbles
+    await sendNaturalBubbles({
+      db,
       accountId,
       userId: configOwnerUserId,
       conversationId,
       contactId,
       text,
-      aiGenerated: true,
+      inboundMessageId,
     })
   } catch (err) {
     console.error('[ai auto-reply] dispatch failed:', err)
+  } finally {
+    activeProcessingConvs.delete(conversationId)
+    const cur = pendingInboundByConv.get(conversationId)
+    if (cur?.latestInboundId === inboundMessageId) {
+      pendingInboundByConv.delete(conversationId)
+    }
+  }
+}
+
+/**
+ * Deliver reply as 1 or at most 2 natural human-like WhatsApp bubbles.
+ * If the model separated bubbles with `---`, send bubble 1, pause with a
+ * natural typing indicator, then send bubble 2.
+ */
+async function sendNaturalBubbles(args: {
+  db: ReturnType<typeof supabaseAdmin>
+  accountId: string
+  userId: string
+  conversationId: string
+  contactId: string
+  text: string
+  inboundMessageId?: string
+}): Promise<void> {
+  const { db, accountId, userId, conversationId, contactId, text, inboundMessageId } = args
+
+  // Split on --- separator (at most 2 bubbles to maintain conversational focus)
+  const rawBubbles = text
+    .split(/\n\s*---\s*\n/)
+    .map((b) => b.trim())
+    .filter(Boolean)
+
+  const bubbles = rawBubbles.slice(0, 2)
+  if (bubbles.length === 0) return
+
+  for (let i = 0; i < bubbles.length; i++) {
+    if (i > 0) {
+      // Natural human typing delay between bubbles
+      if (inboundMessageId) {
+        void showTypingIndicator(db, accountId, inboundMessageId)
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200))
+    }
+
+    await engineSendText({
+      accountId,
+      userId,
+      conversationId,
+      contactId,
+      text: bubbles[i],
+      aiGenerated: true,
+    })
   }
 }
 

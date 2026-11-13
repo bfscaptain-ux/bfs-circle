@@ -346,3 +346,53 @@ describe('dispatchInboundToAiReply — handoff', () => {
     })
   })
 })
+
+describe('dispatchInboundToAiReply — natural multi-bubble delivery', () => {
+  it('splits replies containing "---" into 2 distinct sequential bubbles', async () => {
+    h.generateReply.mockResolvedValue({
+      text: 'Haan ji Annuuujjj ji, bilkul!\n---\n₹7 Crore VIP loan ke liye starting rate 7.15%* hai.',
+      handoff: false,
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledTimes(2)
+    expect(h.engineSendText).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ text: 'Haan ji Annuuujjj ji, bilkul!' }),
+    )
+    expect(h.engineSendText).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        text: '₹7 Crore VIP loan ke liye starting rate 7.15%* hai.',
+      }),
+    )
+  })
+
+  it('bounds bubbles to at most 2 even if model outputs 3+ separators', async () => {
+    h.generateReply.mockResolvedValue({
+      text: 'Bubble 1\n---\nBubble 2\n---\nBubble 3 extra',
+      handoff: false,
+    })
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.engineSendText).toHaveBeenCalledTimes(2)
+    expect(h.engineSendText).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({ text: 'Bubble 1' }),
+    )
+    expect(h.engineSendText).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({ text: 'Bubble 2' }),
+    )
+  })
+})
+
+describe('dispatchInboundToAiReply — concurrency & anti-duplicate guards', () => {
+  it('stands down when the last message in the thread is already from the assistant', async () => {
+    h.buildConversationContext.mockResolvedValue([
+      { role: 'user', content: '7cr lone' },
+      { role: 'assistant', content: 'Starting rate 7.15%* hai' },
+    ])
+    await dispatchInboundToAiReply(ARGS)
+    expect(h.generateReply).not.toHaveBeenCalled()
+    expect(h.engineSendText).not.toHaveBeenCalled()
+  })
+})
