@@ -881,6 +881,36 @@ async function processMessage(
   }
 
   // ============================================================
+  // Automatic Document / Media Sync to Main Loan CRM (LOS)
+  // Whenever an applicant sends photos/PDFs on WhatsApp, automatically
+  // forward them to Main Loan CRM (crm.bfsfin.cloud) so they are attached
+  // directly to their active loan file under applicant_documents!
+  // ============================================================
+  if (mediaUrl && (contentType === 'image' || contentType === 'document') && contactRecord.phone) {
+    void (async () => {
+      try {
+        const crmApiBase = process.env.NEXT_PUBLIC_CRM_URL || 'https://crm.bfsfin.cloud'
+        const docPayload = {
+          mobile: contactRecord.phone,
+          name: contactRecord.name || '',
+          media_url: mediaUrl,
+          media_type: mediaType || (contentType === 'document' ? 'application/pdf' : 'image/jpeg'),
+          filename: message.document?.filename || message.image?.caption || (contentType === 'document' ? `WhatsApp_Doc_${Date.now()}.pdf` : `WhatsApp_Photo_${Date.now()}.jpg`),
+          notes: contentText || 'Uploaded by applicant via WhatsApp Cloud chat'
+        }
+        await fetch(`${crmApiBase}/api_wa_lead.php`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(docPayload),
+          signal: AbortSignal.timeout(15_000)
+        })
+      } catch (docSyncErr) {
+        console.warn('[webhook] document auto-sync to LOS failed (non-blocking):', docSyncErr)
+      }
+    })()
+  }
+
+  // ============================================================
   // Flow runner dispatch.
   //
   // If the runner consumes the message (it either advanced an active

@@ -430,50 +430,53 @@ try {
 
 
         $docName = !empty($filename) ? $filename : 'WhatsApp_Doc_' . date('Ymd_His');
-
         if (!empty($mediaType) && strpos($docName, '.') === false) {
-
             $ext = strpos($mediaType, 'pdf') !== false ? '.pdf' : (strpos($mediaType, 'png') !== false ? '.png' : '.jpg');
-
             $docName .= $ext;
-
         }
 
-
+        // Auto-categorize document based on name/notes
+        $category = 'WhatsApp Upload';
+        $lowerCheck = strtolower($docName . ' ' . $notes);
+        if (strpos($lowerCheck, 'statement') !== false || strpos($lowerCheck, 'bank') !== false) {
+            $category = 'Banking';
+        } elseif (strpos($lowerCheck, 'pan') !== false || strpos($lowerCheck, 'aadhaar') !== false || strpos($lowerCheck, 'aadhar') !== false || strpos($lowerCheck, 'kyc') !== false) {
+            $category = 'KYC';
+        } elseif (strpos($lowerCheck, 'salary') !== false || strpos($lowerCheck, 'slip') !== false || strpos($lowerCheck, 'itr') !== false || strpos($lowerCheck, 'form 16') !== false) {
+            $category = 'Income Proof';
+        } elseif (strpos($lowerCheck, 'registry') !== false || strpos($lowerCheck, 'agreement') !== false || strpos($lowerCheck, 'chain') !== false) {
+            $category = 'Property Documents';
+        }
 
         // Try downloading to local uploads folder if possible
-
         $dbFilePath = $mediaUrl;
-
         $uploadDir = __DIR__ . '/uploads/';
-
         if (is_dir($uploadDir) && is_writable($uploadDir)) {
-
             $savedFilename = time() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '_', $docName);
-
             $localDest = $uploadDir . $savedFilename;
-
             $fileData = @file_get_contents($mediaUrl);
-
-            if ($fileData !== false && strlen($fileData) > 0) {
-
-                if (@file_put_contents($localDest, $fileData)) {
-
-                    $dbFilePath = 'uploads/' . $savedFilename;
-
+            if ($fileData === false || strlen($fileData) === 0) {
+                // Fallback to curl
+                if (function_exists('curl_init')) {
+                    $ch = curl_init($mediaUrl);
+                    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+                    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+                    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+                    $fileData = curl_exec($ch);
+                    curl_close($ch);
                 }
-
             }
-
+            if ($fileData !== false && strlen($fileData) > 0) {
+                if (@file_put_contents($localDest, $fileData)) {
+                    $dbFilePath = 'uploads/' . $savedFilename;
+                }
+            }
         }
 
-
-
         if ($applicant) {
-
-            $insDoc = $db->prepare("INSERT INTO applicant_documents (applicant_id, document_category, document_name, file_path, uploaded_at, status, qa_status, notes, file_type, client_mobile) VALUES (?, 'WhatsApp Upload', ?, ?, CURRENT_TIMESTAMP, 'Uploaded', 'Under Review', 'Received via WhatsApp Cloud API (+91 9286683232)', ?, ?)");
-
-            $insDoc->execute([$applicant['id'], $docName, $dbFilePath, $mediaType, $cleanMobile]);
+            $docNotes = 'Received via WhatsApp Cloud API (+91 9286683232)' . (!empty($notes) ? ' | ' . $notes : '');
+            $insDoc = $db->prepare("INSERT INTO applicant_documents (applicant_id, document_category, document_name, file_path, uploaded_at, status, qa_status, notes, file_type, client_mobile) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, 'Uploaded', 'Under Review', ?, ?, ?)");
+            $insDoc->execute([$applicant['id'], $category, $docName, $dbFilePath, $docNotes, $mediaType, $cleanMobile]);
 
 
 
