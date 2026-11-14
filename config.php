@@ -3420,22 +3420,26 @@ if (!function_exists('sendCustomerLoanWhatsAppStageUpdate')) {
             case 'new':
                 $msg = "Namaste *{$name}* ji! 🙏\n"
                      . "*Bhardwaj Financial Services* me aapka swagat hai.\n\n"
-                     . "Aapki *{$loanType}* loan file hamare CRM me successfully login ho gayi hai!\n"
+                     . "Aapki *{$loanType}* loan file hamare Credit Desk par login ho gayi hai!\n"
                      . "📋 *File ID:* #{$loanId}\n"
                      . "💰 *Loan Amount:* {$fmtAmt}\n"
-                     . "📊 *Current Stage:* Phase 1 (KYC & Profile Verification)\n\n"
-                     . "🔗 *Aapka Personal Live Tracking Dashboard:*\n{$tracking_url}\n\n"
-                     . "Aap upar diye link par click karke apni file ka live status aur document progress 24x7 dekh sakte hain.\n\n"
+                     . "📊 *Current Stage:* Phase 1 (KYC & Document Verification)\n\n"
+                     . "🔗 *Aapka Personal Document & Tracking Portal:*\n{$tracking_url}\n\n"
+                     . "👉 *Zaroori Suchna:* Upar diye link par click karke aap apne documents (PAN, Aadhaar, Banking, Income Proof) seedhe apne mobile se upload kar sakte hain aur live status track kar sakte hain.\n\n"
                      . "📞 *Direct Credit Desk:* +91 92587-24227 / +91 79009-79001\n"
                      . "🏢 *Office:* Shop No. 4, Friends Center, Sanjay Place, Agra";
                 break;
 
             case 'phase 2':
             case 'docket':
+            case 'docs_pending':
+            case 'portal_link':
+            case 'document_upload_link':
                 $msg = "Namaste *{$name}* ji! 🙏\n"
                      . "Update on Loan File *#{$loanId}*:\n\n"
-                     . "Aapki file *Phase 2 (Bank Docket Preparation)* me proceed ho chuki hai. Hamari team bank submission ke liye aapka dossier aur verification complete kar rahi hai.\n\n"
-                     . "🔗 *Live Portal Status Check Karein:*\n{$tracking_url}\n\n"
+                     . "Aapki file *Document Verification & Bank Docket* stage par hai. Apne pending documents direct upload karne ke liye apna Personal Portal kholein:\n\n"
+                     . "🔗 *Personal Upload Portal:*\n{$tracking_url}\n\n"
+                     . "👉 Link par click karke aap zaroori documents ki photo ya PDF seedhe apne phone se upload kar sakte hain.\n\n"
                      . "📞 *Senior Desk:* +91 92587-24227";
                 break;
 

@@ -236,18 +236,18 @@ if ($action === 'get_file_status' || isset($_GET['check_status'])) {
         . "🔗 *Live Tracking Portal:*\n{$trackingUrl}";
 
     if (!empty($missing)) {
-        $pendingDocsText = "*{$app['customer_name']}* ji, aapki file (*#{$app['loan_id']}*) bank sanction ke liye bas ye document pending hain:\n"
+        $pendingDocsText = "*{$app['customer_name']}* ji, aapki file (*#{$app['loan_id']}*) me yeh zaroori documents pending hain:\n"
             . implode("\n", array_map(function($m) { return "👉 *{$m}*"; }, $missing))
-            . "\n\n📎 Aap in documents ki photo ya PDF direct isi WhatsApp chat par bhej sakte hain!\n"
-            . "🔗 *Live Portal:* {$trackingUrl}";
+            . "\n\n🔗 *Apne Documents Yahan Upload Karein:*\n{$trackingUrl}\n\n"
+            . "👉 Upar diye link par click karke aap seedhe apne mobile se photo ya PDF 1-click me upload kar sakte hain!";
     } else {
         $pendingDocsText = "🎉 *{$app['customer_name']}* ji, aapki file (*#{$app['loan_id']}*) me sabhi zaroori documents verify ho chuke hain! Koi bhi document pending nahi hai.\n\n🔗 *Live Portal:* {$trackingUrl}";
     }
 
     $portalLinkText = "Namaste *{$app['customer_name']}* ji! 🙏\n"
-        . "Yeh aapka personal BFS Circle Loan Tracking Portal link hai:\n\n"
+        . "Yeh aapka personal BFS Circle Document & Tracking Portal link hai:\n\n"
         . "🔗 {$trackingUrl}\n\n"
-        . "Is link par click karke aap apni file ka live stage, verified documents, aur sanction details 24x7 dekh sakte hain.";
+        . "Is link par click karke aap apni file ka live stage dekh sakte hain aur zaroori documents seedhe apne phone se upload kar sakte hain.";
 
     // Summary for List Message Body
     $summaryLines = [];
