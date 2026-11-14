@@ -27,7 +27,6 @@ if (!$isAdmin && !$isAuthorizedBridge) {
 switch ($action) {
     case 'status':
         $metrics = BfsVaultEngine::getVaultMetrics();
-        // Check if there are any transit files in uploads/vault_transit/
         $transitDir = __DIR__ . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'vault_transit';
         $transitCount = 0;
         $transitSize = 0;
@@ -54,57 +53,15 @@ switch ($action) {
         break;
 
     case 'list_pending':
-        $stmt = $db->query("SELECT id, applicant_id, document_category, document_name, file_path, uploaded_at FROM applicant_documents WHERE file_path LIKE 'uploads/%' OR file_path LIKE '%vault_transit%' ORDER BY id ASC");
-        $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        echo json_encode(['success' => true, 'count' => count($pending), 'documents' => $pending]);
-        break;
-
-    case 'pull_to_vault':
-        // Moves all legacy or transit uploads into physical F:\BFS\Vault_Leads
         $stmt = $db->query("
-            SELECT d.id, d.applicant_id, d.document_category, d.document_name, d.file_path, a.customer_name 
+            SELECT d.id, d.applicant_id, d.document_category, d.document_name, d.file_path, d.uploaded_at, a.customer_name 
             FROM applicant_documents d 
             JOIN applicants a ON d.applicant_id = a.id 
-            WHERE d.file_path NOT LIKE 'F:%' AND d.file_path != ''
+            WHERE d.file_path NOT LIKE 'F:%' AND d.file_path != '' AND d.status != 'Rejected' 
+            ORDER BY d.id ASC
         ");
-        $legacyDocs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        $migrated = 0;
-        $failed = 0;
-
-        foreach ($legacyDocs as $d) {
-            $currentPhys = BfsVaultEngine::resolvePhysicalPath($d['file_path']);
-            if (file_exists($currentPhys) && is_file($currentPhys)) {
-                $res = BfsVaultEngine::storeDocument(
-                    $d['applicant_id'],
-                    $d['customer_name'],
-                    $d['document_category'] ?: 'General',
-                    $d['document_name'] ?: 'Document',
-                    $currentPhys,
-                    basename($currentPhys)
-                );
-
-                if ($res['success']) {
-                    // Update database to point to physical F:\BFS
-                    $upd = $db->prepare("UPDATE applicant_documents SET file_path = ?, file_size = ?, file_ext = ? WHERE id = ?");
-                    $upd->execute([$res['full_path'], $res['file_size'], $res['ext'], $d['id']]);
-                    // Clean up source file from local uploads
-                    if (file_exists($currentPhys) && strpos($currentPhys, 'F:') !== 0) {
-                        @unlink($currentPhys);
-                    }
-                    $migrated++;
-                } else {
-                    $failed++;
-                }
-            }
-        }
-
-        echo json_encode([
-            'success'   => true,
-            'migrated'  => $migrated,
-            'failed'    => $failed,
-            'message'   => "Successfully transferred $migrated document(s) to F:\\BFS\\Vault_Leads!"
-        ]);
+        $pending = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode(['success' => true, 'count' => count($pending), 'documents' => $pending]);
         break;
 
     case 'download_file':
@@ -116,12 +73,19 @@ switch ($action) {
             http_response_code(404);
             die(json_encode(['error' => 'File not found']));
         }
-        $phys = BfsVaultEngine::resolvePhysicalPath($row['file_path']);
+        $fpath = $row['file_path'];
+        if (strpos($fpath, 'http://') === 0 || strpos($fpath, 'https://') === 0) {
+            header('Location: ' . $fpath);
+            exit;
+        }
+        $phys = __DIR__ . DIRECTORY_SEPARATOR . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $fpath), DIRECTORY_SEPARATOR);
         if (!file_exists($phys)) {
             http_response_code(404);
-            die(json_encode(['error' => 'Physical file not found']));
+            die(json_encode(['error' => 'Physical file not found: ' . $phys]));
         }
-        header('Content-Type: application/octet-stream');
+        $ext = strtolower(pathinfo($phys, PATHINFO_EXTENSION));
+        $mime = $ext === 'pdf' ? 'application/pdf' : ($ext === 'png' ? 'image/png' : 'image/jpeg');
+        header('Content-Type: ' . $mime);
         header('Content-Disposition: attachment; filename="' . basename($phys) . '"');
         header('Content-Length: ' . filesize($phys));
         readfile($phys);
@@ -129,21 +93,24 @@ switch ($action) {
 
     case 'purge_file':
         $docId = (int)($_GET['id'] ?? ($_POST['id'] ?? 0));
-        $destPath = trim($_POST['dest_path'] ?? '');
+        $destPath = trim($_POST['dest_path'] ?? ($_GET['dest_path'] ?? ''));
         $stmt = $db->prepare("SELECT file_path FROM applicant_documents WHERE id = ?");
         $stmt->execute([$docId]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($row) {
-            $phys = BfsVaultEngine::resolvePhysicalPath($row['file_path']);
-            if (file_exists($phys) && strpos($phys, 'uploads') !== false) {
-                @unlink($phys);
+            $fpath = $row['file_path'];
+            if (strpos($fpath, 'uploads/') !== false) {
+                $phys = __DIR__ . DIRECTORY_SEPARATOR . ltrim(str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $fpath), DIRECTORY_SEPARATOR);
+                if (file_exists($phys)) {
+                    @unlink($phys);
+                }
             }
             if (!empty($destPath)) {
                 $upd = $db->prepare("UPDATE applicant_documents SET file_path = ? WHERE id = ?");
                 $upd->execute([$destPath, $docId]);
             }
         }
-        echo json_encode(['success' => true, 'message' => "Purged file for doc #$docId from VPS disk"]);
+        echo json_encode(['success' => true, 'message' => "Updated file path to $destPath and purged from VPS"]);
         break;
 
     default:
