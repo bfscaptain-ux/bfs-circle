@@ -2072,6 +2072,28 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                     <form id="crmNewsForm" onsubmit="saveCrmNewsArticle(event)">
                         <input type="hidden" id="crm_news_id" value="">
 
+                        <!-- PRE-BUILT EDITORIAL TEMPLATE BLUEPRINTS (1-CLICK HIGH-LEVEL CONTENT) -->
+                        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px dashed #10b981; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:800; color:#065f46;">
+                                        ✨ Editorial Blueprint / Fast-Track Template (1-Click Fill)
+                                    </label>
+                                    <p style="margin:2px 0 0 0; font-size:11px; color:#047857;">
+                                        Instantly fills high-level financial analysis, bank ROI comparison table, advisory callouts &amp; SEO tags.
+                                    </p>
+                                </div>
+                                <select id="crm_template_picker" class="ctrl-input" style="width:auto; min-width:270px; font-weight:700; font-size:12px; border-color:#10b981; background:#fff; color:#065f46; cursor:pointer;" onchange="applyCrmTemplate(this.value)">
+                                    <option value="">-- Choose Editorial Blueprint --</option>
+                                    <option value="rbi-policy">🏛️ RBI MPC Repo Rate &amp; EMI Impact</option>
+                                    <option value="bank-rate-cut">🎉 Festive Home Loan Rate Cut (From 7.15%*)</option>
+                                    <option value="msme-scheme">💼 MSME CGTMSE Collateral-Free ₹5 Cr Loan</option>
+                                    <option value="cibil-rules">📈 CIBIL Fortnightly Reporting &amp; Credit Score Advice</option>
+                                    <option value="blank">📝 Blank Article (Clean Slate)</option>
+                                </select>
+                            </div>
+                        </div>
+
                         <!-- Headline -->
                         <div style="margin-bottom:14px;">
                             <label style="display:block; font-size:12px; font-weight:800; color:#0f172a; margin-bottom:6px;">Article Headline *</label>
@@ -2142,17 +2164,40 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                             </div>
                         </div>
 
-                        <!-- Content Body with HTML Snippet helpers -->
+                        <!-- Content Body with High-Level Snippets & Live Preview Tab -->
                         <div style="margin-bottom:14px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                <label style="font-size:12px; font-weight:800; color:#0f172a;">Article Content (HTML / Markdown supported) *</label>
-                                <div style="display:flex; gap:4px;">
-                                    <button type="button" class="btn-black-outline" style="font-size:10px; padding:2px 6px;" onclick="insertCrmSnippet('<h2>Subheading</h2>')">H2</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10px; padding:2px 6px;" onclick="insertCrmSnippet('<div class="my-4 p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-emerald-800"><p><strong>Notice:</strong> Key takeaway.</p></div>')">Note Box</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10px; padding:2px 6px;" onclick="insertCrmSnippet('<table class="w-full border-collapse my-4 text-xs"><thead><tr class="bg-slate-100"><th>Bank</th><th>Rate</th></tr></thead><tbody><tr><td>SBI</td><td>8.50%</td></tr></tbody></table>')">Table</button>
+                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                                <div style="display:flex; align-items:center; gap:10px;">
+                                    <label style="font-size:12px; font-weight:800; color:#0f172a;">Article Content (HTML / Rich Editorial) *</label>
+                                    <!-- Mode switcher -->
+                                    <div style="display:inline-flex; background:#e2e8f0; border-radius:6px; padding:2px;">
+                                        <button type="button" id="crm-tab-editor" onclick="switchCrmEditorMode('editor')" style="padding:3px 9px; font-size:11px; font-weight:700; border:none; border-radius:4px; background:#fff; color:#0f172a; cursor:pointer;">✏️ Code Editor</button>
+                                        <button type="button" id="crm-tab-preview" onclick="switchCrmEditorMode('preview')" style="padding:3px 9px; font-size:11px; font-weight:700; border:none; border-radius:4px; background:transparent; color:#64748b; cursor:pointer;">👁️ Live Preview</button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Working Rich Snippet Toolbar -->
+                                <div style="display:flex; gap:4px; flex-wrap:wrap;" id="crm-snippet-tools">
+                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#fff;" onclick="insertCrmSnippet('h2')">+ H2</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#fff;" onclick="insertCrmSnippet('h3')">+ H3</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#ecfdf5; border-color:#a7f3d0; color:#065f46;" onclick="insertCrmSnippet('takeaway')">💡 Key Takeaway</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#fffbeb; border-color:#fde68a; color:#92400e;" onclick="insertCrmSnippet('alert')">⚠️ Caution Box</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#f0f9ff; border-color:#bae6fd; color:#0369a1;" onclick="insertCrmSnippet('table')">📊 Bank ROI Table</button>
+                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#faf5ff; border-color:#e9d5ff; color:#6b21a8;" onclick="insertCrmSnippet('expert')">⚖️ Advisor Tip</button>
                                 </div>
                             </div>
-                            <textarea id="crm_news_content" rows="8" class="ctrl-input" placeholder="<p>Full article paragraphs...</p>" required style="font-family:monospace; font-size:12px;"></textarea>
+
+                            <!-- Code Editor Area -->
+                            <div id="crm-editor-wrapper">
+                                <textarea id="crm_news_content" rows="12" class="ctrl-input" placeholder="<p>Full article paragraphs...</p>" required style="font-family:Consolas, Monaco, monospace; font-size:12.5px; line-height:1.6;"></textarea>
+                            </div>
+
+                            <!-- Live Preview Area -->
+                            <div id="crm-preview-wrapper" style="display:none; max-height:420px; overflow-y:auto; border:1.5px solid #cbd5e1; border-radius:10px; padding:20px; background:#ffffff;">
+                                <div id="crm-preview-content" style="font-family:system-ui, -apple-system, sans-serif; font-size:14px; line-height:1.75; color:#1e293b;">
+                                    <!-- Rendered dynamically -->
+                                </div>
+                            </div>
                         </div>
 
                         <!-- SEO Customization Drawer -->
@@ -4554,6 +4599,8 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         document.getElementById('crm_news_meta_desc').value = '';
         document.getElementById('crm_news_focus_keyword').value = '';
         document.getElementById('crm_news_is_trending').checked = false;
+        if (document.getElementById('crm_template_picker')) document.getElementById('crm_template_picker').value = '';
+        switchCrmEditorMode('editor');
         
         // Reset TLDR
         document.getElementById('crm-tldr-container').innerHTML = `
@@ -4580,6 +4627,8 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         document.getElementById('crm_news_meta_desc').value = item.metaDescription || '';
         document.getElementById('crm_news_focus_keyword').value = item.focusKeyword || '';
         document.getElementById('crm_news_is_trending').checked = Boolean(item.isTrending);
+        if (document.getElementById('crm_template_picker')) document.getElementById('crm_template_picker').value = '';
+        switchCrmEditorMode('editor');
 
         const container = document.getElementById('crm-tldr-container');
         if (item.tldr && item.tldr.length > 0) {
@@ -4608,9 +4657,197 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         container.appendChild(input);
     }
 
-    function insertCrmSnippet(text) {
+    // Switch between Code Editor and Live Website Preview
+    function switchCrmEditorMode(mode) {
+        const editorWrapper = document.getElementById('crm-editor-wrapper');
+        const previewWrapper = document.getElementById('crm-preview-wrapper');
+        const btnEditor = document.getElementById('crm-tab-editor');
+        const btnPreview = document.getElementById('crm-tab-preview');
+        const snippetTools = document.getElementById('crm-snippet-tools');
+        const content = document.getElementById('crm_news_content').value;
+
+        if (mode === 'preview') {
+            editorWrapper.style.display = 'none';
+            previewWrapper.style.display = 'block';
+            btnEditor.style.background = 'transparent';
+            btnEditor.style.color = '#64748b';
+            btnPreview.style.background = '#fff';
+            btnPreview.style.color = '#0f172a';
+            snippetTools.style.opacity = '0.4';
+            snippetTools.style.pointerEvents = 'none';
+
+            // Populate preview with styled content
+            const previewEl = document.getElementById('crm-preview-content');
+            previewEl.innerHTML = content || '<p style="color:#94a3b8; font-style:italic;">Article content is empty. Type in editor to see preview.</p>';
+        } else {
+            editorWrapper.style.display = 'block';
+            previewWrapper.style.display = 'none';
+            btnEditor.style.background = '#fff';
+            btnEditor.style.color = '#0f172a';
+            btnPreview.style.background = 'transparent';
+            btnPreview.style.color = '#64748b';
+            snippetTools.style.opacity = '1';
+            snippetTools.style.pointerEvents = 'auto';
+        }
+    }
+
+    // Insert rich editorial snippets without syntax or quote errors
+    function insertCrmSnippet(snippetType) {
         const ta = document.getElementById('crm_news_content');
-        ta.value = ta.value + '\n' + text + '\n';
+        let snippet = '';
+
+        switch (snippetType) {
+            case 'h2':
+                snippet = '\n<h2>Key Policy Insights &amp; Market Dynamics</h2>\n';
+                break;
+            case 'h3':
+                snippet = '\n<h3>Detailed Comparative Evaluation</h3>\n';
+                break;
+            case 'takeaway':
+                snippet = '\n<div class="my-6 p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-medium shadow-xs">\n  <p><strong>💡 Key Takeaway for Borrowers:</strong> Enter key actionable takeaway here (e.g. Existing borrowers should review their rate spread against current 7.15%* EBLR benchmarks).</p>\n</div>\n';
+                break;
+            case 'alert':
+                snippet = '\n<div class="my-6 p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 font-medium shadow-xs">\n  <p><strong>⚠️ Critical Advisory &amp; Regulatory Note:</strong> Multiple direct bank applications within 30 days trigger hard inquiries that hurt CIBIL. Always route through an accredited advisor like BFS.</p>\n</div>\n';
+            case 'table':
+                snippet = '\n<div class="my-6 overflow-x-auto rounded-xl border border-slate-200">\n  <table class="w-full border-collapse text-xs sm:text-sm">\n    <thead>\n      <tr class="bg-slate-900 text-white font-bold text-left">\n        <th class="p-3">Lending Institution</th>\n        <th class="p-3">Starting ROI</th>\n        <th class="p-3">Processing Fee</th>\n        <th class="p-3">Sanction SLA</th>\n        <th class="p-3">BFS Advantage</th>\n      </tr>\n    </thead>\n    <tbody class="divide-y divide-slate-200">\n      <tr><td class="p-3 font-semibold">State Bank of India (SBI)</td><td class="p-3">7.25% - 8.50%</td><td class="p-3">0.35%</td><td class="p-3">5-7 Days</td><td class="p-3">Direct Branch Liaison</td></tr>\n      <tr><td class="p-3 font-semibold">HDFC Bank</td><td class="p-3">7.20% - 8.65%</td><td class="p-3">0.50%</td><td class="p-3">3-5 Days</td><td class="p-3">Instant Digital In-Principle</td></tr>\n      <tr><td class="p-3 font-semibold">ICICI Bank</td><td class="p-3">7.25% - 8.60%</td><td class="p-3">0.50%</td><td class="p-3">3-4 Days</td><td class="p-3">Flexible Prepayment Terms</td></tr>\n      <tr><td class="p-3 font-semibold">Punjab National Bank (PNB)</td><td class="p-3">7.30% - 8.75%</td><td class="p-3">Zero (Festive)</td><td class="p-3">6-8 Days</td><td class="p-3">Doorstep Legal Verification</td></tr>\n      <tr class="bg-emerald-50 text-emerald-950 font-bold"><td class="p-3">BFS Special Advisory Rates</td><td class="p-3">From 7.15%*</td><td class="p-3">Zero Brokerage</td><td class="p-3">5 Days Fast-Track</td><td class="p-3">100% Legal &amp; Property Vetting</td></tr>\n    </tbody>\n  </table>\n</div>\n';
+                break;
+            case 'expert':
+                snippet = '\n<div class="my-6 p-5 rounded-2xl bg-blue-50 border border-blue-300 text-blue-950 shadow-xs">\n  <p><strong>Adv. Praveen Bhardwaj (MD &amp; High Court Advocate):</strong> "Ensure all title chain deeds and registry maps are legally verified prior to loan disbursement. BFS conducts end-to-end legal vetting to protect you from encumbrances."</p>\n</div>\n';
+                break;
+            default:
+                snippet = '\n<p>Enter paragraph text...</p>\n';
+        }
+
+        const start = ta.selectionStart;
+        const end = ta.selectionEnd;
+        ta.value = ta.value.substring(0, start) + snippet + ta.value.substring(end);
+        ta.focus();
+        ta.selectionStart = ta.selectionEnd = start + snippet.length;
+    }
+
+    // Apply high-level pre-built editorial templates with 1 click
+    function applyCrmTemplate(templateKey) {
+        if (!templateKey) return;
+
+        const templates = {
+            'rbi-policy': {
+                title: 'RBI MPC Keeps Repo Rate Unchanged at 6.50%: What It Means for Your Home Loan EMIs',
+                category: 'Banking & RBI',
+                author: 'Adv. Praveen Bhardwaj',
+                ctaType: 'home-loan',
+                imageUrl: 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80',
+                tldr: [
+                    'RBI Monetary Policy Committee maintains benchmark repo rate steady at 6.50% for tenth consecutive review.',
+                    'Existing floating-rate home loans continue on current interest slabs with zero immediate change in monthly EMIs.',
+                    'Banks continue competitive festive offerings with starting home loan rates from 7.15%* through BFS.',
+                    'Borrowers paying above 8.75% can save ₹3-8 Lakhs by opting for a repo-linked balance transfer.'
+                ],
+                content: '<h2>RBI MPC Decision: Steady Policy Rate with Disinflationary Focus</h2><p>In its latest bi-monthly monetary policy review, the Reserve Bank of India’s Monetary Policy Committee (MPC) decided to keep the benchmark repo rate unchanged at 6.50%. The policy stance reflects resilient macroeconomic growth alongside persistent focus on aligning CPI inflation comfortably with the 4% median target.</p><div class="my-6 p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-medium"><p><strong>💡 Key Takeaway for Borrowers:</strong> With policy rates stabilizing, now is the ideal window to lock in multi-year balance transfers before potential global liquidity shifts.</p></div><h2>Benchmark Home Loan Interest Rates Across India (2026)</h2><div class="my-6 overflow-x-auto rounded-xl border border-slate-200"><table class="w-full border-collapse text-xs sm:text-sm"><thead><tr class="bg-slate-900 text-white font-bold text-left"><th class="p-3">Lending Institution</th><th class="p-3">Starting ROI</th><th class="p-3">Processing Fee</th><th class="p-3">Tenor</th><th class="p-3">BFS Advantage</th></tr></thead><tbody class="divide-y divide-slate-200"><tr><td class="p-3 font-semibold">State Bank of India (SBI)</td><td class="p-3">7.25% - 8.50%</td><td class="p-3">0.35%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Direct Branch Liaison</td></tr><tr><td class="p-3 font-semibold">HDFC Bank</td><td class="p-3">7.20% - 8.65%</td><td class="p-3">0.50%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Instant Digital In-Principle</td></tr><tr><td class="p-3 font-semibold">ICICI Bank</td><td class="p-3">7.25% - 8.60%</td><td class="p-3">0.50%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Flexible Prepayment Terms</td></tr><tr><td class="p-3 font-semibold">Punjab National Bank (PNB)</td><td class="p-3">7.30% - 8.75%</td><td class="p-3">Zero (Festive)</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Doorstep Legal Verification</td></tr><tr class="bg-emerald-50 text-emerald-950 font-bold"><td class="p-3">BFS Special Advisory Rates</td><td class="p-3">From 7.15%*</td><td class="p-3">Zero Brokerage</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">100% Legal &amp; Property Vetting</td></tr></tbody></table></div><h2>Legal &amp; Senior Financial Advisor's Perspective</h2><div class="my-6 p-5 rounded-2xl bg-blue-50 border border-blue-300 text-blue-950"><p><strong>Adv. Praveen Bhardwaj (MD, Bhardwaj Financial Services):</strong> "Borrowers carrying home loans originated prior to 2022 are often paying higher spreads under outdated MCLR frameworks. Moving your loan to an External Benchmark Lending Rate (EBLR) tied to repo yields direct monthly cash savings and cuts years off your mortgage."</p></div>',
+                seoTitle: 'RBI Repo Rate 6.50% Unchanged | Home Loan EMI Impact 2026',
+                focusKeyword: 'rbi repo rate home loan emi',
+                metaDescription: 'Understand RBI MPC's latest repo rate decision and what it means for your home loan EMIs, floating rates, and balance transfer opportunities.'
+            },
+            'bank-rate-cut': {
+                title: 'BFS Announces Special Festive Home Loan Balance Transfer Drive: Rates Starting from 7.15%* p.a.',
+                category: 'Loans & EMIs',
+                author: 'Adv. Praveen Bhardwaj',
+                ctaType: 'home-loan',
+                imageUrl: 'https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=1200&q=80',
+                tldr: [
+                    'Special festive tie-up with 15+ nationalized and private banks introduces home loan ROI starting from 7.15%*.',
+                    'Zero administrative brokerage and 100% legal scrutiny by High Court advocate desk included.',
+                    'Seamless doorstep document collection in Agra, Delhi NCR, Lucknow, Jaipur, and Pan-India.',
+                    'Average customer savings range between ₹4,20,000 to ₹12,80,000 on running loans.'
+                ],
+                content: '<h2>Unlock Substantial Interest Savings with BFS Festive Window</h2><p>Bhardwaj Financial Services (BFS) has launched its nationwide Festive Home Loan &amp; Balance Transfer program. Under this limited initiative, eligible salaried and self-employed borrowers can refinance existing mortgages at competitive rates starting from <strong>7.15%* p.a.</strong>.</p><div class="my-6 p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-medium"><p><strong>💡 Balance Transfer Illustration:</strong> On a ₹50 Lakh home loan with 20 years remaining at 8.90%, transferring to 7.15% reduces your EMI by approx ₹5,600/month and saves over ₹13.4 Lakhs in total interest.</p></div><h2>Who is Eligible for the 7.15%* Starting Slab?</h2><p>Borrowers with a CIBIL score of 750 or higher, verifiable income documents (Form 16 or 3-year ITRs), and clear property chain documents can qualify for the lowest tier.</p>',
+                seoTitle: 'Home Loan Balance Transfer at 7.15%* | Save Lakhs with BFS',
+                focusKeyword: 'home loan balance transfer 7.15',
+                metaDescription: 'Switch your existing home loan to BFS special rates starting 7.15%* p.a. Zero brokerage, doorstep document pickup, and fast 5-day sanction.'
+            },
+            'msme-scheme': {
+                title: 'Government Expands CGTMSE Collateral-Free Business Loans Limit up to ₹5 Crores for MSMEs',
+                category: 'Taxes & MSME',
+                author: 'BFS Research Desk',
+                ctaType: 'business-loan',
+                imageUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80',
+                tldr: [
+                    'Credit Guarantee Fund Trust for Micro and Small Enterprises (CGTMSE) ceiling expanded up to ₹5 Crores.',
+                    'No collateral mortgage or third-party guarantee required for qualified manufacturing and service units.',
+                    'Annual guarantee fees revised downward to reduce financial borrowing costs for young entrepreneurs.',
+                    'BFS Credit Desk offers structured CMA report preparation and direct bank sanction within 7 working days.'
+                ],
+                content: '<h2>Big Boost for Indian Manufacturing &amp; Trading Units</h2><p>In a major boost for the Indian entrepreneurial ecosystem, the Ministry of MSME has broadened the coverage under CGTMSE to ₹5 Crores. This empowers growing businesses to fund expansion, machinery purchase, and working capital without pledging ancestral property.</p><div class="my-6 p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-medium"><p><strong>💡 Key Benefit:</strong> 75% to 85% of the default credit risk is guaranteed by the Government trust, enabling public and private banks to approve unsecured credit lines swiftly.</p></div>',
+                seoTitle: 'CGTMSE Business Loan up to 5 Crore Collateral-Free | BFS Guide',
+                focusKeyword: 'cgtmse loan 5 crore collateral free',
+                metaDescription: 'Apply for CGTMSE collateral-free MSME loans up to ₹5 Crores. Learn eligibility, required documents, CMA preparation, and fast approval process.'
+            },
+            'cibil-rules': {
+                title: 'New CIBIL Score Directives: Fortnightly Credit Bureau Reporting & How Hard Inquiries Affect You',
+                category: 'CIBIL & Credit',
+                author: 'Adv. Praveen Bhardwaj',
+                ctaType: 'cibil-check',
+                imageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80',
+                tldr: [
+                    'Credit bureaus now refresh borrower repayment and inquiry data every 15 days instead of monthly.',
+                    'Submitting loan applications across 4+ banks simultaneously can deduct 25 to 50 points from your CIBIL.',
+                    'Soft inquiries made through certified financial DSA advisors like BFS do not hurt your credit profile.',
+                    'A credit score above 720 remains the benchmark for instant unsecured loan approvals.'
+                ],
+                content: '<h2>Fortnightly Credit Reporting Now Active Across India</h2><p>Under revised RBI directions for credit reporting transparency, all Scheduled Commercial Banks and NBFCs are now required to furnish consumer credit data to bureaus (TransUnion CIBIL, Experian, Equifax, CRIF High Mark) every 15 days. Previously, data updates took 30 to 45 days, causing delayed reflection of repaid loans.</p><div class="my-6 p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 font-medium"><p><strong>⚠️ Beware of Multiple Direct Bank Inquiries:</strong> When you apply directly to multiple portals at once, each lender registers a 'Hard Credit Pull'. Too many hard pulls within 30 days flags the borrower as 'credit-hungry', triggering automated algorithmic loan rejection.</p></div>',
+                seoTitle: 'New CIBIL Score Rules 2026 | Fortnightly Reporting & Hard Inquiries',
+                focusKeyword: 'new cibil score rules hard inquiries',
+                metaDescription: "Understand RBI's new 15-day credit reporting cycle and how hard credit inquiries impact your CIBIL score. Expert advice from Adv. Praveen Bhardwaj."
+            },
+            'blank': {
+                title: '',
+                category: 'Banking & RBI',
+                author: 'Adv. Praveen Bhardwaj',
+                ctaType: 'home-loan',
+                imageUrl: '',
+                tldr: ['', ''],
+                content: '<h2>Main Heading</h2>\n<p>Article paragraphs go here...</p>',
+                seoTitle: '',
+                focusKeyword: '',
+                metaDescription: ''
+            }
+        };
+
+        const t = templates[templateKey];
+        if (!t) return;
+
+        document.getElementById('crm_news_title').value = t.title;
+        document.getElementById('crm_news_category').value = t.category;
+        document.getElementById('crm_news_author').value = t.author;
+        document.getElementById('crm_news_cta').value = t.ctaType;
+        document.getElementById('crm_news_image').value = t.imageUrl;
+        if (t.imageUrl) {
+            document.getElementById('crm_news_preview_tag').src = t.imageUrl;
+            document.getElementById('crm_news_image_preview').style.display = 'block';
+        } else {
+            document.getElementById('crm_news_image_preview').style.display = 'none';
+        }
+
+        // TLDR container
+        const container = document.getElementById('crm-tldr-container');
+        container.innerHTML = '';
+        (t.tldr || ['']).forEach((pt, idx) => {
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.className = 'ctrl-input crm-tldr-input';
+            input.placeholder = 'Point #' + (idx + 1) + '...';
+            input.value = pt;
+            input.style.background = '#fff';
+            input.style.fontSize = '12px';
+            container.appendChild(input);
+        });
+
+        document.getElementById('crm_news_content').value = t.content;
+        document.getElementById('crm_news_seo_title').value = t.seoTitle;
+        document.getElementById('crm_news_focus_keyword').value = t.focusKeyword;
+        document.getElementById('crm_news_meta_desc').value = t.metaDescription;
+
+        // Switch to editor mode
+        switchCrmEditorMode('editor');
     }
 
     function convertCrmImageToWebP(e) {
