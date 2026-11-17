@@ -348,7 +348,11 @@ if ($action === 'upload_image') {
         if ($code >= 200 && $code < 300 && $res) {
             $json = json_decode($res, true);
             if (!empty($json['url'])) {
-                $uploaded_url = strpos($json['url'], 'http') === 0 ? $json['url'] : 'https://bfsfin.com' . $json['url'];
+                $uploaded_filename = basename($json['url']);
+                $uploaded_url = 'https://crm.bfsfin.cloud/view_news_image.php?file=' . urlencode($uploaded_filename);
+                $crm_dir = __DIR__ . '/uploads/news/';
+                if (!is_dir($crm_dir)) @mkdir($crm_dir, 0775, true);
+                @copy($file_path, $crm_dir . $uploaded_filename);
                 break;
             }
         }
@@ -362,7 +366,7 @@ if ($action === 'upload_image') {
         }
         $safe_name = time() . '-' . preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $original_name);
         if (@copy($file_path, $crm_upload_dir . $safe_name)) {
-            $uploaded_url = 'https://crm.bfsfin.cloud/uploads/news/' . $safe_name;
+            $uploaded_url = 'https://crm.bfsfin.cloud/view_news_image.php?file=' . urlencode($safe_name);
         }
     }
 

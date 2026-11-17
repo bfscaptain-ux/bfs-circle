@@ -2256,7 +2256,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                         </button>
                                     </div>
                                     <div id="crm_news_image_preview" style="display:none; height:110px; width:100%; border-radius:10px; overflow:hidden; border:1.5px solid #cbd5e1; background:#0f172a;">
-                                        <img id="crm_news_preview_tag" src="" style="width:100%; height:100%; object-fit:cover;">
+                                        <img id="crm_news_preview_tag" src="" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=800&q=80';" style="width:100%; height:100%; object-fit:cover;">
                                     </div>
                                 </div>
 
@@ -4645,7 +4645,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             return `
                 <tr style="border-bottom:1px solid #f1f5f9; transition:background 0.15s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background='transparent'">
                     <td style="padding:10px 14px; width:70px;">
-                        <img src="${item.imageUrl}" style="width:60px; height:42px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;">
+                        <img src="${item.imageUrl}" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=300&q=80';" style="width:60px; height:42px; object-fit:cover; border-radius:6px; border:1px solid #cbd5e1;">
                     </td>
                     <td style="padding:10px 14px; max-width:320px;">
                         <div style="font-weight:800; color:#0f172a; line-height:1.3; font-size:12.5px;">
@@ -4985,7 +4985,8 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                         });
                         const data = await res.json();
                         if (data.success && data.url) {
-                            uploadedUrl = 'https://bfsfin.com' + data.url;
+                            const filename = data.url.split('/').pop();
+                            uploadedUrl = 'https://crm.bfsfin.cloud/view_news_image.php?file=' + encodeURIComponent(filename);
                         }
                     } catch (err) {
                         console.warn('Direct upload error:', err);
@@ -5012,13 +5013,20 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
 
                     if (uploadedUrl) {
                         document.getElementById('crm_news_image').value = uploadedUrl;
-                        document.getElementById('crm_news_preview_tag').src = uploadedUrl;
+                        // Verify image is renderable before swapping preview
+                        const testImg = new Image();
+                        testImg.onload = () => {
+                            const pt = document.getElementById('crm_news_preview_tag');
+                            if (pt) pt.src = uploadedUrl;
+                        };
+                        testImg.src = uploadedUrl;
+
                         if (uploadBtn) {
                             uploadBtn.innerHTML = '✅ Uploaded';
                             setTimeout(() => {
                                 uploadBtn.innerHTML = oldBtnText;
                                 uploadBtn.disabled = false;
-                            }, 2200);
+                            }, 2000);
                         }
                     } else {
                         document.getElementById('crm_news_image').value = localDataUrl;
