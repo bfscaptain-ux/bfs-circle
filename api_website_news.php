@@ -272,4 +272,115 @@ if ($action === 'delete') {
     exit;
 }
 
+// =========================================================================
+// 4. UPLOAD IMAGE ACTION (Directly to Website CDN/Public Storage)
+// =========================================================================
+if ($action === 'upload_image') {
+    $file_path = null;
+    $original_name = 'article_' . time() . '.webp';
+    $mime_type = 'image/webp';
+    $tmp_file = null;
+
+    if (!empty($_FILES['file']['tmp_name']) || !empty($_FILES['image']['tmp_name'])) {
+        $f = !empty($_FILES['file']['tmp_name']) ? $_FILES['file'] : $_FILES['image'];
+        $file_path = $f['tmp_name'];
+        $original_name = $f['name'];
+        $mime_type = $f['type'] ?: 'image/jpeg';
+    } else {
+        $base64_data = $body['image_base64'] ?? null;
+        if (!$base64_data && !empty($raw_body)) {
+            $json = json_decode($raw_body, true);
+            $base64_data = $json['image_base64'] ?? null;
+        }
+
+        if ($base64_data) {
+            $ext = 'webp';
+            if (preg_match('/^data:image\/(\w+);base64,/', $base64_data, $type)) {
+                $base64_data = substr($base64_data, strpos($base64_data, ',') + 1);
+                $ext = strtolower($type[1]);
+            }
+            $decoded = base64_decode($base64_data);
+            if ($decoded) {
+                $tmp_file = tempnam(sys_get_temp_dir(), 'news_img_') . '.' . $ext;
+                file_put_contents($tmp_file, $decoded);
+                $file_path = $tmp_file;
+                $original_name = 'upload_' . time() . '.' . $ext;
+                $mime_type = 'image/' . $ext;
+            }
+        }
+    }
+
+    if (!$file_path || !file_exists($file_path)) {
+        echo json_encode(['success' => false, 'error' => 'No valid image file received.']);
+        exit;
+    }
+
+    // Call Next.js /api/upload
+    $target_urls = [
+        'https://bfsfin.com/api/upload',
+        'http://127.0.0.1:3000/api/upload'
+    ];
+    $uploaded_url = null;
+
+    foreach ($target_urls as $target_url) {
+        $ch = curl_init($target_url);
+        $cfile = new CURLFile($file_path, $mime_type, $original_name);
+        $post_fields = [
+            'file' => $cfile,
+            'folder' => 'uploads/news'
+        ];
+
+        curl_setopt($ch, CURLOPT_POST, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $post_fields);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, false);
+
+        if (strpos($target_url, '127.0.0.1') !== false) {
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Host: bfsfin.com']);
+        }
+
+        $res = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($code >= 200 && $code < 300 && $res) {
+            $json = json_decode($res, true);
+            if (!empty($json['url'])) {
+                $uploaded_url = strpos($json['url'], 'http') === 0 ? $json['url'] : 'https://bfsfin.com' . $json['url'];
+                break;
+            }
+        }
+    }
+
+    // Fallback: save to local CRM uploads/news/
+    if (!$uploaded_url) {
+        $crm_upload_dir = __DIR__ . '/uploads/news/';
+        if (!is_dir($crm_upload_dir)) {
+            @mkdir($crm_upload_dir, 0775, true);
+        }
+        $safe_name = time() . '-' . preg_replace('/[^a-zA-Z0-9_\.-]/', '_', $original_name);
+        if (@copy($file_path, $crm_upload_dir . $safe_name)) {
+            $uploaded_url = 'https://crm.bfsfin.cloud/uploads/news/' . $safe_name;
+        }
+    }
+
+    if ($tmp_file && file_exists($tmp_file)) {
+        @unlink($tmp_file);
+    }
+
+    if ($uploaded_url) {
+        echo json_encode([
+            'success' => true,
+            'url' => $uploaded_url,
+            'message' => 'Image uploaded successfully!'
+        ]);
+        exit;
+    }
+
+    echo json_encode(['success' => false, 'error' => 'Failed to upload image to website or CRM storage.']);
+    exit;
+}
+
 echo json_encode(['success' => false, 'error' => 'Invalid action']);

@@ -2251,7 +2251,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                                     <div style="display:flex; gap:6px; margin-bottom:10px;">
                                         <input type="text" id="crm_news_image" class="ctrl-input" placeholder="Image URL (Unsplash)..." style="flex-grow:1; font-size:11.5px; border-radius:8px;">
                                         <input type="file" id="crm_news_file_upload" accept="image/*" style="display:none;" onchange="convertCrmImageToWebP(event)">
-                                        <button type="button" class="btn-black-outline" onclick="document.getElementById('crm_news_file_upload').click()" style="padding:6px 10px; font-size:11px; white-space:nowrap; border-radius:8px;">
+                                        <button type="button" id="crm_news_upload_btn" class="btn-black-outline" onclick="document.getElementById('crm_news_file_upload').click()" style="padding:6px 10px; font-size:11px; white-space:nowrap; border-radius:8px;">
                                             📁 Upload
                                         </button>
                                     </div>
@@ -4926,8 +4926,16 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
     }
 
     function convertCrmImageToWebP(e) {
-        const file = e.target.files[0];
+        const file = e.target.files && e.target.files[0];
         if (!file) return;
+
+        const uploadBtn = document.getElementById('crm_news_upload_btn');
+        const oldBtnText = uploadBtn ? uploadBtn.innerHTML : '📁 Upload';
+        if (uploadBtn) {
+            uploadBtn.innerHTML = '⏳ Uploading...';
+            uploadBtn.disabled = true;
+        }
+
         const reader = new FileReader();
         reader.onload = ev => {
             const img = new Image();
@@ -4942,10 +4950,49 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                 canvas.width = w; canvas.height = h;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, w, h);
-                const webp = canvas.toDataURL('image/webp', 0.82);
-                document.getElementById('crm_news_image').value = webp;
-                document.getElementById('crm_news_preview_tag').src = webp;
+
+                const localDataUrl = canvas.toDataURL('image/webp', 0.85);
+                document.getElementById('crm_news_preview_tag').src = localDataUrl;
                 document.getElementById('crm_news_image_preview').style.display = 'block';
+
+                canvas.toBlob(async blob => {
+                    try {
+                        const fd = new FormData();
+                        const safeBase = (file.name.replace(/\.[^/.]+$/, "") || 'news_img').replace(/[^a-zA-Z0-9_-]/g, '_');
+                        fd.append('file', blob, safeBase + '.webp');
+                        fd.append('action', 'upload_image');
+
+                        const res = await fetch('api_website_news.php?action=upload_image', {
+                            method: 'POST',
+                            body: fd
+                        });
+                        const data = await res.json();
+                        if (data.success && data.url) {
+                            document.getElementById('crm_news_image').value = data.url;
+                            document.getElementById('crm_news_preview_tag').src = data.url;
+                            if (uploadBtn) {
+                                uploadBtn.innerHTML = '✅ Uploaded';
+                                setTimeout(() => {
+                                    uploadBtn.innerHTML = oldBtnText;
+                                    uploadBtn.disabled = false;
+                                }, 2200);
+                            }
+                        } else {
+                            document.getElementById('crm_news_image').value = localDataUrl;
+                            if (uploadBtn) {
+                                uploadBtn.innerHTML = oldBtnText;
+                                uploadBtn.disabled = false;
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Image upload failed:', err);
+                        document.getElementById('crm_news_image').value = localDataUrl;
+                        if (uploadBtn) {
+                            uploadBtn.innerHTML = oldBtnText;
+                            uploadBtn.disabled = false;
+                        }
+                    }
+                }, 'image/webp', 0.85);
             };
             img.src = ev.target.result;
         };
