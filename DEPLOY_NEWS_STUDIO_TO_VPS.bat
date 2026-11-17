@@ -1,5 +1,5 @@
 @echo off
-title BFS Circle - Deploy News Editorial Studio to VPS
+title BFS Circle - Deploy News Editorial Studio & Website Sync to VPS
 color 0A
 cls
 echo ======================================================================
@@ -7,22 +7,22 @@ echo       BFS CIRCLE - DEPLOY UPGRADED NEWS EDITORIAL STUDIO TO VPS
 echo ======================================================================
 echo.
 echo VPS IP      : 200.234.34.191
-echo Live Domain : https://crm.bfsfin.cloud
-echo Target Path : /var/www/crm/
+echo CRM Domain  : https://crm.bfsfin.cloud
+echo Web Domain  : https://bfsfin.com
+echo Target CRM  : /var/www/crm/
 echo.
 echo ======================================================================
 echo Kya update hoga:
 echo   1. Luxury 2-Column News Editorial Studio (settings.php)
-echo   2. Fixed unescaped HTML quotes & layout overflow bug
-echo   3. 1-Click Fast-Track Blueprints (RBI, Festive Cut, MSME, CIBIL)
-echo   4. Live Website Preview Mode & Working Rich Snippet Toolbar
-echo   5. Website News Bridge API (api_website_news.php)
+echo   2. Production Next.js API Bridge (api_website_news.php)
+echo   3. Dynamic on-demand news pages on bfsfin.com
+echo   4. Auto-sync of Inflation Hits 6.09% RBI Repo Rate article
 echo ======================================================================
 echo.
 echo Enter your VPS root password when prompted:
 echo.
 
-echo [1/2] Uploading latest settings.php & api_website_news.php via SCP...
+echo [1/3] Uploading latest settings.php and api_website_news.php to CRM...
 scp "e:\Downloads\client mgmt2\settings.php" "e:\Downloads\client mgmt2\api_website_news.php" root@200.234.34.191:/var/www/crm/
 
 if %errorlevel% neq 0 (
@@ -33,15 +33,21 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo [2/2] Updating permissions & pulling latest Git commit on VPS...
+echo [2/3] Updating CRM permissions on VPS...
 ssh -t root@200.234.34.191 "cd /var/www/crm && chown www-data:www-data settings.php api_website_news.php && git pull origin main"
 
 echo.
+echo [3/3] Pulling latest website code and restarting Next.js on VPS...
+ssh -t root@200.234.34.191 "bash /root/UPDATE_WEBSITE_ON_VPS.sh || (cd /var/www/bfsfin && git pull origin master && npm run build && pm2 restart bfsfin)"
+
+echo.
 echo ======================================================================
-echo   🎉 DEPLOYMENT COMPLETED! NEWS STUDIO IS NOW LIVE ON CRM!
+echo   🎉 DEPLOYMENT COMPLETED! NEWS IS NOW LIVE ON BOTH CRM & WEBSITE!
 echo ======================================================================
 echo.
-echo Ab aap browser me https://crm.bfsfin.cloud/settings.php?tab=news
-echo ko refresh (Ctrl + F5) karke "Publish New Article" par click karein!
+echo Ab aap:
+echo   1. CRM Desk : https://crm.bfsfin.cloud/settings.php?tab=news
+echo   2. Public   : https://bfsfin.com/news
+echo par jaakar check kar sakte hain!
 echo.
 pause
