@@ -2058,188 +2058,263 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                 </div>
             </div>
 
-            <!-- NEWS CREATE / EDIT MODAL -->
-            <div id="crmNewsModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.7); backdrop-filter:blur(6px); z-index:99999; justify-content:center; align-items:center; padding:20px; overflow-y:auto;">
-                <div style="background:#fff; border-radius:16px; max-width:800px; width:100%; max-height:90vh; overflow-y:auto; padding:24px; box-shadow:0 25px 50px -12px rgba(0,0,0,0.25);">
-                    <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #e2e8f0; padding-bottom:14px; margin-bottom:18px;">
-                        <div>
-                            <h3 style="margin:0; font-size:17px; font-weight:800; color:#0f172a;" id="crmNewsModalTitle">Publish New Financial Article</h3>
-                            <p style="margin:2px 0 0 0; font-size:12px; color:#64748b;">Saves directly to website live database with automated Schema &amp; Sitemap inclusion.</p>
+            <!-- NEWS CREATE / EDIT MODAL (LUXURY ENTERPRISE EDITORIAL STUDIO) -->
+            <div id="crmNewsModal" style="display:none; position:fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(15,23,42,0.8); backdrop-filter:blur(10px); z-index:999999; justify-content:center; align-items:center; padding:16px; box-sizing:border-box;">
+                <div style="background:#ffffff; border-radius:20px; max-width:1240px; width:100%; height:94vh; display:flex; flex-direction:column; box-shadow:0 30px 80px -15px rgba(0,0,0,0.4); border:1px solid #cbd5e1; overflow:hidden;">
+                    
+                    <!-- 1. FIXED MODAL HEADER -->
+                    <div style="display:flex; justify-content:space-between; align-items:center; padding:16px 24px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <div style="width:40px; height:40px; border-radius:12px; background:linear-gradient(135deg, #10b981 0%, #047857 100%); display:flex; align-items:center; justify-content:center; color:#fff; box-shadow:0 4px 12px rgba(16,185,129,0.3);">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2"></path><path d="M18 14h-8"></path><path d="M15 18h-5"></path><path d="M10 6h8v4h-8V6Z"></path></svg>
+                            </div>
+                            <div>
+                                <div style="display:flex; align-items:center; gap:8px;">
+                                    <h3 style="margin:0; font-size:17px; font-weight:900; color:#0f172a;" id="crmNewsModalTitle">Publish Financial Article &amp; Intelligence</h3>
+                                    <span style="background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; font-size:10px; font-weight:800; padding:2px 8px; border-radius:12px; text-transform:uppercase;">
+                                        ● Live Website Sync
+                                    </span>
+                                </div>
+                                <p style="margin:2px 0 0 0; font-size:12px; color:#64748b;">
+                                    Directly pushes to <strong>bfsfin.com/news</strong> with automated Google News Schema, rich tables &amp; AMP meta.
+                                </p>
+                            </div>
                         </div>
-                        <button type="button" onclick="closeCrmNewsModal()" style="border:none; background:#f1f5f9; border-radius:50%; width:32px; height:32px; cursor:pointer; font-weight:bold; font-size:16px;">✕</button>
+                        <button type="button" onclick="closeCrmNewsModal()" style="border:none; background:#e2e8f0; hover:background:#cbd5e1; border-radius:50%; width:34px; height:34px; cursor:pointer; font-weight:900; font-size:16px; color:#475569; display:flex; align-items:center; justify-content:center; transition:all 0.15s;">✕</button>
                     </div>
 
-                    <form id="crmNewsForm" onsubmit="saveCrmNewsArticle(event)">
+                    <!-- 2. SCROLLABLE FORM BODY (2-COLUMN GRID) -->
+                    <form id="crmNewsForm" onsubmit="saveCrmNewsArticle(event)" style="flex:1; overflow-y:auto; display:flex; flex-direction:column; margin:0;">
                         <input type="hidden" id="crm_news_id" value="">
 
-                        <!-- PRE-BUILT EDITORIAL TEMPLATE BLUEPRINTS (1-CLICK HIGH-LEVEL CONTENT) -->
-                        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px dashed #10b981; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
-                                <div>
-                                    <label style="display:block; font-size:12px; font-weight:800; color:#065f46;">
-                                        ✨ Editorial Blueprint / Fast-Track Template (1-Click Fill)
-                                    </label>
-                                    <p style="margin:2px 0 0 0; font-size:11px; color:#047857;">
-                                        Instantly fills high-level financial analysis, bank ROI comparison table, advisory callouts &amp; SEO tags.
-                                    </p>
-                                </div>
-                                <select id="crm_template_picker" class="ctrl-input" style="width:auto; min-width:270px; font-weight:700; font-size:12px; border-color:#10b981; background:#fff; color:#065f46; cursor:pointer;" onchange="applyCrmTemplate(this.value)">
-                                    <option value="">-- Choose Editorial Blueprint --</option>
-                                    <option value="rbi-policy">🏛️ RBI MPC Repo Rate &amp; EMI Impact</option>
-                                    <option value="bank-rate-cut">🎉 Festive Home Loan Rate Cut (From 7.15%*)</option>
-                                    <option value="msme-scheme">💼 MSME CGTMSE Collateral-Free ₹5 Cr Loan</option>
-                                    <option value="cibil-rules">📈 CIBIL Fortnightly Reporting &amp; Credit Score Advice</option>
-                                    <option value="blank">📝 Blank Article (Clean Slate)</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Headline -->
-                        <div style="margin-bottom:14px;">
-                            <label style="display:block; font-size:12px; font-weight:800; color:#0f172a; margin-bottom:6px;">Article Headline *</label>
-                            <input type="text" id="crm_news_title" class="ctrl-input" placeholder="e.g. RBI MPC Keeps Repo Rate Unchanged at 6.50%: Impact on Home Loan EMIs" required style="font-weight:700; font-size:13.5px;">
-                        </div>
-
-                        <!-- 3-Col: Category, Author, CTA -->
-                        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:12px; margin-bottom:14px;">
-                            <div>
-                                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Category</label>
-                                <select id="crm_news_category" class="ctrl-input">
-                                    <option value="Loans & EMIs">Loans &amp; EMIs</option>
-                                    <option value="CIBIL & Credit">CIBIL &amp; Credit</option>
-                                    <option value="Banking & RBI" selected>Banking &amp; RBI</option>
-                                    <option value="Taxes & MSME">Taxes &amp; MSME</option>
-                                    <option value="BFS Official">BFS Official</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Author</label>
-                                <select id="crm_news_author" class="ctrl-input">
-                                    <option value="Adv. Praveen Bhardwaj">Adv. Praveen Bhardwaj (MD)</option>
-                                    <option value="BFS Research Desk">BFS Research Desk</option>
-                                    <option value="BFS Editorial Team">BFS Editorial Team</option>
-                                </select>
-                            </div>
-                            <div>
-                                <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Contextual In-Article CTA</label>
-                                <select id="crm_news_cta" class="ctrl-input">
-                                    <option value="home-loan">Home Loan (7.15% ROI & Legal Vetting)</option>
-                                    <option value="business-loan">Business Loan (₹1 Cr Collateral-Free)</option>
-                                    <option value="personal-loan">Personal Loan (Fast Approval)</option>
-                                    <option value="cibil-check">CIBIL Health Desk Consultation</option>
-                                    <option value="general">General Advisory</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        <!-- Featured Image with Auto WebP file input -->
-                        <div style="margin-bottom:14px;">
-                            <label style="display:block; font-size:11.5px; font-weight:700; color:#475569; margin-bottom:4px;">Featured Image (URL or upload for auto WebP conversion)</label>
-                            <div style="display:flex; gap:8px;">
-                                <input type="text" id="crm_news_image" class="ctrl-input" placeholder="https://images.unsplash.com/..." style="flex-grow:1;">
-                                <input type="file" id="crm_news_file_upload" accept="image/*" style="display:none;" onchange="convertCrmImageToWebP(event)">
-                                <button type="button" class="btn-black-outline" onclick="document.getElementById('crm_news_file_upload').click()" style="padding:6px 12px; font-size:11.5px; white-space:nowrap;">
-                                    📁 Upload Photo
-                                </button>
-                            </div>
-                            <div id="crm_news_image_preview" style="margin-top:8px; display:none; height:80px; width:130px; border-radius:8px; overflow:hidden; border:1px solid #cbd5e1;">
-                                <img id="crm_news_preview_tag" src="" style="width:100%; height:100%; object-fit:cover;">
-                            </div>
-                        </div>
-
-                        <!-- TL;DR (In a Nutshell) Bullet Points -->
-                        <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:14px; margin-bottom:14px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                                <label style="font-size:12px; font-weight:800; color:#15803d; display:flex; align-items:center; gap:6px;">
-                                    ⚡ In a Nutshell (TL;DR Quick Summary Bullets)
-                                </label>
-                                <button type="button" onclick="addCrmTldrField()" class="btn-black-outline" style="font-size:11px; padding:2px 8px; background:#fff;">
-                                    + Add Point
-                                </button>
-                            </div>
-                            <p style="font-size:11px; color:#475569; margin:0 0 8px 0;">Add 2 to 4 bullet points for busy readers and AI Answer Engines (ChatGPT/Perplexity).</p>
-                            <div id="crm-tldr-container" style="display:flex; flex-direction:column; gap:6px;">
-                                <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #1: Key announcement..." style="background:#fff; font-size:12px;">
-                                <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #2: Direct borrower impact..." style="background:#fff; font-size:12px;">
-                            </div>
-                        </div>
-
-                        <!-- Content Body with High-Level Snippets & Live Preview Tab -->
-                        <div style="margin-bottom:14px;">
-                            <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                                <div style="display:flex; align-items:center; gap:10px;">
-                                    <label style="font-size:12px; font-weight:800; color:#0f172a;">Article Content (HTML / Rich Editorial) *</label>
-                                    <!-- Mode switcher -->
-                                    <div style="display:inline-flex; background:#e2e8f0; border-radius:6px; padding:2px;">
-                                        <button type="button" id="crm-tab-editor" onclick="switchCrmEditorMode('editor')" style="padding:3px 9px; font-size:11px; font-weight:700; border:none; border-radius:4px; background:#fff; color:#0f172a; cursor:pointer;">✏️ Code Editor</button>
-                                        <button type="button" id="crm-tab-preview" onclick="switchCrmEditorMode('preview')" style="padding:3px 9px; font-size:11px; font-weight:700; border:none; border-radius:4px; background:transparent; color:#64748b; cursor:pointer;">👁️ Live Preview</button>
+                        <div style="padding:22px 24px; display:grid; grid-template-columns:1fr 340px; gap:24px; align-items:start;" id="crm-news-grid-layout">
+                            
+                            <!-- ============================================== -->
+                            <!-- LEFT COLUMN: MAIN EDITORIAL WORKSPACE (1fr)   -->
+                            <!-- ============================================== -->
+                            <div style="display:flex; flex-direction:column; gap:16px;">
+                                
+                                <!-- FAST-TRACK BLUEPRINTS (PILLS) -->
+                                <div style="background:linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border:1px solid #a7f3d0; border-radius:14px; padding:14px 16px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:10px;">
+                                        <div style="font-size:12px; font-weight:800; color:#065f46; display:flex; align-items:center; gap:6px;">
+                                            <span>⚡</span> 1-Click Fast-Track Editorial Blueprints (Instant Fill):
+                                        </div>
+                                        <span style="font-size:10.5px; color:#047857; font-weight:600;">Auto-fills high-level analysis, comparison tables &amp; SEO</span>
+                                    </div>
+                                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                        <button type="button" onclick="applyCrmTemplate('rbi-policy')" class="btn-black-outline" style="font-size:11px; padding:5px 11px; background:#fff; border-color:#86efac; color:#14532d; font-weight:700; border-radius:8px; cursor:pointer;">
+                                            🏛️ RBI Repo Rate Decision
+                                        </button>
+                                        <button type="button" onclick="applyCrmTemplate('bank-rate-cut')" class="btn-black-outline" style="font-size:11px; padding:5px 11px; background:#fff; border-color:#86efac; color:#14532d; font-weight:700; border-radius:8px; cursor:pointer;">
+                                            🎉 Festive Rate Cut (7.15%*)
+                                        </button>
+                                        <button type="button" onclick="applyCrmTemplate('msme-scheme')" class="btn-black-outline" style="font-size:11px; padding:5px 11px; background:#fff; border-color:#86efac; color:#14532d; font-weight:700; border-radius:8px; cursor:pointer;">
+                                            💼 MSME CGTMSE ₹5 Cr
+                                        </button>
+                                        <button type="button" onclick="applyCrmTemplate('cibil-rules')" class="btn-black-outline" style="font-size:11px; padding:5px 11px; background:#fff; border-color:#86efac; color:#14532d; font-weight:700; border-radius:8px; cursor:pointer;">
+                                            📈 CIBIL 15-Day Rules
+                                        </button>
+                                        <button type="button" onclick="applyCrmTemplate('blank')" class="btn-black-outline" style="font-size:11px; padding:5px 11px; background:#f8fafc; border-color:#cbd5e1; color:#475569; font-weight:600; border-radius:8px; cursor:pointer;">
+                                            📝 Blank Slate
+                                        </button>
                                     </div>
                                 </div>
+
+                                <!-- HEADLINE -->
+                                <div>
+                                    <label style="display:block; font-size:12px; font-weight:800; color:#0f172a; margin-bottom:6px;">
+                                        Article Headline *
+                                    </label>
+                                    <input type="text" id="crm_news_title" class="ctrl-input" placeholder="e.g. RBI MPC Keeps Repo Rate Unchanged at 6.50%: What It Means for Home Loan EMIs" required style="font-weight:700; font-size:14.5px; padding:10px 14px; border-radius:10px; border:1.5px solid #cbd5e1;">
+                                </div>
+
+                                <!-- EXECUTIVE BRIEFING (TL;DR BULLETS) -->
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:14px 16px;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                                        <div>
+                                            <label style="font-size:12px; font-weight:800; color:#0f172a; display:flex; align-items:center; gap:6px;">
+                                                <span>⚡</span> In a Nutshell • 60-Sec Executive Briefing
+                                            </label>
+                                            <p style="font-size:11px; color:#64748b; margin:2px 0 0 0;">Bullet points highlighted at top of article for readers and AI Answer Engines.</p>
+                                        </div>
+                                        <button type="button" onclick="addCrmTldrField()" class="btn-black-outline" style="font-size:11px; padding:4px 10px; background:#fff; font-weight:700; border-radius:8px;">
+                                            + Add Bullet
+                                        </button>
+                                    </div>
+                                    <div id="crm-tldr-container" style="display:flex; flex-direction:column; gap:8px;">
+                                        <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #1: Key announcement..." style="background:#fff; font-size:12px; border-radius:8px;">
+                                        <input type="text" class="ctrl-input crm-tldr-input" placeholder="Point #2: Direct borrower impact..." style="background:#fff; font-size:12px; border-radius:8px;">
+                                    </div>
+                                </div>
+
+                                <!-- RICH CONTENT CANVAS (EDITOR / PREVIEW) -->
+                                <div>
+                                    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
+                                        <div style="display:flex; align-items:center; gap:8px;">
+                                            <label style="font-size:12px; font-weight:800; color:#0f172a;">Article Content *</label>
+                                            
+                                            <!-- Mode switcher -->
+                                            <div style="display:inline-flex; background:#e2e8f0; border-radius:8px; padding:2px;">
+                                                <button type="button" id="crm-tab-editor" onclick="switchCrmEditorMode('editor')" style="padding:4px 10px; font-size:11px; font-weight:800; border:none; border-radius:6px; background:#fff; color:#0f172a; cursor:pointer;">
+                                                    ✏️ Code Editor
+                                                </button>
+                                                <button type="button" id="crm-tab-preview" onclick="switchCrmEditorMode('preview')" style="padding:4px 10px; font-size:11px; font-weight:800; border:none; border-radius:6px; background:transparent; color:#64748b; cursor:pointer;">
+                                                    👁️ Live Website Preview
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Snippet Toolbar -->
+                                        <div style="display:flex; gap:4px; flex-wrap:wrap;" id="crm-snippet-tools">
+                                            <button type="button" class="btn-black-outline" style="font-size:11px; padding:3px 8px; background:#fff; border-radius:6px;" onclick="insertCrmSnippet('h2')" title="Add Heading 2">+ H2</button>
+                                            <button type="button" class="btn-black-outline" style="font-size:11px; padding:3px 8px; background:#fff; border-radius:6px;" onclick="insertCrmSnippet('h3')" title="Add Heading 3">+ H3</button>
+                                            <button type="button" class="btn-black-outline" style="font-size:11px; padding:3px 8px; background:#ecfdf5; border-color:#a7f3d0; color:#065f46; font-weight:700; border-radius:6px;" onclick="insertCrmSnippet('takeaway')">💡 Key Takeaway</button>
+                                            <button type="button" class="btn-black-outline" style="font-size:11px; padding:3px 8px; background:#fffbeb; border-color:#fde68a; color:#92400e; font-weight:700; border-radius:6px;" onclick="insertCrmSnippet('alert')">⚠️ Caution Alert</button>
+                                            <button type="button" class="btn-black-outline" style="font-size:11px; padding:3px 8px; background:#f0f9ff; border-color:#bae6fd; color:#0369a1; font-weight:700; border-radius:6px;" onclick="insertCrmSnippet('table')">📊 Bank ROI Table</button>
+                                            <button type="button" class="btn-black-outline" style="font-size:11px; padding:3px 8px; background:#faf5ff; border-color:#e9d5ff; color:#6b21a8; font-weight:700; border-radius:6px;" onclick="insertCrmSnippet('expert')">⚖️ Legal Tip</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Editor Textarea -->
+                                    <div id="crm-editor-wrapper">
+                                        <textarea id="crm_news_content" rows="15" class="ctrl-input" placeholder="<p>Full article paragraphs...</p>" required style="font-family:Consolas, Monaco, monospace; font-size:13px; line-height:1.65; border-radius:10px; border:1.5px solid #cbd5e1;"></textarea>
+                                    </div>
+
+                                    <!-- Live Preview Canvas -->
+                                    <div id="crm-preview-wrapper" style="display:none; max-height:480px; overflow-y:auto; border:1.5px solid #cbd5e1; border-radius:12px; padding:24px; background:#ffffff; box-shadow:inset 0 2px 4px rgba(0,0,0,0.02);">
+                                        <div id="crm-preview-content" style="font-family:system-ui, -apple-system, sans-serif; font-size:14.5px; line-height:1.8; color:#1e293b;">
+                                            <!-- Rendered dynamically -->
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+
+                            <!-- ============================================== -->
+                            <!-- RIGHT COLUMN: METADATA, MEDIA & SEO (340px)    -->
+                            <!-- ============================================== -->
+                            <div style="display:flex; flex-direction:column; gap:16px;">
                                 
-                                <!-- Working Rich Snippet Toolbar -->
-                                <div style="display:flex; gap:4px; flex-wrap:wrap;" id="crm-snippet-tools">
-                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#fff;" onclick="insertCrmSnippet('h2')">+ H2</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#fff;" onclick="insertCrmSnippet('h3')">+ H3</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#ecfdf5; border-color:#a7f3d0; color:#065f46;" onclick="insertCrmSnippet('takeaway')">💡 Key Takeaway</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#fffbeb; border-color:#fde68a; color:#92400e;" onclick="insertCrmSnippet('alert')">⚠️ Caution Box</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#f0f9ff; border-color:#bae6fd; color:#0369a1;" onclick="insertCrmSnippet('table')">📊 Bank ROI Table</button>
-                                    <button type="button" class="btn-black-outline" style="font-size:10.5px; padding:3px 7px; background:#faf5ff; border-color:#e9d5ff; color:#6b21a8;" onclick="insertCrmSnippet('expert')">⚖️ Advisor Tip</button>
+                                <!-- PUBLISHING TAXONOMY -->
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:16px;">
+                                    <div style="font-size:12px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:12px; display:flex; align-items:center; gap:6px;">
+                                        <span>⚙️</span> Publishing Settings
+                                    </div>
+
+                                    <div style="display:flex; flex-direction:column; gap:10px;">
+                                        <div>
+                                            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Category</label>
+                                            <select id="crm_news_category" class="ctrl-input" style="font-size:12px; font-weight:600; border-radius:8px;">
+                                                <option value="Loans & EMIs">Loans &amp; EMIs</option>
+                                                <option value="CIBIL & Credit">CIBIL &amp; Credit</option>
+                                                <option value="Banking & RBI" selected>Banking &amp; RBI</option>
+                                                <option value="Taxes & MSME">Taxes &amp; MSME</option>
+                                                <option value="BFS Official">BFS Official</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">Author</label>
+                                            <select id="crm_news_author" class="ctrl-input" style="font-size:12px; font-weight:600; border-radius:8px;">
+                                                <option value="Adv. Praveen Bhardwaj">Adv. Praveen Bhardwaj (MD)</option>
+                                                <option value="BFS Research Desk">BFS Research Desk</option>
+                                                <option value="BFS Editorial Team">BFS Editorial Team</option>
+                                            </select>
+                                        </div>
+
+                                        <div>
+                                            <label style="display:block; font-size:11px; font-weight:700; color:#475569; margin-bottom:4px;">In-Article Action CTA</label>
+                                            <select id="crm_news_cta" class="ctrl-input" style="font-size:12px; font-weight:600; border-radius:8px;">
+                                                <option value="home-loan">Home Loan (7.15%* ROI &amp; Legal Vetting)</option>
+                                                <option value="business-loan">Business Loan (₹1 Cr Collateral-Free)</option>
+                                                <option value="personal-loan">Personal Loan (Fast Approval)</option>
+                                                <option value="cibil-check">CIBIL Health Desk Consultation</option>
+                                                <option value="general">General Advisory</option>
+                                            </select>
+                                        </div>
+
+                                        <div style="padding-top:6px; border-top:1px solid #e2e8f0;">
+                                            <label style="display:flex; align-items:center; gap:8px; font-size:12px; font-weight:700; color:#0f172a; cursor:pointer;">
+                                                <input type="checkbox" id="crm_news_is_trending" style="width:16px; height:16px; cursor:pointer;">
+                                                <span>🔥 Feature on Homepage Banner</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
+
+                                <!-- FEATURED HERO IMAGE -->
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:16px;">
+                                    <div style="font-size:12px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                        <span>🖼️</span> Featured Image
+                                    </div>
+                                    <div style="display:flex; gap:6px; margin-bottom:10px;">
+                                        <input type="text" id="crm_news_image" class="ctrl-input" placeholder="Image URL (Unsplash)..." style="flex-grow:1; font-size:11.5px; border-radius:8px;">
+                                        <input type="file" id="crm_news_file_upload" accept="image/*" style="display:none;" onchange="convertCrmImageToWebP(event)">
+                                        <button type="button" class="btn-black-outline" onclick="document.getElementById('crm_news_file_upload').click()" style="padding:6px 10px; font-size:11px; white-space:nowrap; border-radius:8px;">
+                                            📁 Upload
+                                        </button>
+                                    </div>
+                                    <div id="crm_news_image_preview" style="display:none; height:110px; width:100%; border-radius:10px; overflow:hidden; border:1.5px solid #cbd5e1; background:#0f172a;">
+                                        <img id="crm_news_preview_tag" src="" style="width:100%; height:100%; object-fit:cover;">
+                                    </div>
+                                </div>
+
+                                <!-- SEARCH ENGINE OPTIMIZATION (SEO) -->
+                                <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:14px; padding:16px;">
+                                    <div style="font-size:12px; font-weight:800; color:#0f172a; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:10px; display:flex; align-items:center; gap:6px;">
+                                        <span>🌐</span> Search Optimization (SEO)
+                                    </div>
+                                    <div style="display:flex; flex-direction:column; gap:8px;">
+                                        <div>
+                                            <label style="font-size:11px; color:#475569; display:block; margin-bottom:2px; font-weight:600;">Custom Meta Title</label>
+                                            <input type="text" id="crm_news_seo_title" class="ctrl-input" placeholder="Leave blank to use headline" style="font-size:11.5px; border-radius:8px;">
+                                        </div>
+                                        <div>
+                                            <label style="font-size:11px; color:#475569; display:block; margin-bottom:2px; font-weight:600;">Focus Keyword</label>
+                                            <input type="text" id="crm_news_focus_keyword" class="ctrl-input" placeholder="e.g. rbi repo rate agra" style="font-size:11.5px; border-radius:8px;">
+                                        </div>
+                                        <div>
+                                            <label style="font-size:11px; color:#475569; display:block; margin-bottom:2px; font-weight:600;">Meta Description</label>
+                                            <textarea id="crm_news_meta_desc" rows="3" class="ctrl-input" placeholder="Leave blank to use first TL;DR point" style="font-size:11.5px; border-radius:8px; line-height:1.4;"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
                             </div>
 
-                            <!-- Code Editor Area -->
-                            <div id="crm-editor-wrapper">
-                                <textarea id="crm_news_content" rows="12" class="ctrl-input" placeholder="<p>Full article paragraphs...</p>" required style="font-family:Consolas, Monaco, monospace; font-size:12.5px; line-height:1.6;"></textarea>
-                            </div>
+                        </div>
 
-                            <!-- Live Preview Area -->
-                            <div id="crm-preview-wrapper" style="display:none; max-height:420px; overflow-y:auto; border:1.5px solid #cbd5e1; border-radius:10px; padding:20px; background:#ffffff;">
-                                <div id="crm-preview-content" style="font-family:system-ui, -apple-system, sans-serif; font-size:14px; line-height:1.75; color:#1e293b;">
-                                    <!-- Rendered dynamically -->
-                                </div>
+                        <!-- 3. FIXED MODAL FOOTER ACTION BAR -->
+                        <div style="padding:14px 24px; background:#f8fafc; border-top:1px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
+                            <div style="font-size:11.5px; color:#64748b; display:flex; align-items:center; gap:6px;">
+                                <span style="color:#10b981; font-weight:bold;">✓</span> Instant XML Sitemap &amp; Google News Schema integration.
+                            </div>
+                            <div style="display:flex; gap:10px; align-items:center;">
+                                <button type="button" class="btn-black-outline" onclick="closeCrmNewsModal()" style="padding:8px 16px; font-size:12px; border-radius:10px;">
+                                    Cancel
+                                </button>
+                                <button type="button" class="btn-black-outline" onclick="submitCrmNews('draft')" id="crmNewsDraftBtn" style="padding:8px 16px; font-size:12px; font-weight:700; border-radius:10px;">
+                                    Save as Draft
+                                </button>
+                                <button type="button" class="btn-black-solid" onclick="submitCrmNews('published')" style="background:linear-gradient(135deg, #10b981 0%, #059669 100%); border-color:#059669; color:#fff; font-weight:800; padding:8px 22px; font-size:12.5px; border-radius:10px; box-shadow:0 4px 14px rgba(16,185,129,0.35); cursor:pointer;" id="crmNewsPublishBtn">
+                                    🚀 Publish Live to bfsfin.com
+                                </button>
                             </div>
                         </div>
 
-                        <!-- SEO Customization Drawer -->
-                        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:10px; padding:12px; margin-bottom:14px;">
-                            <div style="font-size:12px; font-weight:800; color:#0f172a; margin-bottom:8px;">
-                                🌐 SEO &amp; Meta Customization
-                            </div>
-                            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                                <div>
-                                    <label style="font-size:11px; color:#475569; display:block; margin-bottom:3px;">Custom Meta Title</label>
-                                    <input type="text" id="crm_news_seo_title" class="ctrl-input" placeholder="Leave blank to use headline" style="font-size:11.5px;">
-                                </div>
-                                <div>
-                                    <label style="font-size:11px; color:#475569; display:block; margin-bottom:3px;">Focus Keyword</label>
-                                    <input type="text" id="crm_news_focus_keyword" class="ctrl-input" placeholder="e.g. rbi repo rate agra" style="font-size:11.5px;">
-                                </div>
-                                <div style="grid-column: 1 / -1;">
-                                    <label style="font-size:11px; color:#475569; display:block; margin-bottom:3px;">Meta Description</label>
-                                    <input type="text" id="crm_news_meta_desc" class="ctrl-input" placeholder="Leave blank to use first TL;DR point" style="font-size:11.5px;">
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- Trending Toggle -->
-                        <div style="display:flex; align-items:center; gap:8px; margin-bottom:18px;">
-                            <input type="checkbox" id="crm_news_is_trending" style="width:16px; height:16px; cursor:pointer;">
-                            <label for="crm_news_is_trending" style="font-size:12.5px; font-weight:800; color:#0f172a; cursor:pointer;">
-                                🔥 Highlight as Breaking / Trending Banner on Homepage
-                            </label>
-                        </div>
-
-                        <!-- Modal Actions -->
-                        <div style="display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #e2e8f0; padding-top:14px;">
-                            <button type="button" class="btn-black-outline" onclick="closeCrmNewsModal()">Cancel</button>
-                            <button type="button" class="btn-black-outline" onclick="submitCrmNews('draft')" id="crmNewsDraftBtn">Save as Draft</button>
-                            <button type="button" class="btn-black-solid" onclick="submitCrmNews('published')" style="background:#10b981; border-color:#10b981;" id="crmNewsPublishBtn">
-                                🚀 Publish Live to bfsfin.com
-                            </button>
-                        </div>
                     </form>
                 </div>
             </div>
+
+            <!-- Responsive CSS for the Editorial Studio Modal -->
+            <style>
+                @media (max-width: 960px) {
+                    #crm-news-grid-layout {
+                        grid-template-columns: 1fr !important;
+                    }
+                }
+            </style>
 
         </div> <!-- END SETTINGS CONTENT -->
     </div> <!-- END LAYOUT -->
@@ -4742,10 +4817,10 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                     'Banks continue competitive festive offerings with starting home loan rates from 7.15%* through BFS.',
                     'Borrowers paying above 8.75% can save ₹3-8 Lakhs by opting for a repo-linked balance transfer.'
                 ],
-                content: '<h2>RBI MPC Decision: Steady Policy Rate with Disinflationary Focus</h2><p>In its latest bi-monthly monetary policy review, the Reserve Bank of India’s Monetary Policy Committee (MPC) decided to keep the benchmark repo rate unchanged at 6.50%. The policy stance reflects resilient macroeconomic growth alongside persistent focus on aligning CPI inflation comfortably with the 4% median target.</p><div class="my-6 p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-medium"><p><strong>💡 Key Takeaway for Borrowers:</strong> With policy rates stabilizing, now is the ideal window to lock in multi-year balance transfers before potential global liquidity shifts.</p></div><h2>Benchmark Home Loan Interest Rates Across India (2026)</h2><div class="my-6 overflow-x-auto rounded-xl border border-slate-200"><table class="w-full border-collapse text-xs sm:text-sm"><thead><tr class="bg-slate-900 text-white font-bold text-left"><th class="p-3">Lending Institution</th><th class="p-3">Starting ROI</th><th class="p-3">Processing Fee</th><th class="p-3">Tenor</th><th class="p-3">BFS Advantage</th></tr></thead><tbody class="divide-y divide-slate-200"><tr><td class="p-3 font-semibold">State Bank of India (SBI)</td><td class="p-3">7.25% - 8.50%</td><td class="p-3">0.35%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Direct Branch Liaison</td></tr><tr><td class="p-3 font-semibold">HDFC Bank</td><td class="p-3">7.20% - 8.65%</td><td class="p-3">0.50%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Instant Digital In-Principle</td></tr><tr><td class="p-3 font-semibold">ICICI Bank</td><td class="p-3">7.25% - 8.60%</td><td class="p-3">0.50%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Flexible Prepayment Terms</td></tr><tr><td class="p-3 font-semibold">Punjab National Bank (PNB)</td><td class="p-3">7.30% - 8.75%</td><td class="p-3">Zero (Festive)</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Doorstep Legal Verification</td></tr><tr class="bg-emerald-50 text-emerald-950 font-bold"><td class="p-3">BFS Special Advisory Rates</td><td class="p-3">From 7.15%*</td><td class="p-3">Zero Brokerage</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">100% Legal &amp; Property Vetting</td></tr></tbody></table></div><h2>Legal &amp; Senior Financial Advisor's Perspective</h2><div class="my-6 p-5 rounded-2xl bg-blue-50 border border-blue-300 text-blue-950"><p><strong>Adv. Praveen Bhardwaj (MD, Bhardwaj Financial Services):</strong> "Borrowers carrying home loans originated prior to 2022 are often paying higher spreads under outdated MCLR frameworks. Moving your loan to an External Benchmark Lending Rate (EBLR) tied to repo yields direct monthly cash savings and cuts years off your mortgage."</p></div>',
+                content: '<h2>RBI MPC Decision: Steady Policy Rate with Disinflationary Focus</h2><p>In its latest bi-monthly monetary policy review, the Reserve Bank of India’s Monetary Policy Committee (MPC) decided to keep the benchmark repo rate unchanged at 6.50%. The policy stance reflects resilient macroeconomic growth alongside persistent focus on aligning CPI inflation comfortably with the 4% median target.</p><div class="my-6 p-5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-950 font-medium"><p><strong>💡 Key Takeaway for Borrowers:</strong> With policy rates stabilizing, now is the ideal window to lock in multi-year balance transfers before potential global liquidity shifts.</p></div><h2>Benchmark Home Loan Interest Rates Across India (2026)</h2><div class="my-6 overflow-x-auto rounded-xl border border-slate-200"><table class="w-full border-collapse text-xs sm:text-sm"><thead><tr class="bg-slate-900 text-white font-bold text-left"><th class="p-3">Lending Institution</th><th class="p-3">Starting ROI</th><th class="p-3">Processing Fee</th><th class="p-3">Tenor</th><th class="p-3">BFS Advantage</th></tr></thead><tbody class="divide-y divide-slate-200"><tr><td class="p-3 font-semibold">State Bank of India (SBI)</td><td class="p-3">7.25% - 8.50%</td><td class="p-3">0.35%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Direct Branch Liaison</td></tr><tr><td class="p-3 font-semibold">HDFC Bank</td><td class="p-3">7.20% - 8.65%</td><td class="p-3">0.50%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Instant Digital In-Principle</td></tr><tr><td class="p-3 font-semibold">ICICI Bank</td><td class="p-3">7.25% - 8.60%</td><td class="p-3">0.50%</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Flexible Prepayment Terms</td></tr><tr><td class="p-3 font-semibold">Punjab National Bank (PNB)</td><td class="p-3">7.30% - 8.75%</td><td class="p-3">Zero (Festive)</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">Doorstep Legal Verification</td></tr><tr class="bg-emerald-50 text-emerald-950 font-bold"><td class="p-3">BFS Special Advisory Rates</td><td class="p-3">From 7.15%*</td><td class="p-3">Zero Brokerage</td><td class="p-3">Up to 30 Yrs</td><td class="p-3">100% Legal &amp; Property Vetting</td></tr></tbody></table></div><h2>Legal &amp; Senior Financial Advisor\'s Perspective</h2><div class="my-6 p-5 rounded-2xl bg-blue-50 border border-blue-300 text-blue-950"><p><strong>Adv. Praveen Bhardwaj (MD, Bhardwaj Financial Services):</strong> "Borrowers carrying home loans originated prior to 2022 are often paying higher spreads under outdated MCLR frameworks. Moving your loan to an External Benchmark Lending Rate (EBLR) tied to repo yields direct monthly cash savings and cuts years off your mortgage."</p></div>',
                 seoTitle: 'RBI Repo Rate 6.50% Unchanged | Home Loan EMI Impact 2026',
                 focusKeyword: 'rbi repo rate home loan emi',
-                metaDescription: 'Understand RBI MPC's latest repo rate decision and what it means for your home loan EMIs, floating rates, and balance transfer opportunities.'
+                metaDescription: "Understand RBI MPC's latest repo rate decision and what it means for your home loan EMIs, floating rates, and balance transfer opportunities."
             },
             'bank-rate-cut': {
                 title: 'BFS Announces Special Festive Home Loan Balance Transfer Drive: Rates Starting from 7.15%* p.a.',
@@ -4793,7 +4868,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                     'Soft inquiries made through certified financial DSA advisors like BFS do not hurt your credit profile.',
                     'A credit score above 720 remains the benchmark for instant unsecured loan approvals.'
                 ],
-                content: '<h2>Fortnightly Credit Reporting Now Active Across India</h2><p>Under revised RBI directions for credit reporting transparency, all Scheduled Commercial Banks and NBFCs are now required to furnish consumer credit data to bureaus (TransUnion CIBIL, Experian, Equifax, CRIF High Mark) every 15 days. Previously, data updates took 30 to 45 days, causing delayed reflection of repaid loans.</p><div class="my-6 p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 font-medium"><p><strong>⚠️ Beware of Multiple Direct Bank Inquiries:</strong> When you apply directly to multiple portals at once, each lender registers a 'Hard Credit Pull'. Too many hard pulls within 30 days flags the borrower as 'credit-hungry', triggering automated algorithmic loan rejection.</p></div>',
+                content: '<h2>Fortnightly Credit Reporting Now Active Across India</h2><p>Under revised RBI directions for credit reporting transparency, all Scheduled Commercial Banks and NBFCs are now required to furnish consumer credit data to bureaus (TransUnion CIBIL, Experian, Equifax, CRIF High Mark) every 15 days. Previously, data updates took 30 to 45 days, causing delayed reflection of repaid loans.</p><div class="my-6 p-5 rounded-2xl bg-amber-50 border border-amber-300 text-amber-950 font-medium"><p><strong>⚠️ Beware of Multiple Direct Bank Inquiries:</strong> When you apply directly to multiple portals at once, each lender registers a \'Hard Credit Pull\'. Too many hard pulls within 30 days flags the borrower as \'credit-hungry\', triggering automated algorithmic loan rejection.</p></div>',
                 seoTitle: 'New CIBIL Score Rules 2026 | Fortnightly Reporting & Hard Inquiries',
                 focusKeyword: 'new cibil score rules hard inquiries',
                 metaDescription: "Understand RBI's new 15-day credit reporting cycle and how hard credit inquiries impact your CIBIL score. Expert advice from Adv. Praveen Bhardwaj."
