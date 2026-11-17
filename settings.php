@@ -4584,9 +4584,24 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         tbody.innerHTML = '<tr><td colspan="6" style="padding:24px; text-align:center; color:#64748b;">Loading articles from website...</td></tr>';
 
         try {
-            const res = await fetch('api_website_news.php?action=list');
-            const json = await res.json();
-            crmNewsArticlesCache = json.data || [];
+            let json = null;
+            try {
+                const res = await fetch('api_website_news.php?action=list');
+                json = await res.json();
+            } catch (e1) {
+                console.warn('Bridge list failed, attempting direct fetch:', e1);
+            }
+
+            if (!json || !json.data || json.data.length === 0) {
+                try {
+                    const resDirect = await fetch('https://bfsfin.com/api/news?status=all');
+                    json = await resDirect.json();
+                } catch (e2) {
+                    console.warn('Direct fetch error:', e2);
+                }
+            }
+
+            crmNewsArticlesCache = (json && json.data) ? json.data : [];
             
             // Stats
             const total = crmNewsArticlesCache.length;
@@ -4956,36 +4971,56 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
                 document.getElementById('crm_news_image_preview').style.display = 'block';
 
                 canvas.toBlob(async blob => {
+                    let uploadedUrl = null;
+                    const safeBase = (file.name.replace(/\.[^/.]+$/, "") || 'news_img').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+                    // 1. Direct website upload
                     try {
                         const fd = new FormData();
-                        const safeBase = (file.name.replace(/\.[^/.]+$/, "") || 'news_img').replace(/[^a-zA-Z0-9_-]/g, '_');
                         fd.append('file', blob, safeBase + '.webp');
-                        fd.append('action', 'upload_image');
-
-                        const res = await fetch('api_website_news.php?action=upload_image', {
+                        fd.append('folder', 'uploads/news');
+                        const res = await fetch('https://bfsfin.com/api/upload', {
                             method: 'POST',
                             body: fd
                         });
                         const data = await res.json();
                         if (data.success && data.url) {
-                            document.getElementById('crm_news_image').value = data.url;
-                            document.getElementById('crm_news_preview_tag').src = data.url;
-                            if (uploadBtn) {
-                                uploadBtn.innerHTML = '✅ Uploaded';
-                                setTimeout(() => {
-                                    uploadBtn.innerHTML = oldBtnText;
-                                    uploadBtn.disabled = false;
-                                }, 2200);
-                            }
-                        } else {
-                            document.getElementById('crm_news_image').value = localDataUrl;
-                            if (uploadBtn) {
-                                uploadBtn.innerHTML = oldBtnText;
-                                uploadBtn.disabled = false;
-                            }
+                            uploadedUrl = 'https://bfsfin.com' + data.url;
                         }
                     } catch (err) {
-                        console.error('Image upload failed:', err);
+                        console.warn('Direct upload error:', err);
+                    }
+
+                    // 2. Fallback via CRM bridge
+                    if (!uploadedUrl) {
+                        try {
+                            const fd2 = new FormData();
+                            fd2.append('file', blob, safeBase + '.webp');
+                            fd2.append('action', 'upload_image');
+                            const res2 = await fetch('api_website_news.php?action=upload_image', {
+                                method: 'POST',
+                                body: fd2
+                            });
+                            const data2 = await res2.json();
+                            if (data2.success && data2.url) {
+                                uploadedUrl = data2.url;
+                            }
+                        } catch (err2) {
+                            console.warn('CRM bridge upload error:', err2);
+                        }
+                    }
+
+                    if (uploadedUrl) {
+                        document.getElementById('crm_news_image').value = uploadedUrl;
+                        document.getElementById('crm_news_preview_tag').src = uploadedUrl;
+                        if (uploadBtn) {
+                            uploadBtn.innerHTML = '✅ Uploaded';
+                            setTimeout(() => {
+                                uploadBtn.innerHTML = oldBtnText;
+                                uploadBtn.disabled = false;
+                            }, 2200);
+                        }
+                    } else {
                         document.getElementById('crm_news_image').value = localDataUrl;
                         if (uploadBtn) {
                             uploadBtn.innerHTML = oldBtnText;
@@ -5016,7 +5051,7 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
             category: document.getElementById('crm_news_category').value,
             author: document.getElementById('crm_news_author').value,
             ctaType: document.getElementById('crm_news_cta').value,
-            imageUrl: document.getElementById('crm_news_image').value.trim(),
+            imageUrl: document.getElementById('crm_news_image').value.trim() || 'https://images.unsplash.com/photo-1611974789855-9c2a0a7236a3?auto=format&fit=crop&w=1200&q=80',
             content: content,
             tldr: tldr,
             status: statusToSave,
@@ -5031,42 +5066,83 @@ if (!in_array($active_tab, $valid_tabs)) $active_tab = 'profile';
         btn.innerHTML = 'Publishing...';
         btn.disabled = true;
 
+        let saved = false;
+        let lastError = '';
+
+        // 1. Direct to website API
         try {
-            const res = await fetch('api_website_news.php', {
-                method: 'POST',
+            const method = payload.id ? 'PUT' : 'POST';
+            const res = await fetch('https://bfsfin.com/api/news', {
+                method: method,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
             const json = await res.json();
-            if (json.success) {
-                alert('Success: ' + (json.message || 'Article published to website!'));
-                closeCrmNewsModal();
-                loadCrmNewsDesk();
-            } else {
-                alert('Error: ' + (json.error || 'Failed to save'));
-            }
+            if (json.success) saved = true;
+            else lastError = json.error || '';
         } catch (e) {
-            console.error(e);
-            alert('Network error communicating with website API.');
-        } finally {
-            btn.innerHTML = oldText;
-            btn.disabled = false;
+            console.warn('Direct website publish attempt:', e);
+        }
+
+        // 2. CRM bridge backup
+        try {
+            const res2 = await fetch('api_website_news.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const json2 = await res2.json();
+            if (json2.success) saved = true;
+            else if (!lastError) lastError = json2.error || '';
+        } catch (e2) {
+            console.warn('CRM bridge publish attempt:', e2);
+        }
+
+        btn.innerHTML = oldText;
+        btn.disabled = false;
+
+        if (saved) {
+            alert('Success: Article saved and published to website successfully!');
+            closeCrmNewsModal();
+            loadCrmNewsDesk();
+        } else {
+            alert('Error saving article: ' + (lastError || 'Network communication error'));
         }
     }
 
     async function deleteCrmNews(id) {
         if (!confirm('Are you sure you want to delete this article from the website?')) return;
+        
+        let deleted = false;
+        let lastError = '';
+
+        // 1. Direct website API DELETE
         try {
-            const res = await fetch('api_website_news.php?action=delete&id=' + id);
+            const res = await fetch('https://bfsfin.com/api/news?id=' + encodeURIComponent(id), {
+                method: 'DELETE'
+            });
             const json = await res.json();
-            if (json.success) {
-                loadCrmNewsDesk();
-            } else {
-                alert('Could not delete: ' + (json.error || 'Unknown error'));
-            }
+            if (json.success) deleted = true;
+            else lastError = json.error || '';
         } catch (e) {
-            console.error(e);
-            alert('Error deleting article');
+            console.warn('Direct website delete error:', e);
+        }
+
+        // 2. CRM bridge backup DELETE
+        try {
+            const res2 = await fetch('api_website_news.php?action=delete&id=' + encodeURIComponent(id));
+            const json2 = await res2.json();
+            if (json2.success) deleted = true;
+            else if (!lastError) lastError = json2.error || '';
+        } catch (e2) {
+            console.warn('CRM bridge delete error:', e2);
+        }
+
+        if (deleted) {
+            alert('Article deleted successfully from website!');
+            loadCrmNewsDesk();
+        } else {
+            alert('Could not delete: ' + (lastError || 'Unknown error'));
         }
     }
 
