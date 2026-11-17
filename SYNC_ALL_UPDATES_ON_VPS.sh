@@ -42,6 +42,7 @@ if [ -d "$WEB_DIR" ]; then
     cd "$WEB_DIR"
     git fetch origin
     git checkout master || true
+    git reset --hard origin/master || true
     git pull origin master
     mkdir -p "$WEB_DIR/public/uploads/news"
     chmod -R 775 "$WEB_DIR/public/uploads" || true
