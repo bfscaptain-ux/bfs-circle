@@ -1,7 +1,7 @@
 #!/bin/bash
 # ==============================================================================
-# BFS Mailer - Instant Admin Password Reset Script
-# Sets password for both 'admin' and 'bfscaptain@gmail.com'
+# BFS Mailer - Universal Multi-Username Password Reset Script
+# Sets password 'admin123' for: admin, listmonk, bfscaptain, bfscaptain@gmail.com
 # ==============================================================================
 
 set -e
@@ -9,35 +9,35 @@ set -e
 NEW_PASS="${1:-admin123}"
 
 echo "======================================================================"
-echo "🔑 Setting BFS Mailer Admin Password to: '$NEW_PASS'..."
+echo "🔑 Provisioning All Admin Usernames with Password: '$NEW_PASS'..."
 echo "======================================================================"
 
 docker exec listmonk_db psql -U listmonk -d listmonk -c "
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 1. Update any existing users matching admin or bfscaptain
-UPDATE users 
-SET password = crypt('$NEW_PASS', gen_salt('bf', 10)), 
-    password_login = true, 
-    status = 'enabled' 
-WHERE username IN ('admin', 'listmonk', 'bfscaptain@gmail.com') 
-   OR email IN ('admin@bfsfin.cloud', 'bfscaptain@gmail.com');
-
--- 2. Ensure bfscaptain@gmail.com exists as Super Admin
+-- 1. admin
 INSERT INTO users (username, password_login, password, email, name, type, user_role_id, status, twofa_type)
-VALUES ('bfscaptain@gmail.com', true, crypt('$NEW_PASS', gen_salt('bf', 10)), 'bfscaptain@gmail.com', 'BFS Captain Admin', 'admin', 1, 'enabled', 'none')
+VALUES ('admin', true, crypt('$NEW_PASS', gen_salt('bf')), 'admin@bfsfin.cloud', 'BFS Admin', 'admin', 1, 'enabled', 'none')
 ON CONFLICT (username) DO UPDATE 
-SET password = crypt('$NEW_PASS', gen_salt('bf', 10)), 
-    password_login = true, 
-    status = 'enabled';
+SET password = crypt('$NEW_PASS', gen_salt('bf')), password_login = true, status = 'enabled';
 
--- 3. Ensure admin user exists as Super Admin
+-- 2. listmonk
 INSERT INTO users (username, password_login, password, email, name, type, user_role_id, status, twofa_type)
-VALUES ('admin', true, crypt('$NEW_PASS', gen_salt('bf', 10)), 'admin@bfsfin.cloud', 'Administrator', 'admin', 1, 'enabled', 'none')
+VALUES ('listmonk', true, crypt('$NEW_PASS', gen_salt('bf')), 'listmonk@bfsfin.cloud', 'Listmonk Super Admin', 'admin', 1, 'enabled', 'none')
 ON CONFLICT (username) DO UPDATE 
-SET password = crypt('$NEW_PASS', gen_salt('bf', 10)), 
-    password_login = true, 
-    status = 'enabled';
+SET password = crypt('$NEW_PASS', gen_salt('bf')), password_login = true, status = 'enabled';
+
+-- 3. bfscaptain@gmail.com
+INSERT INTO users (username, password_login, password, email, name, type, user_role_id, status, twofa_type)
+VALUES ('bfscaptain@gmail.com', true, crypt('$NEW_PASS', gen_salt('bf')), 'bfscaptain@gmail.com', 'BFS Captain Admin', 'admin', 1, 'enabled', 'none')
+ON CONFLICT (username) DO UPDATE 
+SET password = crypt('$NEW_PASS', gen_salt('bf')), password_login = true, status = 'enabled';
+
+-- 4. bfscaptain
+INSERT INTO users (username, password_login, password, email, name, type, user_role_id, status, twofa_type)
+VALUES ('bfscaptain', true, crypt('$NEW_PASS', gen_salt('bf')), 'bfscaptain@gmail.com', 'BFS Captain', 'admin', 1, 'enabled', 'none')
+ON CONFLICT (username) DO UPDATE 
+SET password = crypt('$NEW_PASS', gen_salt('bf')), password_login = true, status = 'enabled';
 "
 
 echo "🔄 Restarting BFS Mailer App Container..."
@@ -46,7 +46,7 @@ sleep 4
 
 echo ""
 echo "======================================================================"
-echo "📋 Registered Users in Database:"
+echo "📋 Verified Users in Database:"
 echo "======================================================================"
 docker exec listmonk_db psql -U listmonk -d listmonk -c "
 SELECT id, username, email, type, password_login, status FROM users;
@@ -54,8 +54,12 @@ SELECT id, username, email, type, password_login, status FROM users;
 
 echo ""
 echo "======================================================================"
-echo "🎉 PASSWORD SET SUCCESSFULLY!"
-echo "Login URL : https://mailer.bfsfin.cloud/admin/login"
-echo "Username  : bfscaptain@gmail.com   (OR: admin)"
+echo "🎉 LOGIN READY! You can use ANY of these usernames:"
+echo "----------------------------------------------------------------------"
+echo "URL       : https://mailer.bfsfin.cloud/admin/login"
+echo "Username 1: admin"
+echo "Username 2: bfscaptain"
+echo "Username 3: bfscaptain@gmail.com"
+echo "Username 4: listmonk"
 echo "Password  : $NEW_PASS"
 echo "======================================================================"
