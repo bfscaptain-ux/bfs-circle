@@ -88,8 +88,11 @@ VALUES ('app.favicon_url', to_jsonb('/public/static/favicon.png'::text), NOW())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
 "
 
-# 2. Inject White-Label Appearance (CSS & JS) for Public Login and Admin Dashboard
-PUBLIC_CSS=$(cat << 'EOF'
+# 2. Generate and inject clean Appearance JSON using python3
+python3 -c '
+import json
+data = {
+    "public_css": """
 :root {
   --bfs-primary: #059669;
   --bfs-primary-hover: #047857;
@@ -172,33 +175,23 @@ footer.container::before {
   color: #94a3b8 !important;
   font-weight: 600 !important;
 }
-EOF
-)
-
-PUBLIC_JS=$(cat << 'EOF'
+""",
+    "public_js": """
 (function() {
   function rewrite() {
-    if (document.title.toLowerCase().includes('listmonk') || document.title.includes('BFS Financial Services')) {
-      document.title = document.title.replace(/listmonk/gi, 'BFS Mailer').replace(/BFS Financial Services/gi, 'BFS Mailer');
+    if (document.title.toLowerCase().includes("listmonk") || document.title.includes("BFS Financial Services")) {
+      document.title = document.title.replace(/listmonk/gi, "BFS Mailer").replace(/BFS Financial Services/gi, "BFS Mailer");
     }
-    const footers = document.querySelectorAll('footer');
-    footers.forEach(f => {
-      if (f.innerText && f.innerText.toLowerCase().includes('listmonk')) {
-        f.innerHTML = 'Powered by <span style="font-weight:700;color:#059669;">BFS Mailer</span> • Bhardwaj Financial Services';
-      }
-    });
   }
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', rewrite);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", rewrite);
   } else {
     rewrite();
   }
   setInterval(rewrite, 1000);
 })();
-EOF
-)
-
-ADMIN_CSS=$(cat << 'EOF'
+""",
+    "admin_css": """
 :root {
   --primary: #059669 !important;
   --primary-hover: #047857 !important;
@@ -207,7 +200,7 @@ ADMIN_CSS=$(cat << 'EOF'
 aside .logo img,
 .brand img,
 header .logo img {
-  content: url('/public/static/logo.svg') !important;
+  content: url("/public/static/logo.svg") !important;
   max-height: 40px !important;
   width: auto !important;
 }
@@ -227,75 +220,67 @@ a[href*="github.com/knadh/listmonk"] {
 .button.is-primary:hover {
   background-color: #047857 !important;
 }
-EOF
-)
-
-ADMIN_JS=$(cat << 'EOF'
+""",
+    "admin_js": """
 (function() {
   function cleanAdmin() {
-    if (document.title.toLowerCase().includes('listmonk')) {
-      document.title = document.title.replace(/listmonk/gi, 'BFS Mailer');
+    if (document.title.toLowerCase().includes("listmonk")) {
+      document.title = document.title.replace(/listmonk/gi, "BFS Mailer");
     }
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null, false);
     let node;
     while (node = walker.nextNode()) {
-      if (node.nodeValue && node.nodeValue.toLowerCase().includes('listmonk')) {
-        if (node.parentElement && !['INPUT', 'TEXTAREA', 'CODE', 'PRE'].includes(node.parentElement.tagName)) {
-          node.nodeValue = node.nodeValue.replace(/listmonk/gi, 'BFS Mailer');
+      if (node.nodeValue && node.nodeValue.toLowerCase().includes("listmonk")) {
+        if (node.parentElement && !["INPUT", "TEXTAREA", "CODE", "PRE"].includes(node.parentElement.tagName)) {
+          node.nodeValue = node.nodeValue.replace(/listmonk/gi, "BFS Mailer");
         }
       }
     }
-    document.querySelectorAll('img[src*="logo.svg"]').forEach(img => {
-      img.alt = 'BFS Mailer';
+    document.querySelectorAll("img[src*=\"logo.svg\"]").forEach(img => {
+      img.alt = "BFS Mailer";
     });
   }
-  window.addEventListener('load', cleanAdmin);
+  window.addEventListener("load", cleanAdmin);
   const obs = new MutationObserver(cleanAdmin);
   obs.observe(document.documentElement, { childList: true, subtree: true });
 })();
-EOF
-)
-
-# Store Appearance JSON into settings table using python3 or node
-if command -v python3 &> /dev/null; then
-    APPEARANCE_PAYLOAD=$(python3 -c '
-import json, sys
-data = {
-    "public_css": sys.argv[1],
-    "public_js": sys.argv[2],
-    "admin_css": sys.argv[3],
-    "admin_js": sys.argv[4]
+"""
 }
-print(json.dumps(data))
-' "$PUBLIC_CSS" "$PUBLIC_JS" "$ADMIN_CSS" "$ADMIN_JS")
-else
-    APPEARANCE_PAYLOAD=$(node -e '
-      console.log(JSON.stringify({
-        public_css: process.argv[1],
-        public_js: process.argv[2],
-        admin_css: process.argv[3],
-        admin_js: process.argv[4]
-      }));
-    ' "$PUBLIC_CSS" "$PUBLIC_JS" "$ADMIN_CSS" "$ADMIN_JS")
-fi
+with open("/opt/listmonk/appearance.json", "w", encoding="utf-8") as f:
+    json.dump(data, f)
+'
 
-docker exec -i listmonk_db psql -U listmonk -d listmonk << SQLEOF
+docker cp /opt/listmonk/appearance.json listmonk_db:/tmp/appearance.json
+docker exec listmonk_db psql -U listmonk -d listmonk -c "
 INSERT INTO settings (key, value, updated_at)
-VALUES ('appearance', '$APPEARANCE_PAYLOAD'::jsonb, NOW())
+VALUES ('appearance', pg_read_file('/tmp/appearance.json')::jsonb, NOW())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
-SQLEOF
+"
 
-echo "✅ Database settings updated."
+echo "✅ Database settings updated successfully."
 
 echo ""
 echo "======================================================================"
-echo "🌐 3/5: Configuring Nginx Reverse Proxy & Sub_Filter..."
+echo "🌐 3/5: Configuring Nginx with IPv4, IPv6 & Auto-Redirect to /admin..."
 echo "======================================================================"
 
 cat << 'EOF' > /etc/nginx/sites-available/mailer.bfsfin.cloud
 server {
     server_name mailer.bfsfin.cloud;
     client_max_body_size 100M;
+
+    # Listen on both IPv4 and IPv6
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    ssl_certificate /etc/letsencrypt/live/mailer.bfsfin.cloud/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/mailer.bfsfin.cloud/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Auto-redirect root / to /admin
+    location = / {
+        return 302 /admin;
+    }
 
     # Intercept and serve custom BFS Mailer SVG Logo directly
     location = /public/static/logo.svg {
@@ -345,16 +330,11 @@ server {
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
     }
-
-    listen 443 ssl http2;
-    ssl_certificate /etc/letsencrypt/live/mailer.bfsfin.cloud/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/mailer.bfsfin.cloud/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 }
 
 server {
     listen 80;
+    listen [::]:80;
     server_name mailer.bfsfin.cloud;
     return 301 https://$host$request_uri;
 }
@@ -363,7 +343,7 @@ EOF
 ln -sf /etc/nginx/sites-available/mailer.bfsfin.cloud /etc/nginx/sites-enabled/
 nginx -t && systemctl reload nginx
 
-echo "✅ Nginx reverse proxy reloaded with White-Label rules."
+echo "✅ Nginx reverse proxy reloaded with IPv4/IPv6 & White-Label rules."
 
 echo ""
 echo "======================================================================"
@@ -393,5 +373,5 @@ echo "Footer Attribution: $FOOTER"
 echo ""
 echo "======================================================================"
 echo "🎉 SUCCESS: Listmonk is now 100% Rebranded to 'BFS Mailer'!"
-echo "Open https://mailer.bfsfin.cloud in your browser and press Ctrl + Shift + R!"
+echo "Open https://mailer.bfsfin.cloud/admin in your browser!"
 echo "======================================================================"
