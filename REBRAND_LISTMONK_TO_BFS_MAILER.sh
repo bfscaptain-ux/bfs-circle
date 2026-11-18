@@ -250,12 +250,12 @@ with open("/opt/listmonk/appearance.json", "w", encoding="utf-8") as f:
     json.dump(data, f)
 '
 
-docker cp /opt/listmonk/appearance.json listmonk_db:/tmp/appearance.json
-docker exec listmonk_db psql -U listmonk -d listmonk -c "
+APPEARANCE_JSON=$(cat /opt/listmonk/appearance.json)
+docker exec -i listmonk_db psql -U listmonk -d listmonk << SQLEOF
 INSERT INTO settings (key, value, updated_at)
-VALUES ('appearance', pg_read_file('/tmp/appearance.json')::jsonb, NOW())
+VALUES ('appearance', \$APPEARANCE_PAYLOAD\$${APPEARANCE_JSON}\$APPEARANCE_PAYLOAD\$::jsonb, NOW())
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
-"
+SQLEOF
 
 echo "✅ Database settings updated successfully."
 
@@ -270,8 +270,10 @@ server {
     client_max_body_size 100M;
 
     # Listen on both IPv4 and IPv6
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    http2 on;
+
     ssl_certificate /etc/letsencrypt/live/mailer.bfsfin.cloud/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/mailer.bfsfin.cloud/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
@@ -311,7 +313,7 @@ server {
 
         # Complete White-Label HTML String Replacement
         sub_filter_once off;
-        sub_filter_types text/html text/xml;
+        sub_filter_types text/xml;
         sub_filter 'Powered by <a target="_blank" rel="noreferrer" href="https://listmonk.app">listmonk</a>' 'Powered by <span style="font-weight:700;color:#059669;">BFS Mailer</span> • Bhardwaj Financial Services';
         sub_filter 'Powered by listmonk' 'Powered by BFS Mailer';
         sub_filter 'powered by listmonk' 'powered by BFS Mailer';
