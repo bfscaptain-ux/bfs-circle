@@ -317,6 +317,30 @@ try {
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )");
 
+    // Website Financial Tools & Calculators Data Table (OTP Verified Leads)
+    $db->exec("CREATE TABLE IF NOT EXISTS tools_data (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        lead_id INTEGER,
+        name TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        email TEXT,
+        otp_verified INTEGER DEFAULT 0,
+        otp_verified_at DATETIME,
+        tool_name TEXT NOT NULL,
+        loan_amount REAL DEFAULT 0,
+        monthly_emi REAL DEFAULT 0,
+        interest_rate REAL DEFAULT 0,
+        tenure_years INTEGER DEFAULT 0,
+        calculation_summary TEXT,
+        city TEXT DEFAULT 'Agra',
+        status TEXT DEFAULT 'New Lead',
+        assigned_to TEXT DEFAULT 'Unassigned',
+        notes TEXT,
+        raw_payload TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
     $db->exec("CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         username TEXT UNIQUE NOT NULL,

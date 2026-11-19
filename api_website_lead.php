@@ -504,6 +504,61 @@ try {
 
     $new_lead_id = (int)$db->lastInsertId();
 
+    // If from Financial Tools / Calculators, save to dedicated tools_data table
+    $is_tool_lead = (stripos($form_type, 'Tool') !== false || 
+                     stripos($form_type, 'Calculator') !== false || 
+                     stripos($raw_source, 'Tool') !== false || 
+                     stripos($raw_source, 'Calculator') !== false ||
+                     isset($input['toolName']) ||
+                     isset($input['tool_name']));
+
+    $tool_lead_id = null;
+    if ($is_tool_lead) {
+        try {
+            $otp_verified = (!empty($input['otpVerified']) || !empty($input['otp_verified'])) ? 1 : 0;
+            $otp_verified_at = $otp_verified ? date('Y-m-d H:i:s') : null;
+            $tool_name = trim($input['toolName'] ?? $input['tool_name'] ?? $requirement ?? 'Loan Calculator');
+            $monthly_emi = floatval($input['monthlyEmi'] ?? $input['monthly_emi'] ?? 0);
+            $interest_rate = floatval($input['interestRate'] ?? $input['interest_rate'] ?? 0);
+            $tenure_years = intval($input['tenureYears'] ?? $input['tenure_years'] ?? 0);
+            $calc_summary = trim($input['calculationSummary'] ?? $input['customSummary'] ?? $message);
+
+            $ins_tool = $db->prepare("INSERT INTO tools_data (
+                lead_id, name, phone, email, otp_verified, otp_verified_at,
+                tool_name, loan_amount, monthly_emi, interest_rate, tenure_years,
+                calculation_summary, city, status, assigned_to, notes, raw_payload, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'New Lead', 'Unassigned', ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))");
+
+            $ins_tool->execute([
+                $new_lead_id,
+                $lead_name,
+                $mobile,
+                $email,
+                $otp_verified,
+                $otp_verified_at,
+                $tool_name,
+                $loan_amount,
+                $monthly_emi,
+                $interest_rate,
+                $tenure_years,
+                $calc_summary,
+                $city ?: 'Agra',
+                $message,
+                json_encode($input, JSON_UNESCAPED_UNICODE)
+            ]);
+            $tool_lead_id = (int)$db->lastInsertId();
+
+            // Special Admin Notification for OTP-Verified Tool Lead
+            $admin_id = $db->query("SELECT id FROM users WHERE role = 'Admin' ORDER BY id ASC LIMIT 1")->fetchColumn() ?: 1;
+            $otp_badge = $otp_verified ? " (Email OTP Verified)" : "";
+            $tool_notif = "New Tools Lead: {$lead_name} used {$tool_name}{$otp_badge} for ₹" . number_format($loan_amount);
+            $db->prepare("INSERT INTO notifications (user_id, message, type, is_read, created_at) VALUES (?, ?, 'tool_lead', 0, datetime('now', 'localtime'))")->execute([$admin_id, $tool_notif]);
+            log_activity("New Website Tool Lead: {$lead_name} - {$tool_name}", "tools_data.php?id={$tool_lead_id}");
+        } catch (Exception $e_tool) {
+            error_log("Failed to insert into tools_data: " . $e_tool->getMessage());
+        }
+    }
+
     // Notification & Activity Log
     try {
         $admin_id = $db->query("SELECT id FROM users WHERE role = 'Admin' ORDER BY id ASC LIMIT 1")->fetchColumn() ?: 1;
@@ -543,9 +598,10 @@ try {
     echo json_encode([
         'success' => true,
         'lead_id' => $new_lead_id,
-        'type' => 'lead',
+        'tool_lead_id' => $tool_lead_id ?? null,
+        'type' => !empty($is_tool_lead) ? 'tool_lead' : 'lead',
         'whatsapp' => $wa_lead_res,
-        'message' => 'Apply lead saved to CRM'
+        'message' => !empty($is_tool_lead) ? 'Tool calculation lead saved to tools_data and CRM' : 'Apply lead saved to CRM'
     ]);
 
 } catch (Exception $e) {
