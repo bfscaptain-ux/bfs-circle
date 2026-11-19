@@ -516,6 +516,22 @@ try {
     // Auto-dispatch instant WhatsApp confirmation with submitted loan inquiry details
     $amtLabel = $loan_amount > 0 ? ('₹' . number_format($loan_amount)) : 'As discussed';
     $locProfileLabel = trim($location . (!empty($employment) ? " • {$employment}" : ''));
+
+    // Tag contact in WhatsApp CRM (wa.bfsfin.cloud)
+    $wa_tags = ['Website Lead'];
+    if (stripos($raw_source, 'Calculator') !== false || stripos($form_type, 'Calculator') !== false) {
+        $wa_tags[] = 'Calculator Lead';
+    }
+    if (function_exists('bfs_wacrm_upsert_contact') && !empty($mobile)) {
+        @bfs_wacrm_upsert_contact(
+            $mobile,
+            $lead_name,
+            $email,
+            $locProfileLabel,
+            $wa_tags
+        );
+    }
+
     $wa_lead_res = bfs_send_website_lead_whatsapp(
         $mobile,
         $lead_name,
