@@ -4468,9 +4468,9 @@ Please process.`);
 
                                     <div style="font-weight:700; font-size:13px; color:#0f172a; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
 
-                                        <i data-lucide='message-circle' style='width:15px;height:15px;color:#25D366;'></i>
+                                        <i data-lucide='radio' style='width:15px;height:15px;color:#6366f1;'></i>
 
-                                        WhatsApp Quick Messaging
+                                        Omni-Channel Quick Messaging (WhatsApp & SMS)
 
                                     </div>
 
@@ -5340,63 +5340,85 @@ Please process.`);
 
         Swal.fire({
 
-            title: 'Send WhatsApp Message',
+            title: 'Quick Multi-Channel Dispatch',
 
-            input: 'textarea',
-
-            inputValue: message,
-
-            inputAttributes: {
-
-                style: 'height:100px; font-size:13px;'
-
-            },
+            html: `
+                <div style="text-align:left; font-size:13px; margin-bottom:10px;">
+                    <label style="font-weight:700; display:block; margin-bottom:4px; color:#334155;">Dispatch Channel(s):</label>
+                    <div style="display:flex; gap:12px; margin-bottom:12px;">
+                        <label style="display:flex; align-items:center; gap:4px; font-size:12px; cursor:pointer;">
+                            <input type="checkbox" id="swal_ch_wa" checked> 💬 WhatsApp
+                        </label>
+                        <label style="display:flex; align-items:center; gap:4px; font-size:12px; cursor:pointer;">
+                            <input type="checkbox" id="swal_ch_sms" checked> 📱 SMS Captain
+                        </label>
+                    </div>
+                    <label style="font-weight:700; display:block; margin-bottom:4px; color:#334155;">Message Content:</label>
+                    <textarea id="swal_msg_input" class="swal2-textarea" style="width:100%; height:90px; margin:0; font-size:13px; padding:8px; box-sizing:border-box;">${message}</textarea>
+                </div>
+            `,
 
             showCancelButton: true,
 
-            confirmButtonText: '<i class="fab fa-whatsapp"></i> Send on WhatsApp',
+            confirmButtonText: '⚡ Send Multi-Channel Dispatch',
 
-            confirmButtonColor: '#25D366'
+            confirmButtonColor: '#4f46e5',
+
+            preConfirm: () => {
+                const isWa = document.getElementById('swal_ch_wa').checked;
+                const isSms = document.getElementById('swal_ch_sms').checked;
+                const finalMsg = document.getElementById('swal_msg_input').value.trim();
+                if (!isWa && !isSms) {
+                    Swal.showValidationMessage('Please select at least one channel (WhatsApp or SMS)');
+                    return false;
+                }
+                if (!finalMsg) {
+                    Swal.showValidationMessage('Message content cannot be empty');
+                    return false;
+                }
+                return { isWa, isSms, finalMsg };
+            }
 
         }).then((result) => {
 
             if (result.isConfirmed) {
 
-                const finalMsg = result.value;
+                const { isWa, isSms, finalMsg } = result.value;
 
                 const cleanMobile = mobile.replace(/[^0-9]/g, '');
 
-                const waUrl = 'https://wa.me/91' + cleanMobile + '?text=' + encodeURIComponent(finalMsg);
+                const channels = [];
+                if (isWa) channels.push('whatsapp');
+                if (isSms) channels.push('sms');
 
-                
+                // If WhatsApp is selected, also open WhatsApp window if official API is not active
+                if (isWa && !isSms) {
+                    const waUrl = 'https://wa.me/91' + cleanMobile + '?text=' + encodeURIComponent(finalMsg);
+                    window.open(waUrl, '_blank');
+                }
 
-                // Open WhatsApp
+                // Call Omni API to send & log in DB
+                const fd = new FormData();
+                fd.append('mobile', cleanMobile);
+                fd.append('message', finalMsg);
+                fd.append('applicant_id', applicantId);
+                channels.forEach(c => fd.append('channels[]', c));
 
-                window.open(waUrl, '_blank');
-
-                
-
-                // Log interaction
-
-                const formData = new FormData();
-
-                formData.append('applicant_id', applicantId);
-
-                formData.append('interaction_type', 'WhatsApp');
-
-                formData.append('outcome', 'Message Sent');
-
-                formData.append('notes', finalMsg);
-
-                
-
-                fetch('api.php?api=log_rm_interaction', {
-
+                fetch('api.php?api=send_omni_api', {
                     method: 'POST',
-
-                    body: formData
-
-                }).catch(console.error);
+                    body: fd
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        Swal.fire('Dispatched!', 'Message sent successfully via ' + channels.join(' & '), 'success');
+                    } else {
+                        Swal.fire('Notice', data.message || 'Dispatch completed with warnings.', 'info');
+                    }
+                })
+                .catch(() => {
+                    Swal.fire('Dispatched', 'Sent request to server.', 'success');
+                });
 
             }
 

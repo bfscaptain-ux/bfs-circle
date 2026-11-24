@@ -9,17 +9,17 @@ $page_subtitle = 'Integrated Android SMS Gateway (SMS Captain), Single/Bulk Disp
 $active_page = 'sms_crm.php';
 $hide_main_header = true;
 
-// Check if SMS Captain Backend API (port 3001) & Web Dashboard (port 3000) are running
+// Check if SMS Captain Backend API (port 3006) & Web Dashboard (port 3005) are running
 $is_api_online = false;
 $is_web_online = false;
 
-$fp1 = @fsockopen('127.0.0.1', 3001, $errno, $errstr, 0.3);
+$fp1 = @fsockopen('127.0.0.1', 3006, $errno, $errstr, 0.3);
 if ($fp1) {
     $is_api_online = true;
     fclose($fp1);
 }
 
-$fp2 = @fsockopen('127.0.0.1', 3000, $errno, $errstr, 0.3);
+$fp2 = @fsockopen('127.0.0.1', 3005, $errno, $errstr, 0.3);
 if ($fp2) {
     $is_web_online = true;
     fclose($fp2);
@@ -29,7 +29,7 @@ $http_host = $_SERVER['HTTP_HOST'] ?? 'localhost';
 $is_local = in_array($http_host, ['localhost:8000', '127.0.0.1:8000', 'localhost', '127.0.0.1']);
 
 if ($is_local) {
-    $sms_dashboard_url = 'http://localhost:3000/dashboard';
+    $sms_dashboard_url = 'http://localhost:3005/dashboard';
 } else {
     if (defined('SMS_CAPTAIN_PUBLIC_URL') && SMS_CAPTAIN_PUBLIC_URL) {
         $sms_dashboard_url = SMS_CAPTAIN_PUBLIC_URL;
@@ -225,6 +225,7 @@ include 'header.php';
 </style>
 
 <div class="smscrm-container">
+    <?php require_once 'omni_channel_bar.php'; ?>
     <!-- Result Alert Banner (if Quick SMS was sent) -->
     <?php if ($test_sms_result !== null): ?>
         <div style="background: <?php echo $test_sms_result['success'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)'; ?>; border: 1px solid <?php echo $test_sms_result['success'] ? '#10b981' : '#ef4444'; ?>; border-radius: 10px; padding: 12px 18px; display: flex; align-items: center; justify-content: space-between; color: #fff; font-size: 13px;">
@@ -245,7 +246,7 @@ include 'header.php';
             <div>
                 <div style="font-size:14px; font-weight:800; color:#f8fafc; line-height:1.2;">BFS SMS Captain Gateway</div>
                 <div style="font-size:11.5px; color:#94a3b8; font-weight:500;">
-                    API Port: <code>3001</code> • Web Port: <code>3000</code> • Engine: <code>NestJS + Redis + Android SIM</code>
+                    API Port: <code>3006</code> • Web Port: <code>3005</code> • Engine: <code>NestJS + Redis + Android SIM</code>
                 </div>
             </div>
         </div>
@@ -254,7 +255,7 @@ include 'header.php';
             <!-- Status Badge -->
             <div class="smscrm-status-badge <?php echo ($is_api_online && $is_web_online) ? 'status-online' : 'status-offline'; ?>">
                 <span class="status-pulse <?php echo ($is_api_online && $is_web_online) ? 'pulse-green' : 'pulse-red'; ?>"></span>
-                <span><?php echo ($is_api_online && $is_web_online) ? 'SMS Gateway Online' : 'Service Offline (Ports 3000/3001)'; ?></span>
+                <span><?php echo ($is_api_online && $is_web_online) ? 'SMS Gateway Online' : 'Service Offline (Ports 3005/3006)'; ?></span>
             </div>
 
             <!-- Action Buttons -->
@@ -288,11 +289,11 @@ include 'header.php';
                 </div>
                 <h3 style="font-size:19px; font-weight:800; color:#f8fafc; margin-bottom:8px;">SMS Captain Dashboard Offline</h3>
                 <p style="font-size:13px; color:#94a3b8; line-height:1.6; margin-bottom:20px;">
-                    The SMS Captain Next.js frontend (Port 3000) or NestJS API (Port 3001) is currently not responding. Please make sure the service is started.
+                    The SMS Captain Next.js frontend (Port 3005) or NestJS API (Port 3006) is currently not responding. Please make sure the service is started.
                 </p>
                 <div style="background:#020617; color:#38bdf8; font-family:monospace; padding:14px 18px; border-radius:10px; font-size:12px; text-align:left; margin-bottom:22px; border-left:3px solid #0ea5e9;">
-                    📁 Start SMS Captain Backend: <code>node G:\SMS-Captain-Complete\SMS-Captain-Project\api\dist\main.js</code><br>
-                    🌐 Start SMS Captain Web: <code>cd G:\SMS-Captain-Complete\SMS-Captain-Project\web && pnpm dev</code>
+                    📁 Start SMS Captain Backend: <code>pm2 restart sms-api</code> (Port 3006)<br>
+                    🌐 Start SMS Captain Web: <code>pm2 restart sms-web</code> (Port 3005)
                 </div>
                 <button type="button" onclick="location.reload()" class="smscrm-btn btn-sms-brand" style="padding:10px 24px; font-size:13px; margin:0 auto;">
                     <i data-lucide="refresh-cw"></i> Check Status Again

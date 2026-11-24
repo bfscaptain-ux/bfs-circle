@@ -28408,6 +28408,404 @@ try {
 
 
 
+        case 'send_sms_api':
+
+            require_role(['Admin', 'Staff', 'RM']);
+
+            require_once __DIR__ . '/sms_helper.php';
+
+            $mobile = trim($_POST['mobile'] ?? $_GET['mobile'] ?? '');
+
+            $message = trim($_POST['message'] ?? $_GET['message'] ?? '');
+
+            $applicant_id = intval($_POST['applicant_id'] ?? $_GET['applicant_id'] ?? 0);
+
+            $customer_name = trim($_POST['customer_name'] ?? $_GET['customer_name'] ?? '');
+
+
+
+            if (empty($mobile)) {
+
+                return_json(['error' => 'Valid mobile number is required for SMS dispatch.'], 400);
+
+            }
+
+            if (empty($message)) {
+
+                return_json(['error' => 'Message content is required.'], 400);
+
+            }
+
+
+
+            if ($applicant_id > 0 && empty($customer_name)) {
+
+                $st = $db->prepare("SELECT customer_name, mobile FROM applicants WHERE id = ?");
+
+                $st->execute([$applicant_id]);
+
+                if ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+
+                    $customer_name = $row['customer_name'];
+
+                    if (empty($mobile)) $mobile = $row['mobile'];
+
+                }
+
+            }
+
+
+
+            $smsRes = send_bfs_sms($mobile, $message);
+
+
+
+            try {
+
+                $username = $_SESSION['username'] ?? 'System';
+
+                $statusText = $smsRes['success'] ? 'Delivered via SMS Captain Gateway SIM' : 'SMS Attempt Failed: ' . ($smsRes['message'] ?? 'Error');
+
+                $logMsg = "SMS to $customer_name ($mobile): $statusText";
+
+                $actionLink = $applicant_id ? "search_track.php?app_id=$applicant_id" : null;
+
+
+
+                $db->prepare("INSERT INTO activities (username, description, action_link, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)")
+
+                   ->execute([$username, $logMsg, $actionLink]);
+
+
+
+                if ($applicant_id > 0) {
+
+                    $db->prepare("INSERT INTO rm_interactions (applicant_id, rm_name, interaction_type, notes, outcome, created_at) VALUES (?, ?, 'SMS', ?, ?, CURRENT_TIMESTAMP)")
+
+                       ->execute([$applicant_id, $username, "Dispatched SMS: " . mb_substr($message, 0, 150), $smsRes['success'] ? 'Sent' : 'Failed']);
+
+                }
+
+            } catch (Exception $e) {}
+
+
+
+            return_json([
+
+                'success' => $smsRes['success'],
+
+                'message' => $smsRes['success'] ? 'SMS successfully queued via SMS Captain physical Android SIM!' : ($smsRes['message'] ?? 'Failed to send SMS.'),
+
+                'details' => $smsRes
+
+            ], $smsRes['success'] ? 200 : 502);
+
+            break;
+
+
+
+        case 'send_omni_api':
+
+            require_role(['Admin', 'Staff', 'RM']);
+
+            require_once __DIR__ . '/sms_helper.php';
+
+            
+
+            $recipient_name = trim($_POST['recipient_name'] ?? $_POST['customer_name'] ?? '');
+
+            $mobile = trim($_POST['mobile'] ?? '');
+
+            $email = trim($_POST['email'] ?? '');
+
+            $message = trim($_POST['message'] ?? '');
+
+            $subject = trim($_POST['subject'] ?? 'Notification from Bhardwaj Financial Services (BFS)');
+
+            $applicant_id = intval($_POST['applicant_id'] ?? 0);
+
+            $channels = $_POST['channels'] ?? [];
+
+            if (is_string($channels)) {
+
+                $channels = explode(',', $channels);
+
+            }
+
+            $channels = array_map('trim', array_map('strtolower', (array)$channels));
+
+
+
+            if (empty($message)) {
+
+                return_json(['error' => 'Message text cannot be empty.'], 400);
+
+            }
+
+            if (empty($channels)) {
+
+                return_json(['error' => 'Please select at least one channel (WhatsApp, SMS, or Email).'], 400);
+
+            }
+
+
+
+            if ($applicant_id > 0) {
+
+                $st = $db->prepare("SELECT customer_name, mobile, email FROM applicants WHERE id = ?");
+
+                $st->execute([$applicant_id]);
+
+                if ($row = $st->fetch(PDO::FETCH_ASSOC)) {
+
+                    if (empty($recipient_name)) $recipient_name = $row['customer_name'];
+
+                    if (empty($mobile)) $mobile = $row['mobile'];
+
+                    if (empty($email) && !empty($row['email'])) $email = $row['email'];
+
+                }
+
+            }
+
+
+
+            $results = [];
+
+            $any_success = false;
+
+            $username = $_SESSION['username'] ?? 'System';
+
+
+
+            // 1. WhatsApp Dispatch
+
+            if (in_array('whatsapp', $channels)) {
+
+                if (!empty($mobile)) {
+
+                    $cleanMobile = preg_replace('/\D/', '', $mobile);
+
+                    if (strlen($cleanMobile) === 10) $cleanMobile = '91' . $cleanMobile;
+
+                    
+
+                    $wa_success = false;
+
+                    $wa_msg = '';
+
+                    if (function_exists('send_bfs_whatsapp_cloud_api')) {
+
+                        $waRes = send_bfs_whatsapp_cloud_api($cleanMobile, $message, $recipient_name);
+
+                        $wa_success = !empty($waRes['success']);
+
+                        $wa_msg = $wa_success ? 'Dispatched via Official WhatsApp Cloud API (+91 9286683232)' : ($waRes['error'] ?? 'WhatsApp API error');
+
+                    } else {
+
+                        $wa_msg = 'WhatsApp Cloud API helper not available';
+
+                    }
+
+                    $results['whatsapp'] = [
+
+                        'success' => $wa_success,
+
+                        'message' => $wa_msg,
+
+                        'link' => "https://wa.me/{$cleanMobile}?text=" . urlencode($message)
+
+                    ];
+
+                    if ($wa_success) $any_success = true;
+
+                } else {
+
+                    $results['whatsapp'] = ['success' => false, 'message' => 'No mobile number provided for WhatsApp'];
+
+                }
+
+            }
+
+
+
+            // 2. SMS Gateway Dispatch (SMS Captain Android SIM)
+
+            if (in_array('sms', $channels)) {
+
+                if (!empty($mobile)) {
+
+                    $smsRes = send_bfs_sms($mobile, $message);
+
+                    $results['sms'] = [
+
+                        'success' => !empty($smsRes['success']),
+
+                        'message' => $smsRes['message'] ?? ($smsRes['success'] ? 'SMS queued on Android SIM' : 'SMS dispatch error')
+
+                    ];
+
+                    if (!empty($smsRes['success'])) $any_success = true;
+
+                } else {
+
+                    $results['sms'] = ['success' => false, 'message' => 'No mobile number provided for SMS'];
+
+                }
+
+            }
+
+
+
+            // 3. Email Dispatch
+
+            if (in_array('email', $channels)) {
+
+                if (!empty($email) && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+
+                    $headers = "MIME-Version: 1.0\r\n";
+
+                    $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+
+                    $headers .= "From: Bhardwaj Financial Services <info@bfsfin.com>\r\n";
+
+                    $headers .= "Reply-To: info@bfsfin.com\r\n";
+
+                    
+
+                    $htmlBody = "<div style='font-family:sans-serif; max-width:600px; margin:0 auto; padding:20px; border:1px solid #e2e8f0; border-radius:12px;'>"
+
+                              . "<h2 style='color:#0f172a; margin-top:0;'>Bhardwaj Financial Services</h2>"
+
+                              . "<p style='color:#334155; font-size:14px; line-height:1.6; white-space:pre-wrap;'>" . htmlspecialchars($message) . "</p>"
+
+                              . "<hr style='border:none; border-top:1px solid #e2e8f0; margin:20px 0;'>"
+
+                              . "<p style='font-size:12px; color:#64748b;'>BFS Financial Services • 9258-724-227 • www.bfsfin.com</p>"
+
+                              . "</div>";
+
+
+
+                    $mailSent = @mail($email, $subject, $htmlBody, $headers);
+
+                    $results['email'] = [
+
+                        'success' => (bool)$mailSent,
+
+                        'message' => $mailSent ? 'Email dispatched to ' . $email : 'Failed to deliver email via server mail transport.'
+
+                    ];
+
+                    if ($mailSent) $any_success = true;
+
+                } else {
+
+                    $results['email'] = ['success' => false, 'message' => 'No valid email address provided.'];
+
+                }
+
+            }
+
+
+
+            try {
+
+                $chSummary = [];
+
+                foreach ($results as $k => $v) {
+
+                    $chSummary[] = strtoupper($k) . ': ' . ($v['success'] ? 'OK' : 'FAIL');
+
+                }
+
+                $logStr = "Omni-Dispatch to $recipient_name ($mobile / $email) [" . implode(', ', $chSummary) . "]";
+
+                $actionLink = $applicant_id ? "search_track.php?app_id=$applicant_id" : null;
+
+
+
+                $db->prepare("INSERT INTO activities (username, description, action_link, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)")
+
+                   ->execute([$username, $logStr, $actionLink]);
+
+
+
+                if ($applicant_id > 0) {
+
+                    $db->prepare("INSERT INTO rm_interactions (applicant_id, rm_name, interaction_type, notes, outcome, created_at) VALUES (?, ?, 'Omni-Channel', ?, ?, CURRENT_TIMESTAMP)")
+
+                       ->execute([$applicant_id, $username, "Omni-Channel message: " . mb_substr($message, 0, 150) . " | " . implode('; ', $chSummary), $any_success ? 'Sent' : 'Failed']);
+
+                }
+
+            } catch (Exception $e) {}
+
+
+
+            return_json([
+
+                'success' => $any_success,
+
+                'message' => $any_success ? 'Omni-Channel dispatch executed!' : 'All communication channel dispatches failed.',
+
+                'channels' => $results
+
+            ]);
+
+            break;
+
+
+
+        case 'get_omni_health':
+
+            $health = [
+
+                'whatsapp' => ['online' => false, 'port' => 3001, 'name' => 'BFS WhatsApp Hub'],
+
+                'sms' => ['online' => false, 'api_port' => 3006, 'web_port' => 3005, 'name' => 'SMS Captain Gateway'],
+
+                'mailer' => ['online' => false, 'port' => 9000, 'name' => 'BFS Email Mailer']
+
+            ];
+
+
+
+            $fp = @fsockopen('127.0.0.1', 3001, $errno, $errstr, 0.2);
+
+            if ($fp) { $health['whatsapp']['online'] = true; fclose($fp); }
+
+
+
+            $fp1 = @fsockopen('127.0.0.1', 3006, $errno, $errstr, 0.2);
+
+            $fp2 = @fsockopen('127.0.0.1', 3005, $errno, $errstr, 0.2);
+
+            if ($fp1 || $fp2) {
+
+                $health['sms']['online'] = true;
+
+                if ($fp1) fclose($fp1);
+
+                if ($fp2) fclose($fp2);
+
+            }
+
+
+
+            $fp = @fsockopen('127.0.0.1', 9000, $errno, $errstr, 0.2);
+
+            if ($fp) { $health['mailer']['online'] = true; fclose($fp); }
+
+
+
+            return_json(['success' => true, 'health' => $health]);
+
+            break;
+
+
+
         case 'extract_document_details':
 
             $extracted = [];

@@ -180,6 +180,7 @@ include 'header.php';
 </style>
 
 <div class="wacrm-container">
+    <?php require_once 'omni_channel_bar.php'; ?>
     <!-- Top Hub Action Bar -->
     <div class="wacrm-topbar">
         <div style="display:flex; align-items:center; gap:12px;">

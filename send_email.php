@@ -352,6 +352,7 @@ $preset_email = isset($_GET['email']) ? $_GET['email'] : '';
 </style>
 
 <div class="comm-wrapper">
+    <?php require_once 'omni_channel_bar.php'; ?>
 
     <!-- Top Executive Header Bar -->
     <div class="comm-top-bar">

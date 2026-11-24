@@ -8,15 +8,15 @@
  */
 
 if (!defined('SMS_CAPTAIN_API_URL')) {
-    define('SMS_CAPTAIN_API_URL', getenv('SMS_CAPTAIN_API_URL') ?: 'http://127.0.0.1:3001');
+    define('SMS_CAPTAIN_API_URL', getenv('SMS_CAPTAIN_API_URL') ?: 'http://127.0.0.1:3006');
 }
 
 if (!defined('SMS_CAPTAIN_DASHBOARD_URL')) {
-    define('SMS_CAPTAIN_DASHBOARD_URL', getenv('SMS_CAPTAIN_DASHBOARD_URL') ?: 'http://localhost:3000');
+    define('SMS_CAPTAIN_DASHBOARD_URL', getenv('SMS_CAPTAIN_DASHBOARD_URL') ?: 'https://sms.bfsfin.cloud');
 }
 
 if (!defined('SMS_CAPTAIN_API_KEY')) {
-    define('SMS_CAPTAIN_API_KEY', getenv('SMS_CAPTAIN_API_KEY') ?: 'txb_AIkTGn5S8cK2vx4rcw95JRpbeLIpHLDt');
+    define('SMS_CAPTAIN_API_KEY', getenv('SMS_CAPTAIN_API_KEY') ?: 'txb_anuj_1795522531779');
 }
 
 if (!defined('BFS_PRIMARY_ADMIN_MOBILE')) {
@@ -44,11 +44,11 @@ function format_sms_mobile($mobile) {
 }
 
 /**
- * Check if SMS Captain Backend Engine (port 3001) is running
+ * Check if SMS Captain Backend Engine (port 3006) is running
  */
 function check_sms_gateway_online($timeout_sec = 0.5) {
     $host = parse_url(SMS_CAPTAIN_API_URL, PHP_URL_HOST) ?: '127.0.0.1';
-    $port = parse_url(SMS_CAPTAIN_API_URL, PHP_URL_PORT) ?: 3001;
+    $port = parse_url(SMS_CAPTAIN_API_URL, PHP_URL_PORT) ?: 3006;
 
     $fp = @fsockopen($host, $port, $errno, $errstr, $timeout_sec);
     if ($fp) {
@@ -89,7 +89,7 @@ function send_bfs_sms($recipients, $message, $device_id = null) {
     if (!check_sms_gateway_online(0.6)) {
         return [
             'success' => false,
-            'message' => 'SMS Captain Gateway (port 3001) is currently unreachable. Make sure Docker / SMS Captain API is running.'
+            'message' => 'SMS Captain Gateway (port 3006) is currently unreachable. Make sure Docker / SMS Captain API is running.'
         ];
     }
 
