@@ -20,10 +20,13 @@ INSTALL_DIR="/var/www/sms-captain"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
 
-# 1. Clone or update textbee source
+# 1. Deploy user's customized SMS Captain source code (white-labeled)
 echo ""
-echo "📥 [1/7] Fetching SMS Captain (TextBee) core..."
-if [ ! -d "$INSTALL_DIR/.git" ]; then
+echo "📥 [1/7] Deploying your customized SMS Captain source code..."
+if [ -f "/var/www/crm/sms_captain_custom.tar.gz" ]; then
+    echo "Extracting your customized SMS Captain files..."
+    tar -xzf /var/www/crm/sms_captain_custom.tar.gz -C "$INSTALL_DIR/"
+elif [ ! -d "$INSTALL_DIR/.git" ]; then
     git clone --depth 1 https://github.com/textbee/textbee.git "$INSTALL_DIR"
 else
     git pull origin master || true
