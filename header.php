@@ -2847,6 +2847,7 @@ if (isset($db)) {
             { title: 'BFS Circle WhatsApp Hub', type: 'Tool', url: '<?php echo $base_path; ?>whatsapp_crm.php', icon: 'message-circle' },
             { title: 'BFS Circle Mailer (Email Campaigns)', type: 'Tool', url: '<?php echo $base_path; ?>marketing.php', icon: 'mail' },
             { title: 'BFS Circle Social Hub', type: 'Tool', url: '<?php echo $base_path; ?>postiz.php', icon: 'share-2', desc: 'AI-Powered Social Media Scheduling & Multi-Platform Publishing for BFS Circle' },
+            { title: 'BFS SMS Gateway (SMS Captain)', type: 'Tool', url: '<?php echo $base_path; ?>sms_crm.php', icon: 'smartphone', desc: 'Direct SIM Android SMS Gateway for OTPs, Disbursal SMS & Lead Alerts' },
             { title: 'Website Appointments Desk', type: 'Page', url: '<?php echo $base_path; ?>appointments.php', icon: 'calendar' },
             { title: 'Website Tools Data (Calculators)', type: 'Page', url: '<?php echo $base_path; ?>tools_data.php', icon: 'cpu' },
             { title: 'Partner Portal Requests', type: 'Page', url: '<?php echo $base_path; ?>partner_requests.php', icon: 'handshake' },
@@ -3521,7 +3522,7 @@ if (isset($db)) {
 
             <!-- 4. BFS CIRCLE TOOLS (MONOCHROME BLACK & WHITE DROPDOWN) -->
             <div class="sidebar-section-header"><span>BFS Circle Tools</span></div>
-            <?php $is_tools_active = in_array($active_page, ['whatsapp_crm.php', 'marketing.php', 'postiz.php']); ?>
+            <?php $is_tools_active = in_array($active_page, ['whatsapp_crm.php', 'marketing.php', 'postiz.php', 'sms_crm.php']); ?>
             <li class="menu-item menu-item-has-children <?php echo $is_tools_active ? 'active-parent' : ''; ?>" id="nav-tools-item">
                 <a href="javascript:void(0)" onclick="toggleToolsMenu(event)" title="Click to open BFS Circle Tools" style="cursor:pointer; display:flex; align-items:center; justify-content:space-between;">
                     <div style="display:flex; align-items:center; gap:10px;">
@@ -3529,7 +3530,7 @@ if (isset($db)) {
                         <span class="menu-text" style="font-weight:700;">BFS Circle Tools</span>
                     </div>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <span class="nav-badge" style="font-size:9px; padding:1px 6px; font-weight:800; border-radius:10px;">3 LIVE</span>
+                        <span class="nav-badge" style="font-size:9px; padding:1px 6px; font-weight:800; border-radius:10px;">4 LIVE</span>
                         <i data-lucide="chevron-down" id="tools-chevron" style="width:13px; height:13px; transition:transform 0.2s; <?php echo $is_tools_active ? 'transform:rotate(-180deg);' : ''; ?>"></i>
                     </div>
                 </a>
@@ -3552,6 +3553,13 @@ if (isset($db)) {
                         <a href="<?php echo $base_path; ?>postiz.php" title="BFS Circle Social Hub" style="padding:7px 10px; font-size:12.5px;">
                             <i data-lucide="share-2" style="width:15px; height:15px;"></i>
                             <span class="menu-text">BFS Social Hub</span>
+                            <span class="nav-badge" style="font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
+                        </a>
+                    </li>
+                    <li class="menu-item <?php echo ($active_page === 'sms_crm.php') ? 'active' : ''; ?>" style="margin-bottom:2px;">
+                        <a href="<?php echo $base_path; ?>sms_crm.php" title="BFS Circle SMS Gateway" style="padding:7px 10px; font-size:12.5px;">
+                            <i data-lucide="smartphone" style="width:15px; height:15px;"></i>
+                            <span class="menu-text">BFS SMS Gateway</span>
                             <span class="nav-badge" style="font-size:9px; padding:1px 5px; font-weight:800; border-radius:10px;">LIVE</span>
                         </a>
                     </li>
