@@ -16,7 +16,7 @@ if (!defined('SMS_CAPTAIN_DASHBOARD_URL')) {
 }
 
 if (!defined('SMS_CAPTAIN_API_KEY')) {
-    define('SMS_CAPTAIN_API_KEY', getenv('SMS_CAPTAIN_API_KEY') ?: 'txb_anuj_1795522531779');
+    define('SMS_CAPTAIN_API_KEY', getenv('SMS_CAPTAIN_API_KEY') ?: 'txb_anuj_bfs_live_2026_sms_gateway');
 }
 
 if (!defined('BFS_PRIMARY_ADMIN_MOBILE')) {
@@ -168,9 +168,7 @@ function send_lead_alert_sms($lead_name, $lead_phone, $loan_amount, $loan_type, 
  * Dispatch Verification OTP SMS to Client
  */
 function send_otp_sms($client_mobile, $otp_code) {
-    $msg = "Your Bhardwaj Financial Services verification code is " . $otp_code . ". "
-         . "Valid for 10 minutes for your loan inquiry. Please do not share this OTP with anyone.";
-
+    $msg = "BFS Verification Code: " . $otp_code . ". Bhardwaj Financial Services.";
     return send_bfs_sms($client_mobile, $msg);
 }
 
