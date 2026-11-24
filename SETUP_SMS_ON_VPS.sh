@@ -10,6 +10,12 @@ echo "======================================================================"
 echo "🚀 BFS CIRCLE - LAUNCHING SMS CAPTAIN ON VPS (200.234.34.191)"
 echo "======================================================================"
 
+# Ensure pnpm and pm2 are installed globally
+if ! command -v pnpm &> /dev/null; then
+    echo "📦 Installing pnpm globally..."
+    npm install -g pnpm pm2
+fi
+
 INSTALL_DIR="/var/www/sms-captain"
 mkdir -p "$INSTALL_DIR"
 cd "$INSTALL_DIR"
@@ -27,8 +33,6 @@ fi
 echo ""
 echo "🐳 [2/7] Starting MongoDB & Redis database containers..."
 cat << 'EOF' > "$INSTALL_DIR/docker-compose.yaml"
-version: '3.8'
-
 services:
   textbee-db:
     container_name: textbee-db
@@ -57,11 +61,10 @@ volumes:
   textbee_redis_data:
 EOF
 
-docker compose down 2>/dev/null || true
 docker compose up -d
 
 echo "Waiting for MongoDB to be healthy..."
-sleep 6
+sleep 5
 
 # 3. Write Firebase Service Account
 echo ""
@@ -153,10 +156,10 @@ EOF
 
 # 5. Build and Launch NestJS Backend API
 echo ""
-echo "⚙️ [4/7] Installing and starting SMS API Engine (Port 3001)..."
+echo "⚙️ [4/7] Installing dependencies & compiling SMS API (Port 3001)..."
 cd "$INSTALL_DIR/api"
-npm install --silent 2>/dev/null || pnpm install
-npm run build 2>/dev/null || npx nest build || true
+pnpm install
+pnpm build || npx nest build || npm run build
 
 pm2 delete sms-api 2>/dev/null || true
 fuser -k 3001/tcp 2>/dev/null || true
@@ -164,6 +167,7 @@ sleep 1
 PORT=3001 pm2 start dist/main.js --name "sms-api"
 
 # Seed Admin user in MongoDB
+echo "Configuring Master Admin in Database..."
 sleep 3
 docker exec -i textbee-db mongosh "mongodb://adminUser:adminPassword@localhost:27017/textbee?authSource=admin" --eval '
 db.users.updateOne(
@@ -189,8 +193,8 @@ db.users.updateOne(
 echo ""
 echo "🎨 [5/7] Building & launching SMS Web Dashboard on Port 3005..."
 cd "$INSTALL_DIR/web"
-npm install --silent 2>/dev/null || pnpm install
-npm run build
+pnpm install
+pnpm build
 
 pm2 delete sms-web 2>/dev/null || true
 fuser -k 3005/tcp 2>/dev/null || true
