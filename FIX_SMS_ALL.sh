@@ -3,7 +3,7 @@
 # BFS Circle - Complete 1-Click Fix for SMS Captain
 # Fixes:
 # 1. Nginx & SSL for sms-api.bfsfin.cloud (preventing WhatsApp CRM interception)
-# 2. Internal communication http://127.0.0.1:3001/api/v1 for NextAuth
+# 2. Internal server auth connection (localhost:3001) for NextAuth
 # 3. Cloudflare Turnstile verification bypass
 # 4. User seeding (singhani5549@gmail.com & bfscaptain@gmail.com) with valid bcrypt
 # 5. Restores SMS-Captain.apk download in web/public
@@ -113,9 +113,9 @@ echo ""
 echo "👤 [7/8] Seeding user accounts in database..."
 sleep 2
 
-# Dynamically calculate exact bcrypt hashes using Node's installed bcryptjs
-HASH_ANUJ=$(node -e 'console.log(require("'"$SMS_DIR"'/api/node_modules/bcryptjs").hashSync("ANUJ0701", 10))')
-HASH_ADMIN=$(node -e 'console.log(require("'"$SMS_DIR"'/api/node_modules/bcryptjs").hashSync("123456", 10))')
+cd "$SMS_DIR/api"
+HASH_ANUJ=$(node -e 'try { console.log(require("bcryptjs").hashSync("ANUJ0701", 10)); } catch(e) { console.log("$2b$10$uxs2PVb5RUZDRoKzIbgg6.EzHE0FE50Dpwh6HAeLb4q0W481iBy8."); }')
+HASH_ADMIN=$(node -e 'try { console.log(require("bcryptjs").hashSync("123456", 10)); } catch(e) { console.log("$2b$10$uPAjwWKh.4giTg32WCUcqevqVxMGjA/xLsRKBBQ1TLdb2Cv.5elN."); }')
 
 docker exec -i textbee-db mongosh "mongodb://adminUser:adminPassword@localhost:27017/textbee?authSource=admin" --eval "
 db.users.updateOne(
