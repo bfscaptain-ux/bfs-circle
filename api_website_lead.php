@@ -626,9 +626,23 @@ try {
         @send_bfs_whatsapp_message($mobile, $plMsg, 'text', $lead_name);
     }
 
+    // Auto-dispatch Thank You SMS via SMS Captain Gateway
+    $sms_res = ['success' => false];
+    if (!empty($mobile)) {
+        if (!function_exists('send_bfs_sms') && file_exists(__DIR__ . '/sms_helper.php')) {
+            require_once __DIR__ . '/sms_helper.php';
+        }
+        if (function_exists('send_bfs_sms')) {
+            $clean_amt = $loan_amount > 0 ? " (₹" . number_format($loan_amount) . ")" : "";
+            $sms_text = "Dear {$lead_name}, thank you for applying for {$requirement}{$clean_amt} with Bhardwaj Financial Services. Your application is under review. Our loan specialist will call you in 15 mins. Helpline: +91 92587-24227 - BFS Agra";
+            $sms_res = @send_bfs_sms($mobile, $sms_text);
+        }
+    }
+
     echo json_encode([
         'success' => true,
         'lead_id' => $new_lead_id,
+        'sms' => $sms_res,
         'tool_lead_id' => $tool_lead_id ?? null,
         'type' => !empty($is_tool_lead) ? 'tool_lead' : 'lead',
         'whatsapp' => $wa_lead_res,
