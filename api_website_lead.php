@@ -462,10 +462,10 @@ try {
         $clean_mob = preg_replace('/\D/', '', $mobile);
         $clean_mob_10 = substr($clean_mob, -10);
         $is_pl = (stripos($requirement, 'Personal') !== false || stripos($raw_source, 'Personal') !== false);
-        $dup_window = $is_pl ? 86400 : 120; // 24 hours for Personal Loan
+        $time_modifier = $is_pl ? '-1 day' : '-2 minutes';
 
-        $chk_l = $db->prepare("SELECT id FROM leads WHERE (mobile LIKE ? OR mobile = ?) AND strftime('%s', 'now') - strftime('%s', created_at) < ? ORDER BY id DESC LIMIT 1");
-        $chk_l->execute(['%' . $clean_mob_10, $mobile, $dup_window]);
+        $chk_l = $db->prepare("SELECT id FROM leads WHERE (mobile LIKE ? OR mobile = ?) AND created_at >= datetime('now', ?, 'localtime') ORDER BY id DESC LIMIT 1");
+        $chk_l->execute(['%' . $clean_mob_10, $mobile, $time_modifier]);
         $existing_lead_id = $chk_l->fetchColumn();
         if ($existing_lead_id) {
             echo json_encode([
