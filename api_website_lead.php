@@ -577,6 +577,11 @@ try {
     if (stripos($raw_source, 'Calculator') !== false || stripos($form_type, 'Calculator') !== false) {
         $wa_tags[] = 'Calculator Lead';
     }
+    $is_personal_loan = (stripos($requirement, 'Personal') !== false || stripos($raw_source, 'Personal') !== false);
+    if ($is_personal_loan) {
+        $wa_tags[] = 'Personal Loan Lead';
+        $wa_tags[] = 'Hot Lead';
+    }
     if (function_exists('bfs_wacrm_upsert_contact') && !empty($mobile)) {
         @bfs_wacrm_upsert_contact(
             $mobile,
@@ -594,6 +599,21 @@ try {
         $amtLabel,
         $locProfileLabel
     );
+
+    // Dedicated automated conversational follow-up for Personal Loan Leads
+    if ($is_personal_loan && !empty($mobile) && function_exists('send_bfs_whatsapp_message')) {
+        $plMsg = "Namaste {$lead_name} ji! 🙏 Bhardwaj Financial Services (BFS) me aapka swagat hai.\n\n"
+               . "Aapki *Personal Loan* inquiry ({$amtLabel}) hamare Credit Team ko receive ho gayi hai.\n\n"
+               . "Hamare senior personal loan advisor agle 10–15 minute mein aapse phone par connect karenge.\n\n"
+               . "⚡ *Instant Pre-Sanction ke liye kripya ye 3 details batayein:*\n"
+               . "1️⃣ Aap *Salaried (Naukri)* karte hain ya *Self-Employed (Business)*?\n"
+               . "2️⃣ Monthly In-hand Salary / Income kitni hai?\n"
+               . "3️⃣ Kya kisi bank se pehle loan reject hua hai ya CIBIL score me dikkat hai?\n\n"
+               . "📄 Aap yahan direct *PAN Card, Aadhaar Card aur pichhle 3 mahine ki Salary Slip (ya 6M Bank Statement)* PDF bhej sakte hain for same-day sanction.\n\n"
+               . "📞 Direct Helpline: *+91 92587-24227*\n"
+               . "📍 Sanjay Place, Agra Office";
+        @send_bfs_whatsapp_message($mobile, $plMsg, 'text', $lead_name);
+    }
 
     echo json_encode([
         'success' => true,
