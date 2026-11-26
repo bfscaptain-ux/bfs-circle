@@ -57,11 +57,84 @@ if (isset($payload['event']) && isset($payload['data'])) {
 
 
 
+/**
+ * Dispatch real-time Document Upload & Chat Interest Alerts to 7900979001, 9528836338, 9258724227
+ */
+function bfs_notify_admins_hot_event($title, $customer_name, $mobile, $detailText) {
+    $admin_numbers = ['7900979001', '9528836338', '9258724227'];
+    $clean_lead_mob = preg_replace('/\D/', '', (string)$mobile);
+    if (strlen($clean_lead_mob) >= 10) {
+        $clean_lead_mob = substr($clean_lead_mob, -10);
+    }
+
+    // Do not alert if sender is an admin number itself
+    if (in_array($clean_lead_mob, $admin_numbers)) {
+        return;
+    }
+
+    $waMsg = "{$title}\n\n"
+           . "👤 *Customer:* {$customer_name}\n"
+           . "📱 *Mobile:* +91 {$clean_lead_mob}\n"
+           . "💬 {$detailText}\n\n"
+           . "👉 *Customer se turant baat karein:*\n"
+           . "💬 WhatsApp: https://wa.me/91{$clean_lead_mob}\n"
+           . "📞 Direct Call: tel:{$clean_lead_mob}";
+
+    $smsMsg = "BFS ALERT: {$customer_name} ({$clean_lead_mob}) - {$detailText}. Please connect immediately! - BFS Desk";
+
+    if (!function_exists('send_bfs_sms') && file_exists(__DIR__ . '/sms_helper.php')) {
+        require_once __DIR__ . '/sms_helper.php';
+    }
+
+    foreach ($admin_numbers as $admin_mob) {
+        if (function_exists('send_bfs_whatsapp_cloud_api')) {
+            @send_bfs_whatsapp_cloud_api($admin_mob, $waMsg, 'BFS Admin');
+        }
+        if (function_exists('send_bfs_sms')) {
+            @send_bfs_sms($admin_mob, $smsMsg);
+        }
+    }
+}
+
 // ==============================================================================
 // ACTION: get_file_status (Real-time WhatsApp File Status & Missing Docs Tracking)
 // Strictly privacy-isolated: Only looks up by sender's verified mobile number
 // ==============================================================================
 $action = trim($_GET['action'] ?? $payload['action'] ?? '');
+if ($action === 'customer_reply_alert') {
+    $replyMobile = trim($_GET['mobile'] ?? $payload['mobile'] ?? $payload['phone'] ?? '');
+    $replyName = trim($_GET['name'] ?? $payload['name'] ?? 'Customer');
+    $replyText = trim($_GET['text'] ?? $payload['text'] ?? $payload['message'] ?? '');
+
+    $cleanMobile = preg_replace('/\D/', '', $replyMobile);
+    if (strlen($cleanMobile) >= 10) {
+        $cleanMobile = substr($cleanMobile, -10);
+    }
+
+    if (!empty($cleanMobile) && !in_array($cleanMobile, ['7900979001', '9528836338', '9258724227'])) {
+        $cacheFile = sys_get_temp_dir() . '/bfs_lead_chat_cooldown.json';
+        $cooldowns = file_exists($cacheFile) ? @json_decode(file_get_contents($cacheFile), true) : [];
+        if (!is_array($cooldowns)) $cooldowns = [];
+
+        $lastSent = $cooldowns[$cleanMobile] ?? 0;
+        if (time() - $lastSent > 1800) { // 30 minutes cooldown
+            $cooldowns[$cleanMobile] = time();
+            @file_put_contents($cacheFile, json_encode($cooldowns));
+
+            $preview = mb_substr($replyText, 0, 150);
+            bfs_notify_admins_hot_event(
+                "💬 *CUSTOMER CHATTING / INTERESTED!*",
+                $replyName,
+                $cleanMobile,
+                "*Customer ne message bheja:* \"{$preview}\""
+            );
+        }
+    }
+
+    echo json_encode(['success' => true]);
+    exit;
+}
+
 if ($action === 'get_file_status' || isset($_GET['check_status'])) {
     $statusMobile = trim($_GET['mobile'] ?? $payload['mobile'] ?? $payload['phone'] ?? '');
     $cleanMobile = preg_replace('/\D/', '', $statusMobile);
@@ -495,6 +568,14 @@ try {
             }
 
 
+
+            // Dispatch instant notification to management numbers (7900979001, 9528836338, 9258724227)
+            bfs_notify_admins_hot_event(
+                "📄 *DOCUMENTS RECEIVED - HOT LEAD!*",
+                $applicant['customer_name'] ?? $name,
+                $cleanMobile,
+                "*Customer ne document share kiya:* {$docName}"
+            );
 
             echo json_encode([
 

@@ -146,6 +146,58 @@ function bfs_send_appointment_confirm_whatsapp($mobile, $customerName, $serviceT
     }
 }
 
+if (!function_exists('send_bfs_whatsapp_message')) {
+    function send_bfs_whatsapp_message($mobile, $message, $type = 'text', $name = '') {
+        if (function_exists('send_bfs_whatsapp_cloud_api')) {
+            return send_bfs_whatsapp_cloud_api($mobile, $message, $name, $type);
+        }
+        return ['success' => false, 'error' => 'No WhatsApp sender available'];
+    }
+}
+
+/**
+ * Dispatch real-time WhatsApp & SMS lead alert to the 3 management numbers:
+ * 7900979001, 9528836338, 9258724227
+ */
+function bfs_notify_admins_new_lead($lead_name, $mobile, $requirement, $loan_amount, $location, $form_type = '') {
+    $admin_numbers = ['7900979001', '9528836338', '9258724227'];
+    $clean_lead_mob = preg_replace('/\D/', '', (string)$mobile);
+    if (strlen($clean_lead_mob) >= 10) {
+        $clean_lead_mob = substr($clean_lead_mob, -10);
+    }
+    $amtLabel = ($loan_amount > 0) ? '₹' . number_format($loan_amount) : 'Discussion Required';
+    $locLabel = trim((string)$location) ?: 'Agra/India';
+    $is_pl = (stripos($requirement, 'Personal') !== false || stripos($form_type, 'Personal') !== false);
+    $headerEmoji = $is_pl ? '🔥 *NEW PERSONAL LOAN LEAD!*' : '⚡ *NEW LOAN INQUIRY!*';
+
+    $waMsg = "{$headerEmoji}\n\n"
+           . "👤 *Customer:* {$lead_name}\n"
+           . "📱 *Mobile:* +91 {$clean_lead_mob}\n"
+           . "💼 *Requirement:* {$requirement}\n"
+           . "💰 *Amount:* {$amtLabel}\n"
+           . "📍 *Location:* {$locLabel}\n\n"
+           . "👉 *Customer se turant baat karein:*\n"
+           . "💬 WhatsApp: https://wa.me/91{$clean_lead_mob}\n"
+           . "📞 Direct Call: tel:{$clean_lead_mob}";
+
+    $smsMsg = "BFS ALERT: {$lead_name} ({$clean_lead_mob}) applied for {$requirement} ({$amtLabel}), {$locLabel}. Please call customer immediately! - BFS Desk";
+
+    if (!function_exists('send_bfs_sms') && file_exists(__DIR__ . '/sms_helper.php')) {
+        require_once __DIR__ . '/sms_helper.php';
+    }
+
+    foreach ($admin_numbers as $admin_mob) {
+        if (function_exists('send_bfs_whatsapp_cloud_api')) {
+            @send_bfs_whatsapp_cloud_api($admin_mob, $waMsg, 'BFS Admin');
+        } elseif (function_exists('send_bfs_whatsapp_message')) {
+            @send_bfs_whatsapp_message($admin_mob, $waMsg, 'text', 'BFS Admin');
+        }
+        if (function_exists('send_bfs_sms')) {
+            @send_bfs_sms($admin_mob, $smsMsg);
+        }
+    }
+}
+
 try {
     // 1. Parse Input Data (CLI argument, JSON raw body, or $_POST)
     $input = [];
@@ -631,6 +683,9 @@ try {
             $sms_res = @send_bfs_sms($mobile, $sms_text);
         }
     }
+
+    // Real-time notification to owners (7900979001, 9528836338, 9258724227)
+    bfs_notify_admins_new_lead($lead_name, $mobile, $requirement, $loan_amount, $locProfileLabel, $form_type);
 
     echo json_encode([
         'success' => true,
