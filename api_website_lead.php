@@ -457,13 +457,24 @@ try {
     $lead_source = !empty($form_type) ? "Website ({$form_type})" : (!empty($raw_source) ? "Website ({$raw_source})" : "Website (Apply Form)");
     $priority = ($loan_amount >= 2500000) ? 'Hot' : 'Warm';
 
-    // Duplicate check within 2 minutes
+    // Duplicate check: 24 hours for Personal Loan (ad campaigns), 2 minutes for standard leads
     if (!empty($mobile)) {
-        $chk_l = $db->prepare("SELECT id FROM leads WHERE mobile = ? AND strftime('%s', 'now') - strftime('%s', created_at) < 120 ORDER BY id DESC LIMIT 1");
-        $chk_l->execute([$mobile]);
+        $clean_mob = preg_replace('/\D/', '', $mobile);
+        $clean_mob_10 = substr($clean_mob, -10);
+        $is_pl = (stripos($requirement, 'Personal') !== false || stripos($raw_source, 'Personal') !== false);
+        $dup_window = $is_pl ? 86400 : 120; // 24 hours for Personal Loan
+
+        $chk_l = $db->prepare("SELECT id FROM leads WHERE (mobile LIKE ? OR mobile = ?) AND strftime('%s', 'now') - strftime('%s', created_at) < ? ORDER BY id DESC LIMIT 1");
+        $chk_l->execute(['%' . $clean_mob_10, $mobile, $dup_window]);
         $existing_lead_id = $chk_l->fetchColumn();
         if ($existing_lead_id) {
-            echo json_encode(['success' => true, 'lead_id' => $existing_lead_id, 'type' => 'lead', 'duplicate' => true]);
+            echo json_encode([
+                'success' => true,
+                'lead_id' => $existing_lead_id,
+                'type' => 'lead',
+                'duplicate' => true,
+                'message' => 'Lead already received within cooldown period'
+            ]);
             exit;
         }
     }
