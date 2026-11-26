@@ -155,11 +155,65 @@ if ($action === 'get_file_status' || isset($_GET['check_status'])) {
     $app = $appStmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$app) {
+        // Fallback: Check active inquiries in leads table
+        $leadStmt = $db->prepare("SELECT * FROM leads WHERE mobile = ? OR mobile = ? OR mobile LIKE ? ORDER BY id DESC LIMIT 1");
+        $leadStmt->execute([$cleanMobile, '91' . $cleanMobile, '%' . $last10]);
+        $lead = $leadStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$lead) {
+            echo json_encode([
+                'success' => true,
+                'found' => false,
+                'mobile' => $cleanMobile,
+                'message' => 'No active loan file found for this mobile number.'
+            ]);
+            exit;
+        }
+
+        $leadReq = trim($lead['requirement'] ?? 'Personal Loan');
+        $leadAmt = floatval($lead['loan_amount'] ?? 0);
+        $leadAmtLabel = ($leadAmt > 0) ? '₹' . number_format($leadAmt) : 'Under Review';
+        $leadStage = trim($lead['stage'] ?? 'New Lead');
+
         echo json_encode([
             'success' => true,
-            'found' => false,
-            'mobile' => $cleanMobile,
-            'message' => 'No active loan file found for this mobile number.'
+            'found' => true,
+            'lead_only' => true,
+            'tracking_url' => 'https://crm.bfsfin.cloud/leads.php?edit_lead=' . $lead['id'],
+            'concise_status' => "Namaste *{$lead['lead_name']}* ji! 🙏\n"
+                              . "Aapki *{$leadReq}* enquiry hamare Credit Desk par active hai.\n"
+                              . "📊 Status: 🟡 *{$leadStage}*\n\n"
+                              . "Hamare Senior Loan Specialist aapse jald hi direct connect karenge.",
+            'portal_link_text' => "Namaste *{$lead['lead_name']}* ji! 🙏\n"
+                               . "Aapki *{$leadReq}* enquiry hamare Credit Desk par under process hai. File review hone ke baad aapka dedicated tracking portal link active kar diya jayega.",
+            'pending_docs_text' => "Namaste *{$lead['lead_name']}* ji! 🙏\n"
+                                . "Aapki *{$leadReq}* file process karne ke liye bas ye zaroori documents WhatsApp par share kar dijiye:\n"
+                                . "👉 *Aadhaar Card (Front & Back)*\n"
+                                . "👉 *PAN Card*\n"
+                                . "👉 *Pichhle 3 Mahine ki Salary Slip*\n"
+                                . "👉 *6 Mahine ka Bank Statement (PDF)*",
+            'applicant' => [
+                'id' => $lead['id'],
+                'loan_id' => 'LEAD-' . $lead['id'],
+                'customer_name' => $lead['lead_name'],
+                'mobile' => $cleanMobile,
+                'loan_type' => $leadReq,
+                'loan_amount_requested' => $leadAmt,
+                'overall_status' => $leadStage,
+                'city' => $lead['location'] ?? 'Agra'
+            ],
+            'documents' => [
+                'approved' => [],
+                'under_review' => [],
+                'rejected' => [],
+                'missing' => ['Aadhaar Card', 'PAN Card', '3 Months Salary Slips', '6 Months Bank Statement']
+            ],
+            'summary_text' => "Namaste *{$lead['lead_name']}* ji! 🙏\n"
+                            . "Aapki *{$leadReq}* enquiry darj ho chuki hai:\n"
+                            . "• Ref ID: *#LEAD-{$lead['id']}*\n"
+                            . "• Loan Amount: *{$leadAmtLabel}*\n"
+                            . "• Current Stage: 🟡 *{$leadStage}*\n\n"
+                            . "📄 Verification ke liye aap documents yahan WhatsApp par direct bhej sakte hain."
         ]);
         exit;
     }
