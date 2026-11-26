@@ -611,16 +611,11 @@ try {
         $locProfileLabel
     );
 
-    // Dedicated automated conversational follow-up for Personal Loan Leads (Polite & Respectful Wording)
+    // Dedicated automated conversational follow-up for Personal Loan Leads (Short, Human Conversational Style)
     if ($is_personal_loan && !empty($mobile) && function_exists('send_bfs_whatsapp_message')) {
-        $plMsg = "Namaste {$lead_name} ji! 🙏 *Bhardwaj Financial Services (BFS)* par vishwas jatane ke liye aapka bohot dhanyawad.\n\n"
-               . "Aapke anukool sabse aasan EMI aur behtar banking suvidha plan karne ke liye, kripya thoda sa margdarshan karein:\n"
-               . "1️⃣ Aapko lagbhag kitne loan amount ki zaroorat hai?\n"
-               . "2️⃣ Aap Job (Salaried) karte hain ya apna Business / Self-Employed hain?\n"
-               . "3️⃣ Monthly aamdani ka ek anumanit (approx) andaza, taaki hum aapke budget ke mutabiq aasan EMI plan kar sakein.\n\n"
-               . "_(Aapki jaankari 100% surakshit aur confidential rakhi jaati hai.)_\n\n"
-               . "📞 Sahayata Kendra: *+91 92587-24227*\n"
-               . "📍 Sanjay Place, Agra Office";
+        $plMsg = "Namaste {$lead_name} ji! 🙏\n"
+               . "Bhardwaj Financial Services se sampark karne ke liye shukriya.\n\n"
+               . "Aapko lagbhag kitne Personal Loan amount ki requirement hai?";
         @send_bfs_whatsapp_message($mobile, $plMsg, 'text', $lead_name);
     }
 
