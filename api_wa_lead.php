@@ -61,7 +61,7 @@ if (isset($payload['event']) && isset($payload['data'])) {
  * Dispatch real-time Document Upload & Chat Interest Alerts to 7900979001, 9528836338, 9258724227
  */
 function bfs_notify_admins_hot_event($title, $customer_name, $mobile, $detailText) {
-    $admin_numbers = ['7900979001', '9528836338', '9258724227'];
+    $admin_numbers = ['9528836338', '7900979001', '9258724227'];
     $clean_lead_mob = preg_replace('/\D/', '', (string)$mobile);
     if (strlen($clean_lead_mob) >= 10) {
         $clean_lead_mob = substr($clean_lead_mob, -10);
@@ -111,22 +111,35 @@ if ($action === 'customer_reply_alert') {
         $cleanMobile = substr($cleanMobile, -10);
     }
 
-    if (!empty($cleanMobile) && !in_array($cleanMobile, ['7900979001', '9528836338', '9258724227'])) {
+    if (!empty($cleanMobile) && !in_array($cleanMobile, ['9528836338', '7900979001', '9258724227'])) {
+        $cleanText = strtolower($replyText);
+        // Detect high-interest signals: loan amounts, lakh, loan keywords, salaried, business, document keywords, or interactive replies
+        $is_high_interest = (
+            preg_match('/\b(lakh|lac|cr|crore|hazar|k|\d{4,9}|loan|personal|chahiye|apply|salaried|business|naukri|income|salary|cibil|statement|pan|aadhaar|slip)\b/i', $cleanText) ||
+            stripos($replyText, 'btn_') !== false ||
+            stripos($replyText, 'row_') !== false ||
+            stripos($replyText, 'Interactive response') !== false
+        );
+
         $cacheFile = sys_get_temp_dir() . '/bfs_lead_chat_cooldown.json';
         $cooldowns = file_exists($cacheFile) ? @json_decode(file_get_contents($cacheFile), true) : [];
         if (!is_array($cooldowns)) $cooldowns = [];
 
         $lastSent = $cooldowns[$cleanMobile] ?? 0;
-        if (time() - $lastSent > 1800) { // 30 minutes cooldown
+        // If high interest is detected, cooldown is only 60 seconds! Casual chatter keeps 30 mins
+        $cooldownLimit = $is_high_interest ? 60 : 1800;
+
+        if (time() - $lastSent > $cooldownLimit) {
             $cooldowns[$cleanMobile] = time();
             @file_put_contents($cacheFile, json_encode($cooldowns));
 
             $preview = mb_substr($replyText, 0, 150);
+            $eventTitle = $is_high_interest ? "🔥 *HIGH INTEREST LEAD CHAT!*" : "💬 *CUSTOMER CHATTING / INQUIRY!*";
             bfs_notify_admins_hot_event(
-                "💬 *CUSTOMER CHATTING / INTERESTED!*",
+                $eventTitle,
                 $replyName,
                 $cleanMobile,
-                "*Customer ne message bheja:* \"{$preview}\""
+                "*Customer ne kaha:* \"{$preview}\""
             );
         }
     }

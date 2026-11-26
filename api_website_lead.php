@@ -160,7 +160,7 @@ if (!function_exists('send_bfs_whatsapp_message')) {
  * 7900979001, 9528836338, 9258724227
  */
 function bfs_notify_admins_new_lead($lead_name, $mobile, $requirement, $loan_amount, $location, $form_type = '') {
-    $admin_numbers = ['7900979001', '9528836338', '9258724227'];
+    $admin_numbers = ['9528836338', '7900979001', '9258724227'];
     $clean_lead_mob = preg_replace('/\D/', '', (string)$mobile);
     if (strlen($clean_lead_mob) >= 10) {
         $clean_lead_mob = substr($clean_lead_mob, -10);
@@ -464,6 +464,9 @@ try {
             $city ?: 'Agra'
         );
 
+        // Real-time alert to management numbers (9528836338, 7900979001, 9258724227)
+        bfs_notify_admins_new_lead($lead_name, $mobile, "Appointment Booking ({$p_type} - {$s_type})", 0, $city, 'Appointment');
+
         echo json_encode([
             'success' => true,
             'id' => $appt_id,
@@ -520,6 +523,9 @@ try {
         $chk_l->execute(['%' . $clean_mob_10, $mobile, $time_modifier]);
         $existing_lead_id = $chk_l->fetchColumn();
         if ($existing_lead_id) {
+            // Customer is actively re-submitting interest -> Alert management immediately!
+            bfs_notify_admins_new_lead($lead_name, $mobile, "REPEAT INTEREST: {$requirement}", $loan_amount, $location, $form_type);
+
             echo json_encode([
                 'success' => true,
                 'lead_id' => $existing_lead_id,
